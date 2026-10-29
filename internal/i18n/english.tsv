@@ -1,0 +1,345 @@
+AI 助理	AI assistant
+AI 助理已回覆	AI assistant replied
+AI 助理處理中	AI assistant is working
+AI 回覆	AI reply
+AI 指令	AI prompts
+AI 會讀取主旨及問題描述並回覆；公開訊息會傳送至 OpenCode Go。附件不會傳送。可隨時轉真人客服。	AI reads the subject and description to reply. Public messages are sent to OpenCode Go; attachments are not. You can switch to a person at any time.
+AtomRoute 官方網站	AtomRoute website
+AtomRoute 支援中心	AtomRoute Support Center
+IP 未記錄	IP not recorded
+SMTP 尚未設定，技術通知暫存 7 天。	SMTP is not configured. Technical notifications are queued for 7 days.
+ZIP 解壓後過大	ZIP expands beyond the allowed size
+一般支援	General support
+一般支援部門	General support team
+上一頁	Previous
+下一頁	Next
+下載原圖	Download original
+下載原檔	Download original
+主旨	Subject
+主選單	Main navigation
+人員	People
+以 Email 邀請	Invite by email
+休息	Closed
+低	Low
+使用紀錄	Activity history
+使用者	Users
+依上方時區；休假期間的新客服單優先使用此訊息，結束後自動恢復。	Uses the time zone above. New tickets during leave receive this message; normal rules resume afterward.
+個人設定	Account settings
+優先級	Priority
+優先級改為	Priority changed to
+儲存	Save
+儲存名稱	Save name
+儲存指令	Save prompts
+儲存簽名檔	Save signature
+儲存設定	Save settings
+儲存變更	Save changes
+內容	Content
+內部備註 · 僅客服可見	Internal note · support only
+內部備註（僅客服可見）	Internal note (support only)
+全部	All
+全部優先級	All priorities
+全部負責人	All assignees
+公開回覆時自動附上	Added to public replies
+公開回覆會自動附上簽名檔	Your signature is added to public replies
+功能驗收登入	Acceptance sign in
+參與者	Participants
+參與者（選填）	Participants (optional)
+輸入 Email，多位參與者請以逗號分隔。	Enter email addresses separated by commas.
+請輸入有效的參與者 Email，最多 20 位，且不可邀請自己。	Enter up to 20 valid participant email addresses, excluding your own.
+退出客服單	Leave ticket
+取消	Cancel
+取消指派	Unassign
+取消指派自己	Unassign myself
+另開圖片	Open image in a new tab
+可返回上一頁繼續編輯。	Go back to continue editing.
+各日可設定不同時段；空檔視為非服務時間。	Set different hours for each day. Gaps count as outside service hours.
+各部門使用自己的完整指令；留空就不送系統指令。	Each team uses its own complete prompt. Leave blank to send no system prompt.
+名稱	Name
+唯讀預覽	Read-only preview
+問題內容、發生時間或錯誤訊息	Describe the issue, when it happened, or any error messages
+問題描述	Description
+問題類別	Category
+問題類別改為	Category changed to
+啟用中	Enabled
+啟用自動回覆	Enable automatic reply
+單一附件不可超過 10 MB	Each attachment must be under 10 MB
+回覆	Reply
+回覆客服單	Replied to ticket
+回覆模型	Reply model
+回覆與簽名檔合計不可超過 20,000 字。	Reply and signature together cannot exceed 20,000 characters.
+回覆需介於 1 至 20,000 字。	Reply must be between 1 and 20,000 characters.
+圖片預覽	Image preview
+圖片預覽格式不正確	Invalid image preview format
+客戶	Customer
+客戶 A	Customer A
+客戶 B	Customer B
+客服	Support
+客服分組	Support teams
+客服單主旨	Ticket subject
+客服單優先級篩選	Ticket priority filters
+客服單列表	Ticket list
+客服單完成狀態	Ticket completion filters
+客服單對話	Ticket conversation
+客服單已更新，請重新載入後再試。	Ticket changed. Reload and try again.
+客服單已結案，請先重新開啟再回覆。	This ticket is closed. Reopen it before replying.
+客服單已結案，請重新開啟後再回覆。	Ticket is closed. Reopen it before replying.
+客服單已被更新，或這份表單已送出。請重新載入客服單後再操作。	The ticket changed or this form was already submitted. Reload the ticket and try again.
+客服單狀態篩選	Ticket status filters
+客服單編號	Ticket number
+客服單資訊	Ticket details
+客服工作台	Support workspace
+對話記錄	Conversation
+尚無客服單	No tickets yet
+尚無紀錄	No records yet
+已儲存	Saved
+已完成	Completed
+已結案	Closed
+已解決	Resolved
+已轉交真人客服，等待回覆	Handed to a support agent; waiting for a reply
+已選圖片預覽	Selected image previews
+帳務支援	Billing support
+帳務部門	Billing team
+帳號操作	Account action
+建立客服單	Create ticket
+建立於	Created
+建立時間	Created
+待受理	Awaiting review
+待外部	Awaiting third party
+待外部協助	Awaiting third-party help
+待客戶	Awaiting customer
+待客戶回覆	Awaiting customer reply
+待您回覆	Awaiting your reply
+我的客服單	My tickets
+找不到圖片。	Image not found.
+找不到圖片預覽。	Image preview not found.
+找不到客服。	Support agent not found.
+找不到客服單。	Ticket not found.
+找不到此客服單或附件。	Ticket or attachment not found.
+找不到此頁面。	Page not found.
+找不到附件。	Attachment not found.
+技術支援	Technical support
+技術部門	Technical team
+指派	Assign
+指派客服	Assign support
+指派給我	Assigned to me
+指派自己	Assign myself
+搜尋	Search
+搜尋主旨或編號	Subject or number
+搜尋名稱或電子郵件	Search name or email
+搜尋客服單主旨或編號	Search ticket subject or number
+搜尋條件無效。	Invalid search criteria.
+操作未完成	Action not completed
+操作未完成 · AtomRoute 支援中心	Action not completed · AtomRoute Support Center
+操作紀錄	Change history
+支援中心	Support Center
+支援團隊	Support team
+文字檔包含不支援的控制字元	Text file contains unsupported control characters
+新增內部備註	Added internal note
+新增時段	Add time range
+新進	New
+時區	Time zone
+時區無效。	Invalid time zone.
+時間排序	Sort by time
+暫時無法完成操作，請稍後再試。	Could not complete the action. Try again later.
+暫時無法登入。	Could not sign in right now.
+暫時無法確認儲存結果，請以相同內容重試，避免重複建立。	Could not confirm the save. Retry with the same content to avoid duplicates.
+更新時間	Updated
+更新狀態	Update status
+更新簽名檔	Signature updated
+最多可上傳 3 個附件	Up to 3 attachments are allowed
+最新建立	Newest created
+最早建立	Oldest created
+最早更新	Oldest updated
+最近 20 筆	Latest 20
+最近更新	Recently updated
+最近登入	Last sign in
+服務日	Service day
+服務時段無效，每天最多設定 8 個時段。	Invalid service hours. Up to 8 time ranges per day.
+服務時間	Service hours
+未分組	No team
+未啟用	Disabled
+未完成	Unfinished
+未指派	Unassigned
+未知裝置	Unknown device
+未設定	Not set
+未送出的回覆	Unsent reply
+未選擇檔案	No files selected
+標準	Standard
+檔案格式或內容不符合允許的附件類型	File type or content is not allowed
+此客服單已結案。如需繼續討論，請先重新開啟。	This ticket is closed. Reopen it to continue the conversation.
+每個附件須介於 1 byte 與 10 MB	Each attachment must be between 1 byte and 10 MB
+沒有符合條件的使用者	No matching users
+沒有符合條件的客服單	No matching tickets
+清除篩選	Clear filters
+瀏覽器	Browser
+瀏覽器未記錄	Browser not recorded
+無效的指派操作。	Invalid assignment action.
+無效表單。	Invalid form.
+無法儲存圖片預覽	Could not save image preview
+無法儲存附件，請稍後再試	Could not save attachment. Try again later
+無法完成登入，請重新嘗試。	Could not complete sign-in. Please try again.
+無法新增內部備註。	Could not add the internal note.
+無法產生圖片預覽	Could not generate image preview
+無法讀取圖片	Could not read image
+無法讀取表單內容。	Could not read the form.
+無法讀取附件，請重新選擇檔案	Could not read attachment. Choose the file again
+狀態	Status
+狀態改為	Status changed to
+獨立資料庫，可實際建立與處理客服單。	Separate database for creating and handling test tickets.
+登入	Sign in
+登入已過期。請在另一個分頁登入，再重新送出。	Your session expired. Sign in in another tab, then submit again.
+登入成功	Signed in
+登入支援中心	Sign in to Support Center
+登入服務尚未設定。	Sign-in service is not configured.
+登入紀錄	Sign-in history
+登入請求過多，請稍候再試。	Too many sign-in attempts. Try again shortly.
+登入資料不完整。	Sign-in information is incomplete.
+登入連結已失效，請重新登入。	Sign-in link expired. Please sign in again.
+登入驗證失敗。	Sign-in verification failed.
+登入驗證失敗，請重新登入。	Sign-in verification failed. Please sign in again.
+登出	Sign out
+目前沒有其他客服可指派	No other support agents available
+目前沒有客服。	No support agents yet.
+真人客服	Human support
+移除	Remove
+移除受邀使用者	Removed invited user
+移除時段	Remove time range
+移除邀請	Removed invitation
+第	Page
+等待指派	Awaiting assignment
+管理員	Admin
+管理設定	Admin settings
+簡述問題	Briefly describe the issue
+簽名檔	Signature
+系統目前忙碌，請稍候再送出；輸入內容仍保留在表單中。	The system is busy. Try again shortly; your form entries are still here.
+結束	End
+結束時間	End time
+結案	Close ticket
+緊急	Urgent
+繼續登入	Continue to sign in
+臨時休假	Temporary leave
+自動回覆	Automatic reply
+自動訊息	Automatic messages
+處理中	In progress
+處理方式	Handling mode
+表單已失效，請重新載入客服單。	Form expired. Reload the ticket.
+表單已失效，請重新載入後送出。	Form expired. Reload and submit again.
+表單無效。	Invalid form.
+角色	Role
+訊息	Message
+語言選項無效。	Invalid language selection.
+切換深淺色模式	Switch appearance
+切換至淺色模式	Switch to light mode
+切換至深色模式	Switch to dark mode
+請填妥有效的休假起迄時間與訊息。	Enter valid leave dates and a message.
+請填妥每個時段的開始與結束時間。	Enter a start and end time for each range.
+請填寫主旨（最多 160 字）、描述（最多 20,000 字）並選擇有效類別及優先級。	Enter a subject (up to 160 characters), description (up to 20,000 characters), and valid category and priority.
+請檢查表單選項後重試。	Check the form options and try again.
+請稍候再試。	Try again shortly.
+請選擇有效狀態與優先級。	Choose a valid status and priority.
+請選擇有效的客服。	Choose a valid support agent.
+請重新整理頁面後再操作。	Refresh the page before trying again.
+請重新載入登入頁面。	Reload the sign-in page.
+變更負責客服	Changed assignees
+變更顯示名稱	Display name changed
+負責人篩選	Assignee filter
+負責客服	Assigned
+跳到主要內容	Skip to main content
+較新訊息	Newer messages
+較早訊息	Older messages
+輸入回覆…	Write a reply…
+轉由真人客服處理	Transferred to human support
+轉真人客服	Transfer to human support
+送出回覆	Send reply
+送出客服單	Submit ticket
+週一	Monday
+週三	Wednesday
+週二	Tuesday
+週五	Friday
+週六	Saturday
+週四	Thursday
+週日	Sunday
+選填 · 最多 3 個，每個 10 MB	Optional · up to 3 files, 10 MB each
+選擇檔案	Choose files
+邀請	Invite
+邀請使用者加入客服單	Invited user to ticket
+部門系統指令	Team system prompts
+重新開啟客服單	Reopen ticket
+開單後	When a ticket is created
+開始	Start
+開始時間	Start time
+關閉圖片預覽	Close image preview
+附件	Attachments
+附件儲存失敗，請稍後再試	Attachment save failed. Try again later
+附件總大小超過限制。	Total attachment size exceeds the limit.
+附件請重新選擇。	Please choose the attachments again.
+電子郵件	Email
+非服務時間	Outside service hours
+非服務時間優先，每張新客服單最多送出一則自動回覆。	The outside-hours message takes priority. Each new ticket gets at most one automatic reply.
+頁	Page
+頁面已過期，請重新整理後再送出。	Page expired. Refresh and submit again.
+頁（最新訊息在第 1 頁）	(newest messages on page 1)
+預覽	Preview
+頭像改為 Gravatar	Avatar changed to Gravatar
+頭像改為姓名首字	Avatar changed to initial
+類別	Category
+顯示名稱	Display name
+驗收密碼	Acceptance password
+驗收密碼不正確。	Incorrect acceptance password.
+驗收身分	Acceptance account
+高	High
+；請重新選擇附件後送出。	Please choose the attachments again, then submit.
+這是唯讀預覽，操作不會儲存。	This is a read-only preview. Changes are not saved.
+語言	Language
+通知	Notifications
+找不到通知。	Notification not found.
+全部標為已讀	Mark all as read
+客服單已自動結案	Ticket automatically closed
+客服單已結案	Ticket closed
+客服單已解決	Ticket resolved
+預計結案	Scheduled closure
+目前沒有通知	No notifications
+客服單已解決，預計於	This ticket is resolved and will automatically close on
+客服單已標記為	This ticket is marked as
+自動結案。	.
+仍需協助時，直接回覆即可繼續處理。	Reply to this ticket if you still need help. This cancels automatic closure.
+此客服單已於	This ticket was automatically closed on
+自動結案	Automatic closure
+已解決後幾天結案	Days after resolution
+0 表示停用；從標記已解決時起算。回覆後取消倒數，並發出站內通知。	0 disables automatic closure. The countdown starts when a ticket is resolved and stops when someone replies. Customers receive in-app notifications.
+自動結案天數必須為 0 至 365 天。	Automatic closure must be between 0 and 365 days.
+此客服單已依設定自動結案。如需繼續討論，請重新開啟客服單。	This ticket was automatically closed according to the configured policy. Reopen it if you need further help.
+變更天數也會套用目前已解決的客服單。	Changing the number of days also applies to tickets that are currently resolved.
+AI 處理中	AI processing
+AI 已回覆 · 待客戶確認	AI replied · Awaiting confirmation
+AI 已回覆 · 待您確認	AI replied · Awaiting your confirmation
+問題解決了嗎？	Did this solve your issue?
+繼續回覆會由 AI 接續處理。	Further replies will be handled by AI.
+尚未受理	Awaiting review
+等待使用者回覆	Waiting for customer reply
+等待其他單位回覆	Waiting for external reply
+目前非客服服務時間	Outside support hours
+客服休假中	Support is on leave
+程式不加入預設或隱藏指令。	The application adds no default or hidden instructions.
+僅顯示於回覆框上方，不新增對話訊息。	Shown only above the reply form; no conversation message is added.
+公告	Announcements
+新增公告	New announcement
+編輯公告	Edit announcement
+公告標題	Announcement title
+訊息類型	Message type
+資訊	Info
+完成	Success
+重要	Alert
+發布公告	Publish announcement
+已發布	Published
+已停用	Disabled
+停用	Disable
+發布	Publish
+刪除	Delete
+確認刪除	Confirm deletion
+編輯	Edit
+尚無公告	No announcements yet
+找不到公告。	Announcement not found.
+公告已被更新，請重新載入後再操作。	This announcement has changed. Reload before continuing.
+最多保留 20 則公告，請先刪除不再使用的公告。	You can keep up to 20 announcements. Delete an unused announcement first.
+請填寫公告標題與內容，並選擇有效的顏色。	Enter an announcement title and content, and select a valid color.

@@ -1,0 +1,27 @@
+FROM node:22-alpine AS assets
+WORKDIR /src
+COPY package.json package-lock.json ./
+RUN npm ci
+COPY web ./web
+COPY scripts/build-image-codec.mjs ./scripts/build-image-codec.mjs
+RUN npm run build
+
+FROM golang:1.27.1-alpine AS build
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download && go install github.com/a-h/templ/cmd/templ@v0.3.1020
+COPY . .
+COPY --from=assets /src/web/assets ./web/assets
+RUN templ generate \
+ && CGO_ENABLED=0 go build -trimpath -ldflags='-s -w' -o /out/server ./cmd/server \
+ && CGO_ENABLED=0 go build -trimpath -ldflags='-s -w' -o /out/admin ./cmd/admin
+
+FROM alpine:3.23
+RUN apk add --no-cache ca-certificates tzdata libwebp-tools \
+ && addgroup -g 10001 app && adduser -D -H -u 10001 -G app app \
+ && mkdir -p /data/attachments && chown app:app /data/attachments && chmod 700 /data/attachments
+COPY --from=build /out/server /out/admin /usr/local/bin/
+USER app
+ENV LISTEN_ADDR=:8080 ATTACHMENT_DIR=/data/attachments
+EXPOSE 8080
+ENTRYPOINT ["server"]

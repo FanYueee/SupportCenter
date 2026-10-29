@@ -1,0 +1,58 @@
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp:size=128m,mode=1777
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    ports: ["127.0.0.1:${SUPPORT_BIND_PORT:-8080}:8080"]
+    environment:
+      APP_URL: https://${SUPPORT_DOMAIN:?Set SUPPORT_DOMAIN}
+      DATABASE_URL: postgres://support:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@db:5432/support?sslmode=disable
+      AUTH0_DOMAIN: ${AUTH0_DOMAIN:?Set AUTH0_DOMAIN}
+      AUTH0_CLIENT_ID: ${AUTH0_CLIENT_ID:?Set AUTH0_CLIENT_ID}
+      AUTH0_CLIENT_SECRET: ${AUTH0_CLIENT_SECRET:-}
+      PORTAL_API_SIGNING_KEY: ${PORTAL_API_SIGNING_KEY:-}
+      PORTAL_API_HOSTNAMES: ${PORTAL_API_HOSTNAMES:-}
+      PORTAL_API_ALLOW_DEV_IDENTITIES: ${PORTAL_API_ALLOW_DEV_IDENTITIES:-false}
+      AI_AUTO_REPLY_ENABLED: ${AI_AUTO_REPLY_ENABLED:-false}
+      OPENCODE_GO_API_KEY: ${OPENCODE_GO_API_KEY:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_TLS_MODE: ${SMTP_TLS_MODE:-}
+      ATTACHMENT_DIR: /data/attachments
+      LISTEN_ADDR: :8080
+    volumes:
+      - attachments:/data/attachments
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, wget, -q, --spider, http://127.0.0.1:8080/healthz]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: support
+      POSTGRES_DB: support
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U support -d support]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+volumes:
+  postgres_data:
+  attachments:

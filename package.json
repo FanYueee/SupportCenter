@@ -1,0 +1,18 @@
+{
+  "name": "support-center-assets",
+  "private": true,
+  "scripts": {
+    "build": "tailwindcss -i web/styles.css -o web/assets/app.css --minify && cp node_modules/htmx.org/dist/htmx.min.js web/assets/htmx.min.js && node scripts/build-image-codec.mjs",
+    "test:ui": "playwright test",
+    "test:acceptance": "playwright test --config=playwright.acceptance.config.js"
+  },
+  "devDependencies": {
+    "@jsquash/oxipng": "^2.3.0",
+    "@jsquash/webp": "^1.5.0",
+    "@playwright/test": "1.63.0",
+    "@tailwindcss/cli": "4.1.18",
+    "esbuild": "^0.28.2",
+    "htmx.org": "2.0.8",
+    "tailwindcss": "4.1.18"
+  }
+}
