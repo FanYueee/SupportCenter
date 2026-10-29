@@ -105,7 +105,14 @@ func run() error {
 		go (&ai.Worker{Store: store, Key: aiKey, Model: aiModel, Log: slog.Default()}).Run(ctx)
 	}
 	if mailConfig.Enabled() {
-		go (&notify.Worker{Store: store, Sender: notify.SMTP{Config: mailConfig}, Origin: origin, Log: slog.Default()}).Run(ctx)
+		store.MailEnabled = true
+		a.Mailer, a.MailFrom = notify.SMTP{Config: mailConfig}, mailConfig.From
+		// Customer emails link back to the site their ticket was opened on.
+		origins := map[string]string{}
+		for host, brand := range brandHosts {
+			origins[brand] = "https://" + host
+		}
+		go (&notify.Worker{Store: store, Sender: notify.SMTP{Config: mailConfig}, Origin: origin, Origins: origins, Log: slog.Default()}).Run(ctx)
 	}
 	// Discord settings live in the database, so the worker always runs and idles without a webhook.
 	go (&notify.DiscordWorker{Store: store, Origin: origin, Log: slog.Default()}).Run(ctx)

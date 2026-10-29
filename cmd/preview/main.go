@@ -42,6 +42,7 @@ func main() {
 		}
 		if r.URL.Path == "/account" || r.URL.Path == "/admin/account" {
 			p.Active, p.Title = "account", "個人設定"
+			p.EmailNotify = true
 			p.Logins = []model.Activity{{Kind: "login", Detail: "Chrome · Windows", IP: "203.0.113.10", UserAgent: "Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 Chrome/120.0", CreatedAt: time.Now().UTC()}}
 			p.Activities = []model.Activity{{Kind: "created", TicketID: 1048, IP: "203.0.113.10", UserAgent: "Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 Chrome/120.0", CreatedAt: time.Now().UTC()}}
 		}
@@ -86,6 +87,19 @@ func main() {
 			case "error":
 				failed := time.Now().UTC()
 				p.Discord.LastError, p.Discord.LastErrorAt, p.DiscordTest = "not_found", &failed, "failed"
+			}
+		}
+		if r.URL.Path == "/admin/email" {
+			p.Active, p.Title = "email", "Email 通知"
+			sent := time.Now().UTC().Add(-5 * time.Minute)
+			p.MailEnabled, p.MailFrom = true, "noreply-support@vproxy.cloud"
+			p.Email = model.EmailSettings{OnReply: true, IncludeReply: true, OnInvite: true, LastSentAt: &sent}
+			switch r.URL.Query().Get("state") {
+			case "off":
+				p.MailEnabled, p.MailFrom = false, ""
+			case "error":
+				failed := time.Now().UTC()
+				p.Email.LastError, p.Email.LastErrorAt, p.MailTest = "auth", &failed, "failed"
 			}
 		}
 		if r.URL.Path == "/admin/departments" {

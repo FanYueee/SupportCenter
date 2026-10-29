@@ -1,0 +1,44 @@
+package web
+
+// Email clients ignore stylesheets, so the layout uses inline styles only.
+templ customerEmail(v EmailView) {
+	<!DOCTYPE html>
+	<html lang="zh-Hant">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<meta name="color-scheme" content="light"/>
+			<title>{ v.Heading }</title>
+		</head>
+		<body style="margin:0;padding:0;background:#f4f4f4;color:#242424;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans TC',sans-serif;">
+			<div style="max-width:560px;margin:0 auto;padding:32px 16px;">
+				<p style="margin:0 0 20px;font-size:14px;font-weight:600;color:#6b6b6b;">{ v.Site() }</p>
+				<div style="background:#ffffff;border:1px solid #dddddd;padding:28px 24px;">
+					<h1 style="margin:0 0 16px;font-size:20px;line-height:1.45;font-weight:600;">{ v.Heading }</h1>
+					for _, line := range v.Intro {
+						<p style="margin:0 0 14px;font-size:15px;line-height:1.7;">{ line }</p>
+					}
+					if v.Quote != "" {
+						<div style="margin:18px 0;padding:14px 16px;border-left:3px solid #242424;background:#f4f4f4;">
+							<p style="margin:0 0 8px;font-size:13px;font-weight:600;color:#6b6b6b;">{ v.QuoteAuthor }</p>
+							<div style="font-size:15px;line-height:1.7;white-space:pre-wrap;overflow-wrap:anywhere;">{ v.Quote }</div>
+						</div>
+					}
+					if v.Note != "" {
+						<p style="margin:0 0 14px;font-size:14px;line-height:1.7;color:#6b6b6b;">{ v.Note }</p>
+					}
+					<p style="margin:22px 0 0;">
+						<a href={ templ.SafeURL(v.Link) } style="display:inline-block;background:#292929;color:#ffffff;text-decoration:none;padding:11px 20px;font-size:15px;font-weight:500;">{ v.Action }</a>
+					</p>
+				</div>
+				<p style="margin:20px 0 0;font-size:12px;line-height:1.7;color:#6b6b6b;">
+					這是系統自動寄出的通知，請勿直接回覆。
+					if v.SettingsURL != "" {
+						<br/>
+						不想收到客服單通知，可在<a href={ templ.SafeURL(v.SettingsURL) } style="color:#6b6b6b;">個人設定</a>關閉。
+					}
+				</p>
+			</div>
+		</body>
+	</html>
+}

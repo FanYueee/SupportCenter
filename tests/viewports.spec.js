@@ -53,6 +53,8 @@ const pages = [
   '/admin/ai',
   '/admin/discord',
   '/admin/discord?state=error',
+  '/admin/email',
+  '/admin/email?state=error',
 ];
 
 // Checks run inside the page; each returns human-readable problems.

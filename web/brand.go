@@ -33,6 +33,17 @@ func WithBrand(ctx context.Context, key string) context.Context {
 	return context.WithValue(ctx, brandKey{}, key)
 }
 
+// BrandKey is the brand of the site the request came in on.
+func BrandKey(ctx context.Context) string { return brandOf(ctx).Key }
+
+// BrandByKey returns a known brand, or the default one.
+func BrandByKey(key string) Brand {
+	if b, ok := brands[key]; ok {
+		return b
+	}
+	return brands[DefaultBrand]
+}
+
 func brandOf(ctx context.Context) Brand {
 	if key, ok := ctx.Value(brandKey{}).(string); ok {
 		if b, ok := brands[key]; ok {

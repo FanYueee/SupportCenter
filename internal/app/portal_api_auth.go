@@ -22,6 +22,7 @@ import (
 
 	"supportcenter/internal/database"
 	"supportcenter/internal/model"
+	"supportcenter/web"
 )
 
 const portalMaxBody = 32 << 20
@@ -196,7 +197,7 @@ func (a *App) portalProtected(staff bool, next http.HandlerFunc) http.HandlerFun
 		}
 		r = r.WithContext(context.WithValue(ctx, portalIdentityKey{}, identity))
 		r.Body = io.NopCloser(bytes.NewReader(body))
-		r = r.WithContext(database.WithRequestInfo(r.Context(), database.RequestInfo{UserAgent: "vProxy Portal"}))
+		r = r.WithContext(database.WithRequestInfo(r.Context(), database.RequestInfo{UserAgent: "vProxy Portal", Brand: web.BrandKey(r.Context())}))
 		next(w, r)
 	}
 }

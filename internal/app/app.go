@@ -39,6 +39,8 @@ type App struct {
 	avatars    avatarCache
 	PortalAPI  *PortalAPIConfig
 	Discord    notify.Discord // the settings page's test message
+	Mailer     notify.Sender  // nil without SMTP; the settings page's test email
+	MailFrom   string
 }
 
 func (a *App) Handler() http.Handler {
@@ -73,6 +75,7 @@ func (a *App) Handler() http.Handler {
 	mux.HandleFunc("GET /account", a.protected(false, a.account))
 	mux.HandleFunc("POST /account/name", a.protected(false, a.updateName))
 	mux.HandleFunc("POST /account/signature", a.protected(false, a.updateSignature))
+	mux.HandleFunc("POST /account/email", a.protected(false, a.updateEmailNotify))
 	mux.HandleFunc("GET /tickets", a.protected(false, a.list))
 	mux.HandleFunc("GET /avatars/me", a.protected(false, a.myAvatar))
 	mux.HandleFunc("GET /tickets/{id}/avatars/{author}", a.protected(false, a.ticketAvatar))
@@ -105,6 +108,9 @@ func (a *App) Handler() http.Handler {
 	mux.HandleFunc("POST /admin/departments/{id}", a.protected(true, a.saveDepartments))
 	mux.HandleFunc("GET /admin/automation", a.protected(true, a.automation))
 	mux.HandleFunc("POST /admin/automation", a.protected(true, a.saveAutomation))
+	mux.HandleFunc("GET /admin/email", a.protected(true, a.emailSettings))
+	mux.HandleFunc("POST /admin/email", a.protected(true, a.saveEmailSettings))
+	mux.HandleFunc("POST /admin/email/test", a.protected(true, a.testEmail))
 	mux.HandleFunc("GET /admin/discord", a.protected(true, a.discordSettings))
 	mux.HandleFunc("POST /admin/discord", a.protected(true, a.saveDiscordSettings))
 	mux.HandleFunc("POST /admin/discord/test", a.protected(true, a.testDiscord))
@@ -683,8 +689,10 @@ func (a *App) Cleanup(ctx context.Context) {
 			_, e3 := a.Store.Pool.Exec(cleanupCtx, `UPDATE email_notifications SET state='cancelled',lease_until=NULL WHERE state='pending' AND created_at<now()-interval '7 days'`)
 			_, e4 := a.Store.Pool.Exec(cleanupCtx, `DELETE FROM email_notifications WHERE state IN ('sent','cancelled','failed') AND created_at<now()-interval '30 days'`)
 			_, e5 := a.Store.Pool.Exec(cleanupCtx, `DELETE FROM discord_notifications WHERE state IN ('sent','cancelled','failed') AND created_at<now()-interval '7 days'`)
+			// Sent invitations are kept a day longer than their per-day limits look back.
+			_, e6 := a.Store.Pool.Exec(cleanupCtx, `DELETE FROM customer_emails WHERE state IN ('sent','cancelled','failed') AND created_at<now()-interval '30 days'`)
 			cancel()
-			if e1 != nil || e2 != nil || e3 != nil || e4 != nil || e5 != nil {
+			if e1 != nil || e2 != nil || e3 != nil || e4 != nil || e5 != nil || e6 != nil {
 				a.Log.Error("expired record cleanup failed")
 			}
 		}

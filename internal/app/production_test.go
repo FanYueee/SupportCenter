@@ -133,7 +133,7 @@ func TestMigrationVersions(t *testing.T) {
 		t.Fatal("migration rerun failed", err)
 	}
 	var count int
-	if err := a.Store.Pool.QueryRow(ctx, `SELECT count(*) FROM schema_migrations`).Scan(&count); err != nil || count != 26 {
+	if err := a.Store.Pool.QueryRow(ctx, `SELECT count(*) FROM schema_migrations`).Scan(&count); err != nil || count != 27 {
 		t.Fatal("migration ledger incorrect")
 	}
 	if _, err := a.Store.Pool.Exec(ctx, `UPDATE schema_migrations SET checksum='changed' WHERE name='001_init.sql'`); err != nil {

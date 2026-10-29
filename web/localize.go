@@ -174,3 +174,18 @@ func discordError(code string) string {
 	}
 	return "無法連線到 Discord，稍後會自動重試。"
 }
+
+// mailError explains a stored SMTP failure code; see notify.MailErrorCode.
+func mailError(code string) string {
+	switch code {
+	case "auth":
+		return "SMTP 登入失敗，請確認帳號和密碼。"
+	case "rejected":
+		return "SMTP 伺服器拒絕了這封信，請確認寄件地址可以使用這個帳號寄信。"
+	case "unavailable":
+		return "SMTP 伺服器暫時無法處理，稍後會自動重試。"
+	case "tls":
+		return "無法和 SMTP 伺服器建立安全連線，請確認主機名稱、連接埠和加密方式。"
+	}
+	return "無法連線到 SMTP 伺服器，請確認主機名稱和連接埠。"
+}

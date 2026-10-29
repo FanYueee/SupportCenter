@@ -84,13 +84,13 @@ test('admin settings share one stable menu and department prompts fit mobile', a
   for (const width of [320, 390, 768, 1440]) {
     await page.setViewportSize({ width, height: 844 });
     const menuPositions = [];
-    for (const path of ['/admin/tickets', '/admin/ai', '/admin/automation', '/admin/discord', '/admin/users', '/admin/departments', '/admin/announcements']) {
+    for (const path of ['/admin/tickets', '/admin/ai', '/admin/automation', '/admin/discord', '/admin/email', '/admin/users', '/admin/departments', '/admin/announcements']) {
       await page.goto(path);
       const menu = page.getByRole('navigation', { name: '主選單' });
       await expect(menu.getByRole('link')).toHaveCount(3);
       menuPositions.push((await menu.getByRole('link', { name: '管理設定' }).boundingBox()).x);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-      if (path !== '/admin/tickets') await expect(page.getByRole('navigation', { name: '管理設定' }).getByRole('link')).toHaveCount(6);
+      if (path !== '/admin/tickets') await expect(page.getByRole('navigation', { name: '管理設定' }).getByRole('link')).toHaveCount(7);
     }
     expect(Math.max(...menuPositions) - Math.min(...menuPositions)).toBeLessThan(2);
     await page.goto('/admin/ai');
@@ -734,7 +734,7 @@ test('browser language and flagged account setting cover the ticket flow', async
 test('English interface text is translated across customer and admin pages', async ({ browser }) => {
   const context = await browser.newContext({ locale: 'en-US' });
   const page = await context.newPage();
-  const paths = ['/tickets', '/tickets/new', '/tickets/1048', '/account', '/admin/tickets', '/admin/tickets/1048', '/admin/users', '/admin/ai', '/admin/automation', '/admin/departments', '/admin/discord', '/admin/discord?state=error', '/admin/discord?state=empty'];
+  const paths = ['/tickets', '/tickets/new', '/tickets/1048', '/account', '/admin/tickets', '/admin/tickets/1048', '/admin/users', '/admin/ai', '/admin/automation', '/admin/departments', '/admin/discord', '/admin/discord?state=error', '/admin/discord?state=empty', '/admin/email', '/admin/email?state=error', '/admin/email?state=off'];
   for (const path of paths) {
     const response = await page.goto(`http://127.0.0.1:8081${path}`);
     expect(response.headers()['content-language']).toBe('en');

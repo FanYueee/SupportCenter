@@ -374,3 +374,27 @@ Discord 限制了傳送頻率，請稍後再試。	Discord is rate limiting this
 Webhook 網址無效，請貼上 Discord 頻道的 Webhook 網址。	Invalid webhook URL. Paste the webhook URL from your Discord channel.
 請先設定 Webhook 網址。	Set up a webhook URL first.
 尚無參與者	No participants yet
+Email 通知	Email notifications
+客服回覆或有人邀請我參與客服單時寄信通知	Email me when support replies or someone invites me to a ticket
+寄送地址	Sent to
+測試信已寄出，請到信箱確認。	Test email sent. Check your inbox.
+寄件設定	Sending
+SMTP 已設定	SMTP is set up
+未設定 SMTP	SMTP is not set up
+在主機執行 scripts/set-smtp.sh 設定 SMTP 後才會寄信；未設定前不會排入任何客戶通知。	Emails are sent once SMTP is set up with scripts/set-smtp.sh on the server. Until then, no customer emails are queued.
+通知客戶	Customer emails
+客服回覆時寄信	Email when support replies
+包含真人客服與 AI 的公開回覆，寄給開單者和已加入的參與者（需已驗證 Email，且未在個人設定關閉）。回覆後等 2 分鐘再寄，期間的多則回覆合併成一封；對方已回覆就不寄。	Covers public replies from staff and AI, sent to the requester and joined participants who have a verified email and kept emails on. Each email waits 2 minutes so quick replies arrive together, and is skipped if the person has already answered.
+信中附上回覆內容	Include the reply in the email
+附上最新一則回覆，最多 4,000 字。關閉後只通知有新回覆，客戶需登入查看。	Adds the latest reply, up to 4,000 characters. When off, the email only says there is a reply and the customer signs in to read it.
+邀請參與者時寄信	Email invited participants
+信中只有邀請人的 Email 和單號，不含客服單內容，不論對方是否已註冊都會寄出。每位使用者每天最多寄 30 封邀請信，同一個 Email 每天最多收到 3 封。	The email contains only the inviter's email and the ticket number, never ticket content, and is sent whether or not the address is registered. Each person can send up to 30 invitation emails a day, and an address receives at most 3 a day.
+最近寄送成功	Last sent
+尚未寄送	Nothing sent yet
+寄測試信給我	Send me a test email
+SMTP 登入失敗，請確認帳號和密碼。	SMTP sign-in failed. Check the username and password.
+SMTP 伺服器拒絕了這封信，請確認寄件地址可以使用這個帳號寄信。	The SMTP server rejected the email. Check that this account may send from the sender address.
+SMTP 伺服器暫時無法處理，稍後會自動重試。	The SMTP server is temporarily unavailable. Sending will be retried automatically.
+無法和 SMTP 伺服器建立安全連線，請確認主機名稱、連接埠和加密方式。	Could not open a secure connection to the SMTP server. Check the host name, port and encryption mode.
+無法連線到 SMTP 伺服器，請確認主機名稱和連接埠。	Could not reach the SMTP server. Check the host name and port.
+尚未設定 SMTP。	SMTP is not set up.

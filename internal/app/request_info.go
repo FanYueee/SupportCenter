@@ -8,6 +8,7 @@ import (
 	"unicode"
 
 	"supportcenter/internal/database"
+	"supportcenter/web"
 )
 
 // clientKey groups requests for rate limits. An IPv6 host usually controls a
@@ -49,5 +50,6 @@ func ClientRequestInfo(r *http.Request) database.RequestInfo {
 		agent = string(chars[:512])
 	}
 	info.UserAgent = agent
+	info.Brand = web.BrandKey(r.Context())
 	return info
 }

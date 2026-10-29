@@ -1935,7 +1935,7 @@ dd {
 .account-card form { display: grid; justify-items: start; gap: 13px; }
 .account-card form .field, .account-card textarea { width: 100%; }
 .account-card form .field input { display: block; width: 100%; margin-top: 5px; }
-.language-settings { margin-bottom: 18px; }
+.language-settings, .email-preferences { margin-bottom: 18px; }
 .account-card .language-options { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
 .locale-button { display: flex; align-items: center; gap: 7px; width: 100%; min-width: 0; min-height: 44px; border: 1px solid var(--line); background: var(--bg); color: var(--text); padding: 8px 10px; font: inherit; font-size: 14px; text-align: left; cursor: pointer; }
 .locale-button:hover { border-color: var(--text); }
@@ -1980,20 +1980,20 @@ dd {
 .range-enhanced .range-add, .range-enhanced .range-remove { display: inline-flex; }
 .range-remove { height: 42px; }
 .automation-toggle { display: inline-flex; align-items: center; gap: 7px; cursor: pointer; }
-.discord-settings-form { display: grid; gap: 16px; max-width: 760px; }
-.discord-settings-form .account-card { display: grid; gap: 14px; }
-.discord-settings-form .account-card h2 { margin-bottom: 0; }
-.discord-settings-form .account-card .field-hint { margin: -6px 0 0; }
-.discord-settings-form .field { margin: 0; }
-.discord-settings-form .field input { display: block; width: 100%; margin-top: 6px; }
-.discord-settings-form > .button { justify-self: start; }
-.discord-webhook-state { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: -6px 0 0; font-size: 14px; color: var(--muted); }
-.discord-webhook-state strong { font-weight: 500; color: var(--text); }
-.discord-webhook-state .discord-state-on { color: var(--closed); }
-.discord-webhook-id { min-width: 0; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
-.discord-status { display: grid; gap: 14px; max-width: 760px; margin-top: 16px; }
-.discord-status h2 { margin-bottom: 0; }
-.discord-status .field-hint { margin: -6px 0 0; }
+.notify-settings-form { display: grid; gap: 16px; max-width: 760px; }
+.notify-settings-form .account-card { display: grid; gap: 14px; }
+.notify-settings-form .account-card h2 { margin-bottom: 0; }
+.notify-settings-form .account-card .field-hint { margin: -6px 0 0; }
+.notify-settings-form .field { margin: 0; }
+.notify-settings-form .field input { display: block; width: 100%; margin-top: 6px; }
+.notify-settings-form > .button { justify-self: start; }
+.notify-state { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: -6px 0 0; font-size: 14px; color: var(--muted); }
+.notify-state strong { font-weight: 500; color: var(--text); }
+.notify-state .notify-state-on { color: var(--closed); }
+.notify-detail { min-width: 0; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.notify-status { display: grid; gap: 14px; max-width: 760px; margin-top: 16px; }
+.notify-status h2 { margin-bottom: 0; }
+.notify-status .field-hint { margin: -6px 0 0; }
 .assignment-panel { margin-top: 24px; border-top: 1px solid var(--line); padding-top: 20px; }
 .assignment-panel h3 { font-size: 15px; font-weight: 600; margin: 0 0 12px; }
 .assignment-group { margin-top: 18px; display: grid; gap: 7px; }

@@ -11,11 +11,17 @@ import (
 	"supportcenter/internal/notify"
 )
 
-type recordedMail struct{ to, subject, body string }
-type fakeMailSender struct{ sent []recordedMail }
+type recordedMail struct{ to, from, subject, body, html string }
+type fakeMailSender struct {
+	sent []recordedMail
+	err  error
+}
 
-func (f *fakeMailSender) Send(_ context.Context, to, subject, body string) error {
-	f.sent = append(f.sent, recordedMail{to, subject, body})
+func (f *fakeMailSender) Send(_ context.Context, msg notify.Message) error {
+	if f.err != nil {
+		return f.err
+	}
+	f.sent = append(f.sent, recordedMail{msg.To, msg.FromName, msg.Subject, msg.Text, msg.HTML})
 	return nil
 }
 

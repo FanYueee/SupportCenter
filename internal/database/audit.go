@@ -5,6 +5,7 @@ import "context"
 type RequestInfo struct {
 	IP        string
 	UserAgent string
+	Brand     string // site the request came in on; new tickets keep it for their emails
 }
 
 type requestInfoKey struct{}

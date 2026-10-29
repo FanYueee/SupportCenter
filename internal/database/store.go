@@ -14,7 +14,12 @@ import (
 	"supportcenter/internal/model"
 )
 
-type Store struct{ Pool *pgxpool.Pool }
+type Store struct {
+	Pool *pgxpool.Pool
+	// MailEnabled is set when SMTP is configured; customer emails are only
+	// queued then, so a later SMTP setup does not flush a stale backlog.
+	MailEnabled bool
+}
 
 var ErrNotFound = errors.New("not found")
 var ErrClosed = errors.New("ticket closed")
@@ -37,7 +42,7 @@ func Open(ctx context.Context, dsn string) (*Store, error) {
 		pool.Close()
 		return nil, err
 	}
-	return &Store{pool}, nil
+	return &Store{Pool: pool}, nil
 }
 func notFound(err error) error {
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -290,7 +295,7 @@ func (s *Store) CreateWithParticipants(ctx context.Context, u model.User, t mode
 	if mode != "human" && mode != "ai" {
 		return 0, ErrInvalid
 	}
-	err = tx.QueryRow(ctx, `INSERT INTO tickets(user_id,subject,category,priority,client_ip,user_agent,assistance_mode,status) VALUES($1,$2,$3,$4,$5,$6,$7,CASE WHEN $7='ai' THEN 'open' ELSE 'new' END) RETURNING id`, u.ID, t.Subject, t.Category, t.Priority, info.IP, info.UserAgent, mode).Scan(&id)
+	err = tx.QueryRow(ctx, `INSERT INTO tickets(user_id,subject,category,priority,client_ip,user_agent,assistance_mode,status,brand) VALUES($1,$2,$3,$4,$5,$6,$7,CASE WHEN $7='ai' THEN 'open' ELSE 'new' END,COALESCE(NULLIF($8,''),'atomroute')) RETURNING id`, u.ID, t.Subject, t.Category, t.Priority, info.IP, info.UserAgent, mode, ticketBrand(ctx)).Scan(&id)
 	if err != nil {
 		return 0, err
 	}
@@ -299,6 +304,9 @@ func (s *Store) CreateWithParticipants(ctx context.Context, u model.User, t mode
 			return 0, err
 		}
 		if err = recordEvent(ctx, tx, id, u.ID, "invite", "", email); err != nil {
+			return 0, err
+		}
+		if err = s.queueInviteEmail(ctx, tx, id, u.ID, email); err != nil {
 			return 0, err
 		}
 	}
@@ -415,6 +423,8 @@ func (s *Store) reply(ctx context.Context, u model.User, id int64, admin bool, b
 			if err = queueDiscord(ctx, tx, id, mid, "reply"); err != nil {
 				return err
 			}
+		} else if err = s.QueueReplyEmails(ctx, tx, id, u.ID); err != nil {
+			return err
 		}
 	}
 	return commit(ctx, tx)
@@ -617,12 +627,39 @@ func (s *Store) Attachment(ctx context.Context, u model.User, id int64) (model.A
 func (s *Store) User(ctx context.Context, subject, name, email string, verified ...bool) (model.User, error) {
 	var u model.User
 	isVerified := len(verified) > 0 && verified[0]
+	if isVerified {
+		if err := s.adoptPortalAccount(ctx, subject, email); err != nil {
+			return u, err
+		}
+	}
 	err := s.Pool.QueryRow(ctx, `INSERT INTO users(auth0_id,name,email,email_verified) VALUES($1,$2,$3,$4) ON CONFLICT(auth0_id) DO UPDATE SET name=CASE WHEN users.name_locked THEN users.name ELSE EXCLUDED.name END,email=EXCLUDED.email,email_verified=EXCLUDED.email_verified RETURNING id,name,email,role,signature`, subject, name, email, isVerified).Scan(&u.ID, &u.Name, &u.Email, &u.Role, &u.Signature)
 	if err == nil && isVerified {
 		_, err = s.Pool.Exec(ctx, `UPDATE ticket_invites SET user_id=$1
  WHERE user_id IS NULL AND email_key=lower($2)`, u.ID, u.Email)
 	}
 	return u, err
+}
+
+// adoptPortalAccount lets the first verified sign-in for an address take over
+// the account the Portal created for it, so the person sees the same tickets
+// on both sites. It shares PortalUser's lock, so the two cannot race.
+func (s *Store) adoptPortalAccount(ctx context.Context, subject, email string) error {
+	key := strings.ToLower(strings.TrimSpace(email))
+	if key == "" || strings.HasPrefix(subject, "portal:") || strings.HasPrefix(subject, "system:") {
+		return nil
+	}
+	tx, err := s.Pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, "portal-user:"+key); err != nil {
+		return err
+	}
+	if _, err = tx.Exec(ctx, `UPDATE users SET auth0_id=$1 WHERE auth0_id='portal:'||$2 AND NOT EXISTS(SELECT 1 FROM users WHERE auth0_id=$1)`, subject, key); err != nil {
+		return err
+	}
+	return commit(ctx, tx)
 }
 func (s *Store) SetRole(ctx context.Context, subject, role string) error {
 	if role != "user" && role != "support" && role != "admin" {

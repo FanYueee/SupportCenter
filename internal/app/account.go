@@ -24,6 +24,10 @@ func (a *App) account(w http.ResponseWriter, r *http.Request) {
 		a.fail(w, r, err)
 		return
 	}
+	if p.EmailNotify, err = a.Store.EmailNotify(r.Context(), p.User.ID); err != nil {
+		a.fail(w, r, err)
+		return
+	}
 	a.render(w, r, p)
 }
 

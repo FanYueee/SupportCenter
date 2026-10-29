@@ -261,7 +261,7 @@ templ Document(p model.Page) {
 								<a class={ "nav-item", templ.KV("selected", p.Admin && (p.Active=="list" || p.Active=="detail")) } href="/admin/tickets">{ i18n.T(ctx,"客服工作台") }</a>
 							}
 							if p.User.Role == "admin" {
-				<a class={ "nav-item", templ.KV("selected", p.Active=="users" || p.Active=="automation" || p.Active=="ai" || p.Active=="discord" || p.Active=="departments" || p.Active=="announcements") } href="/admin/ai">{ i18n.T(ctx,"管理設定") }</a>
+				<a class={ "nav-item", templ.KV("selected", p.Active=="users" || p.Active=="automation" || p.Active=="ai" || p.Active=="discord" || p.Active=="email" || p.Active=="departments" || p.Active=="announcements") } href="/admin/ai">{ i18n.T(ctx,"管理設定") }</a>
 							}
 						</nav>
 					}
@@ -334,6 +334,8 @@ templ Workspace(p model.Page) {
 				@AISettings(p)
 			case "discord":
 				@DiscordSettings(p)
+			case "email":
+				@EmailSettings(p)
 			case "departments":
 				@Departments(p)
 			case "announcements":
@@ -406,6 +408,15 @@ templ Account(p model.Page) {
 					@Icon("check")
 				}
 			</button>
+		</form>
+	</section>
+	<section class="account-card email-preferences" aria-labelledby="email-heading">
+		<h2 id="email-heading">{ i18n.T(ctx,"Email 通知") }</h2>
+		<form method="post" action="/account/email">
+			<input type="hidden" name="csrf" value={ p.CSRF }/>
+			<label class="automation-toggle"><input type="checkbox" name="email_notify" checked?={ p.EmailNotify }/>{ i18n.T(ctx,"客服回覆或有人邀請我參與客服單時寄信通知") }</label>
+			<p class="field-hint">{ i18n.T(ctx,"寄送地址") } { p.User.Email }</p>
+			<button class="button secondary" type="submit">{ i18n.T(ctx,"儲存") }</button>
 		</form>
 	</section>
 	if p.User.Role == "admin" {
@@ -486,6 +497,7 @@ templ SettingsNav(p model.Page) {
 		<a class={ "settings-tab", templ.KV("active",p.Active=="ai") } aria-current={ choose(p.Active=="ai","page","false") } href="/admin/ai">{ i18n.T(ctx,"AI 指令") }</a>
 		<a class={ "settings-tab", templ.KV("active",p.Active=="automation") } aria-current={ choose(p.Active=="automation","page","false") } href="/admin/automation">{ i18n.T(ctx,"自動訊息") }</a>
 		<a class={ "settings-tab", templ.KV("active",p.Active=="discord") } aria-current={ choose(p.Active=="discord","page","false") } href="/admin/discord">{ i18n.T(ctx,"Discord 通知") }</a>
+		<a class={ "settings-tab", templ.KV("active",p.Active=="email") } aria-current={ choose(p.Active=="email","page","false") } href="/admin/email">{ i18n.T(ctx,"Email 通知") }</a>
 		<a class={ "settings-tab", templ.KV("active",p.Active=="users") } aria-current={ choose(p.Active=="users","page","false") } href="/admin/users">{ i18n.T(ctx,"使用者") }</a>
 		<a class={ "settings-tab", templ.KV("active",p.Active=="departments") } aria-current={ choose(p.Active=="departments","page","false") } href="/admin/departments">{ i18n.T(ctx,"客服分組") }</a>
 	</nav>
@@ -1434,13 +1446,13 @@ templ DiscordSettings(p model.Page) {
 	} else if p.DiscordTest == "failed" {
 		<div class="notice error" role="alert">{ i18n.T(ctx,discordError(p.Discord.LastError)) }</div>
 	}
-	<form class="discord-settings-form" method="post" action="/admin/discord">
+	<form class="notify-settings-form" method="post" action="/admin/discord">
 		<input type="hidden" name="csrf" value={ p.CSRF }/>
 		<section class="account-card">
 			<h2>Webhook</h2>
-			<p class="discord-webhook-state">
+			<p class="notify-state">
 				if p.Discord.Configured() {
-					<strong class="discord-state-on">{ i18n.T(ctx,"已設定") }</strong><span class="discord-webhook-id">ID { p.Discord.WebhookID }</span>
+					<strong class="notify-state-on">{ i18n.T(ctx,"已設定") }</strong><span class="notify-detail">ID { p.Discord.WebhookID }</span>
 				} else {
 					<strong>{ i18n.T(ctx,"未設定") }</strong>
 				}
@@ -1463,7 +1475,7 @@ templ DiscordSettings(p model.Page) {
 		<button class="button primary" type="submit">{ i18n.T(ctx,"儲存設定") }</button>
 	</form>
 	if p.Discord.Configured() {
-		<section class="account-card discord-status">
+		<section class="account-card notify-status">
 			<div class="ai-model-line">
 				<h2>{ i18n.T(ctx,"最近傳送成功") }</h2>
 				if p.Discord.LastSentAt != nil {
@@ -1483,6 +1495,69 @@ templ DiscordSettings(p model.Page) {
 				<input type="hidden" name="csrf" value={ p.CSRF }/>
 				<button class="button secondary" type="submit">{ i18n.T(ctx,"傳送測試訊息") }</button>
 			</form>
+		</section>
+	}
+}
+
+templ EmailSettings(p model.Page) {
+	<div class="page-heading"><h1>{ i18n.T(ctx,"Email 通知") }</h1></div>
+	@SettingsNav(p)
+	if p.Saved {
+		<div class="notice success" role="status">{ i18n.T(ctx,"已儲存") }</div>
+	}
+	if p.MailTest == "ok" {
+		<div class="notice success" role="status">{ i18n.T(ctx,"測試信已寄出，請到信箱確認。") }</div>
+	} else if p.MailTest == "failed" {
+		<div class="notice error" role="alert">{ i18n.T(ctx,mailError(p.Email.LastError)) }</div>
+	}
+	<form class="notify-settings-form" method="post" action="/admin/email">
+		<input type="hidden" name="csrf" value={ p.CSRF }/>
+		<section class="account-card">
+			<h2>{ i18n.T(ctx,"寄件設定") }</h2>
+			<p class="notify-state">
+				if p.MailEnabled {
+					<strong class="notify-state-on">{ i18n.T(ctx,"SMTP 已設定") }</strong><span class="notify-detail">{ p.MailFrom }</span>
+				} else {
+					<strong>{ i18n.T(ctx,"未設定 SMTP") }</strong>
+				}
+			</p>
+			if !p.MailEnabled {
+				<p class="field-hint">{ i18n.T(ctx,"在主機執行 scripts/set-smtp.sh 設定 SMTP 後才會寄信；未設定前不會排入任何客戶通知。") }</p>
+			}
+		</section>
+		<section class="account-card">
+			<h2>{ i18n.T(ctx,"通知客戶") }</h2>
+			<label class="automation-toggle"><input type="checkbox" name="on_reply" checked?={ p.Email.OnReply }/>{ i18n.T(ctx,"客服回覆時寄信") }</label>
+			<p class="field-hint">{ i18n.T(ctx,"包含真人客服與 AI 的公開回覆，寄給開單者和已加入的參與者（需已驗證 Email，且未在個人設定關閉）。回覆後等 2 分鐘再寄，期間的多則回覆合併成一封；對方已回覆就不寄。") }</p>
+			<label class="automation-toggle"><input type="checkbox" name="include_reply" checked?={ p.Email.IncludeReply }/>{ i18n.T(ctx,"信中附上回覆內容") }</label>
+			<p class="field-hint">{ i18n.T(ctx,"附上最新一則回覆，最多 4,000 字。關閉後只通知有新回覆，客戶需登入查看。") }</p>
+			<label class="automation-toggle"><input type="checkbox" name="on_invite" checked?={ p.Email.OnInvite }/>{ i18n.T(ctx,"邀請參與者時寄信") }</label>
+			<p class="field-hint">{ i18n.T(ctx,"信中只有邀請人的 Email 和單號，不含客服單內容，不論對方是否已註冊都會寄出。每位使用者每天最多寄 30 封邀請信，同一個 Email 每天最多收到 3 封。") }</p>
+		</section>
+		<button class="button primary" type="submit">{ i18n.T(ctx,"儲存設定") }</button>
+	</form>
+	if p.MailEnabled {
+		<section class="account-card notify-status">
+			<div class="ai-model-line">
+				<h2>{ i18n.T(ctx,"最近寄送成功") }</h2>
+				if p.Email.LastSentAt != nil {
+					<span><time datetime={ p.Email.LastSentAt.Format(time.RFC3339) } data-local-time="full" data-timezone-inline>{ p.Email.LastSentAt.UTC().Format("2006/01/02 15:04") } UTC</time></span>
+				} else {
+					<span>{ i18n.T(ctx,"尚未寄送") }</span>
+				}
+			</div>
+			if p.Email.LastError != "" && p.Email.LastErrorAt != nil {
+				<div class="ai-model-line">
+					<h2>{ i18n.T(ctx,"最近錯誤") }</h2>
+					<span><time datetime={ p.Email.LastErrorAt.Format(time.RFC3339) } data-local-time="full" data-timezone-inline>{ p.Email.LastErrorAt.UTC().Format("2006/01/02 15:04") } UTC</time></span>
+				</div>
+				<p class="field-hint error">{ i18n.T(ctx,mailError(p.Email.LastError)) }</p>
+			}
+			<form method="post" action="/admin/email/test">
+				<input type="hidden" name="csrf" value={ p.CSRF }/>
+				<button class="button secondary" type="submit">{ i18n.T(ctx,"寄測試信給我") }</button>
+			</form>
+			<p class="field-hint">{ i18n.T(ctx,"寄送地址") } { p.User.Email }</p>
 		</section>
 	}
 }

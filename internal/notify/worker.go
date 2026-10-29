@@ -9,23 +9,35 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"supportcenter/internal/database"
+	"supportcenter/web"
 )
 
 type Sender interface {
-	Send(context.Context, string, string, string) error
+	Send(context.Context, Message) error
 }
 
 type Worker struct {
 	Store  *database.Store
 	Sender Sender
 	Origin string
-	Log    *slog.Logger
+	// Origins maps a brand to its site, so customer links go back to the site
+	// the ticket was opened on. Brands not listed use Origin.
+	Origins map[string]string
+	Log     *slog.Logger
 }
 
 type notification struct {
-	ID, TicketID int64
-	To, Kind     string
-	Attempts     int
+	ID, TicketID    int64
+	To, Kind, Brand string
+	Attempts        int
+}
+
+// site returns a brand's display name and its site origin.
+func (w *Worker) site(brand string) (string, string) {
+	if origin := w.Origins[brand]; origin != "" {
+		return web.BrandByKey(brand).Name, origin
+	}
+	return web.BrandByKey(brand).Name, w.Origin
 }
 
 func (w *Worker) Run(ctx context.Context) {
@@ -36,7 +48,11 @@ func (w *Worker) Run(ctx context.Context) {
 		if err != nil && ctx.Err() == nil {
 			w.Log.Error("email notification processing failed", "error_type", fmt.Sprintf("%T", err))
 		}
-		if processed {
+		sent, err := w.ProcessCustomer(ctx)
+		if err != nil && ctx.Err() == nil {
+			w.Log.Error("customer email processing failed", "error_type", fmt.Sprintf("%T", err))
+		}
+		if processed || sent {
 			continue
 		}
 		select {
@@ -67,20 +83,21 @@ func (w *Worker) ProcessOne(ctx context.Context) (bool, error) {
 	 UPDATE email_notifications n SET state='sending',attempts=attempts+1,lease_until=now()+interval '2 minutes'
 	 FROM picked WHERE n.id=picked.id RETURNING n.id,n.ticket_id,n.recipient_user_id,n.kind,n.attempts
 	)
-	 SELECT c.id,c.ticket_id,u.email,c.kind,c.attempts FROM claimed c JOIN users u ON u.id=c.recipient_user_id`,
-	).Scan(&item.ID, &item.TicketID, &item.To, &item.Kind, &item.Attempts)
+	 SELECT c.id,c.ticket_id,u.email,c.kind,c.attempts,t.brand FROM claimed c JOIN users u ON u.id=c.recipient_user_id JOIN tickets t ON t.id=c.ticket_id`,
+	).Scan(&item.ID, &item.TicketID, &item.To, &item.Kind, &item.Attempts, &item.Brand)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return false, nil
 	}
 	if err != nil {
 		return false, err
 	}
-	subject := fmt.Sprintf("[AtomRoute 支援中心] 技術客服單 #%04d", item.TicketID)
+	brand, _ := w.site(item.Brand)
+	subject := fmt.Sprintf("[%s 支援中心] 技術客服單 #%04d", brand, item.TicketID)
 	message := fmt.Sprintf("客服單 #%04d 已送至技術部門。\n\n%s/admin/tickets/%d\n", item.TicketID, w.Origin, item.TicketID)
 	if item.Kind == "assignment" {
 		message = fmt.Sprintf("客服單 #%04d 已指派給你。\n\n%s/admin/tickets/%d\n", item.TicketID, w.Origin, item.TicketID)
 	}
-	err = w.Sender.Send(ctx, item.To, subject, message)
+	err = w.Sender.Send(ctx, Message{To: item.To, FromName: brand + " 支援中心", Subject: subject, Text: message})
 	if err == nil {
 		_, err = w.Store.Pool.Exec(ctx, `UPDATE email_notifications SET state='sent',sent_at=now(),lease_until=NULL WHERE id=$1 AND state='sending'`, item.ID)
 		return true, err

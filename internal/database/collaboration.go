@@ -122,6 +122,9 @@ func (s *Store) Invite(ctx context.Context, owner model.User, ticketID int64, ra
 		if err = recordEvent(ctx, tx, ticketID, owner.ID, "invite", "", email); err != nil {
 			return err
 		}
+		if err = s.queueInviteEmail(ctx, tx, ticketID, owner.ID, email); err != nil {
+			return err
+		}
 	}
 	return commit(ctx, tx)
 }
@@ -150,6 +153,9 @@ func (s *Store) Uninvite(ctx context.Context, owner model.User, ticketID int64, 
 			return err
 		}
 		if err = recordEvent(ctx, tx, ticketID, owner.ID, "uninvite", email, ""); err != nil {
+			return err
+		}
+		if _, err = tx.Exec(ctx, `UPDATE customer_emails SET state='cancelled',lease_until=NULL WHERE ticket_id=$1 AND recipient_email=$2 AND state='pending'`, ticketID, email); err != nil {
 			return err
 		}
 	}
