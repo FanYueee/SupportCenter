@@ -1106,6 +1106,17 @@ p.field-hint {
   font-size: 17px;
   line-height: 1.85;
 }
+.message-body a,
+.announcement-copy a {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+.message-body a:hover,
+.announcement-copy a:hover {
+  text-decoration-thickness: 2px;
+}
 .internal-note {
   border-left-color: var(--waiting);
 }

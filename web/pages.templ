@@ -508,7 +508,9 @@ templ AnnouncementCard(item model.Announcement) {
 		<span class="announcement-icon" title={ i18n.T(ctx,item.ColorLabel()) }>@Icon(item.Icon())</span>
 		<div class="announcement-copy">
 			<h2>{ item.Title }</h2>
-			<p>{ item.Body }</p>
+			<p>
+				@LinkedText(item.Body)
+			</p>
 		</div>
 	</article>
 }
@@ -1071,7 +1073,7 @@ templ Detail(p model.Page) {
 							</div>
 						</div>
 						<div class="message-body">
-							{ messageBody(ctx,m) }
+							@LinkedText(messageBody(ctx,m))
 						</div>
 						if len(m.Attachments)>0 {
 							<div class="attachment-list">
