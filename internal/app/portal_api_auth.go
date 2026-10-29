@@ -69,6 +69,17 @@ func PortalAPIFromEnvironment() (*PortalAPIConfig, error) {
 	}
 	return config, nil
 }
+
+// validPortalSubject accepts an empty subject, since accounts are matched by
+// email; a supplied one is still bounded and may not claim a system identity.
+func validPortalSubject(subject string, allowDev bool) bool {
+	if subject == "" {
+		return true
+	}
+	return len(subject) >= 3 && len(subject) <= 255 && utf8.ValidString(subject) && strings.IndexFunc(subject, unicode.IsControl) < 0 &&
+		!strings.HasPrefix(subject, "system:") && (allowDev || !strings.HasPrefix(subject, "portal-dev|"))
+}
+
 func portalJSON(w http.ResponseWriter, status int, payload any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
@@ -137,12 +148,13 @@ func (a *App) portalProtected(staff bool, next http.HandlerFunc) http.HandlerFun
 		raw, err := base64.RawURLEncoding.DecodeString(actorRaw)
 		decoder := json.NewDecoder(bytes.NewReader(raw))
 		decoder.DisallowUnknownFields()
-		if err != nil || !utf8.Valid(raw) || decoder.Decode(&actor) != nil || decoder.Decode(&struct{}{}) != io.EOF || !config.Hosts[actor.Hostname] || len(actor.Subject) < 3 || len(actor.Subject) > 255 || !utf8.ValidString(actor.Subject) || strings.IndexFunc(actor.Subject, unicode.IsControl) >= 0 || strings.HasPrefix(actor.Subject, "system:") || len([]rune(actor.Name)) > 80 || strings.TrimSpace(actor.Name) == "" || !utf8.ValidString(actor.Name) || strings.IndexFunc(actor.Name, unicode.IsControl) >= 0 {
+		if err != nil || !utf8.Valid(raw) || decoder.Decode(&actor) != nil || decoder.Decode(&struct{}{}) != io.EOF || !config.Hosts[actor.Hostname] || !validPortalSubject(actor.Subject, config.AllowDevIdentities) || len([]rune(actor.Name)) > 80 || strings.TrimSpace(actor.Name) == "" || !utf8.ValidString(actor.Name) || strings.IndexFunc(actor.Name, unicode.IsControl) >= 0 {
 			portalError(w, 401, "unauthorized")
 			return
 		}
+		// Accounts are matched by email; the normalized (lower-case) address is the key.
 		email, err := database.NormalizeInviteEmails([]string{actor.Email}, "")
-		if err != nil || len(email) != 1 || actor.Email != email[0] || strings.HasPrefix(actor.Subject, "portal-dev|") && !config.AllowDevIdentities {
+		if err != nil || len(email) != 1 {
 			portalError(w, 401, "unauthorized")
 			return
 		}
@@ -167,7 +179,7 @@ func (a *App) portalProtected(staff bool, next http.HandlerFunc) http.HandlerFun
 			portalError(w, 409, "replayed_request")
 			return
 		}
-		user, err := a.Store.PortalUser(ctx, actor.Subject, actor.Name, actor.Email)
+		user, err := a.Store.PortalUser(ctx, actor.Name, email[0])
 		if err != nil {
 			a.portalFailure(w, err)
 			return

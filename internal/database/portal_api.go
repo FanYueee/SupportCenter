@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"time"
 
@@ -9,35 +10,38 @@ import (
 	"supportcenter/internal/model"
 )
 
-// A Portal assertion resolves the same Auth0 subject, never an email-only account.
-// Existing display names, roles, signatures, ownership and sessions are preserved.
-func (s *Store) PortalUser(ctx context.Context, subject, name, email string) (model.User, error) {
+// PortalUser resolves a Portal actor by email, ignoring case and surrounding
+// spaces, because Portal accounts may lack a stable Auth0 subject. An existing
+// account keeps its Auth0 subject, role, name and signature; when several share
+// the address, a verified sign-in account wins over a Portal-only one so both
+// entry points show the same tickets. Without a match a Portal-only account
+// ("portal:<email>") is created.
+func (s *Store) PortalUser(ctx context.Context, name, email string) (model.User, error) {
+	key := strings.ToLower(strings.TrimSpace(email))
 	tx, err := s.Pool.Begin(ctx)
 	if err != nil {
 		return model.User{}, err
 	}
 	defer tx.Rollback(ctx)
-	if _, err = tx.Exec(ctx, `INSERT INTO users(auth0_id,name,email,email_verified)
- VALUES($1,$2,$3,true) ON CONFLICT(auth0_id) DO NOTHING`, subject, name, email); err != nil {
+	// Concurrent requests for one address must not create two accounts.
+	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, "portal-user:"+key); err != nil {
 		return model.User{}, err
 	}
 	var user model.User
-	var verified bool
-	err = tx.QueryRow(ctx, `SELECT id,name,email,role,signature,email_verified FROM users WHERE auth0_id=$1 FOR UPDATE`, subject).
-		Scan(&user.ID, &user.Name, &user.Email, &user.Role, &user.Signature, &verified)
+	err = tx.QueryRow(ctx, `SELECT id,name,email,role,signature FROM users
+ WHERE lower(trim(email))=$1 AND auth0_id NOT LIKE 'system:%'
+ ORDER BY email_verified DESC,auth0_id LIKE 'portal:%',id LIMIT 1 FOR UPDATE`, key).
+		Scan(&user.ID, &user.Name, &user.Email, &user.Role, &user.Signature)
+	if errors.Is(err, pgx.ErrNoRows) {
+		err = tx.QueryRow(ctx, `INSERT INTO users(auth0_id,name,email,email_verified) VALUES('portal:'||$1,$2,$1,true)
+ ON CONFLICT(auth0_id) DO UPDATE SET auth0_id=EXCLUDED.auth0_id RETURNING id,name,email,role,signature`, key, name).
+			Scan(&user.ID, &user.Name, &user.Email, &user.Role, &user.Signature)
+	}
 	if err != nil {
-		return user, err
+		return model.User{}, err
 	}
-	if !strings.EqualFold(strings.TrimSpace(user.Email), email) {
-		return model.User{}, ErrConflict
-	}
-	if !verified {
-		if _, err = tx.Exec(ctx, `UPDATE users SET email_verified=true WHERE id=$1`, user.ID); err != nil {
-			return user, err
-		}
-	}
-	if _, err = tx.Exec(ctx, `UPDATE ticket_invites SET user_id=$1 WHERE user_id IS NULL AND email_key=lower($2)`, user.ID, email); err != nil {
-		return user, err
+	if _, err = tx.Exec(ctx, `UPDATE ticket_invites SET user_id=$1 WHERE user_id IS NULL AND email_key=$2`, user.ID, key); err != nil {
+		return model.User{}, err
 	}
 	return user, tx.Commit(ctx)
 }
