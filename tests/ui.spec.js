@@ -315,11 +315,12 @@ test('ticket image opens in an accessible in-page viewer', async ({ page }) => {
 test('login page loads only the small appearance script', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/login');
-  await expect(page.getByRole('link', { name: '使用 AtomRoute 帳號繼續' })).toHaveAttribute('href', '/login');
+  await expect(page.getByRole('link', { name: '登入', exact: true })).toHaveAttribute('href', '/login');
+  await expect(page.locator('.login-copy')).not.toContainText('AtomRoute 帳號');
   await expect(page.locator('.login-action svg')).toBeVisible();
   await expect(page.getByRole('link', { name: '註冊', exact: true })).toHaveAttribute('href', '/signup');
   // The decorative globe never covers the sign-in actions.
-  for (const name of ['使用 AtomRoute 帳號繼續', '註冊']) {
+  for (const name of ['登入', '註冊']) {
     const box = await page.getByRole('link', { name, exact: true }).boundingBox();
     expect(await page.evaluate(([x, y]) => document.elementFromPoint(x, y).closest('a')?.textContent.trim(), [box.x + box.width / 2, box.y + box.height / 2])).toBe(name);
   }

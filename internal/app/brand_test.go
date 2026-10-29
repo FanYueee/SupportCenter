@@ -67,8 +67,8 @@ func TestBrandHostSharesSignInWithItsOwnOrigin(t *testing.T) {
 		}
 	}
 	for host, want := range map[string][]string{
-		"support.vproxy.test":  {"<h1>登入 vProxy Cloud 支援中心</h1>", `href="https://vproxy.cloud"`, "vProxy Cloud</a></footer>"},
-		"support.example.test": {"<h1>登入 AtomRoute 支援中心</h1>", `href="https://www.atomroute.com/zh"`, "AtomRoute Global Network (US) LLC</a></footer>"},
+		"support.vproxy.test":  {"<h1>登入 vProxy Cloud 支援中心</h1>", `href="https://vproxy.cloud"`, "vProxy Cloud</a></footer>", "<span>登入</span>"},
+		"support.example.test": {"<h1>登入 AtomRoute 支援中心</h1>", `href="https://www.atomroute.com/zh"`, "AtomRoute Global Network (US) LLC</a></footer>", "<span>登入</span>"},
 	} {
 		body := send("GET", host, "/", "", nil).Body.String()
 		for _, text := range want {
