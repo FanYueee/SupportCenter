@@ -123,9 +123,13 @@ html:lang(en) { --list-filter-width: 220px; }
 }
 html {
   scrollbar-gutter: stable;
+  /* Keep iOS Safari from enlarging text when a phone turns to landscape. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 body {
   margin: 0;
+  min-height: 100vh;
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
@@ -235,6 +239,21 @@ textarea {
   padding: 12px;
   resize: vertical;
   line-height: 1.8;
+}
+/* iOS Safari draws native date and time fields as content-box with a minimum
+   width, so width: 100% plus padding sticks out of the card. Without the native
+   appearance they size like other fields and still open the system picker. */
+input:is([type="date"], [type="time"], [type="datetime-local"]) {
+  -webkit-appearance: none;
+  appearance: none;
+  min-width: 0;
+  max-width: 100%;
+  text-align: left;
+}
+input:is([type="date"], [type="time"], [type="datetime-local"])::-webkit-date-and-time-value {
+  margin: 0;
+  min-height: 1.5em;
+  text-align: left;
 }
 input[type="checkbox"] {
   accent-color: var(--text);
@@ -963,6 +982,10 @@ p.field-hint {
 }
 .detail-heading {
   align-items: flex-start;
+}
+/* Safari sizes a flex item to its longest word, so long names would widen the page. */
+.detail-heading > div:first-child {
+  min-width: 0;
 }
 .detail-heading h1 {
   font-size: 23px;
@@ -1939,7 +1962,7 @@ dd {
 .automation-form .account-card > .field { margin-bottom: 0; }
 .automation-form textarea { width: 100%; }
 .leave-time-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
-.leave-time-grid .field { min-width: 0; }
+.leave-time-grid .field { min-width: 0; margin-bottom: 0; }
 .leave-time-grid input { display: block; width: 100%; min-width: 0; margin-top: 6px; }
 .day-list { border-top: 1px solid var(--line); }
 .day-schedule { border-bottom: 1px solid var(--line); }
@@ -1978,6 +2001,7 @@ dd {
 .assignment-action { margin: 0; }
 .metadata-panel .assignment-person { width: 100%; min-height: 42px; margin: 0; justify-content: flex-start; gap: 9px; text-align: left; white-space: normal; }
 .assignment-person svg { width: 17px; height: 17px; flex: none; }
+.assignment-name { min-width: 0; overflow-wrap: anywhere; }
 .assignment-person.assigned { color: var(--solved); border-color: var(--solved); background: var(--solved-bg); }
 .assignment-empty { color: var(--muted); font-size: 14px; margin: 0; }
 .metadata-panel form > .button.full-width { width: 100%; margin-left: 0; }

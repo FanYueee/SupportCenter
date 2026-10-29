@@ -43,14 +43,15 @@ for (const locale of ['zh-TW', 'en-US']) {
         await page.emulateMedia({ colorScheme: 'dark' });
         await page.screenshot({ path: `artifacts/participants-${locale}-${width}-dark.png`, fullPage: true });
 
-        // The preview is read-only; backend integration tests cover the actual mutation.
+        // The preview is read-only; backend integration tests cover the actual
+        // mutation and redirect (WebKit cannot fulfil a mocked 303).
         let submitted;
         await page.route('**/tickets/1048/leave', async route => {
           submitted = new URLSearchParams(route.request().postData());
-          await route.fulfill({ status: 303, headers: { location: '/tickets' } });
+          await route.fulfill({ status: 200, contentType: 'text/html', body: '<!doctype html><title>left</title>' });
         });
         await exit.click();
-        await expect(page).toHaveURL('/tickets');
+        await expect(page).toHaveTitle('left');
         expect(submitted.get('csrf')).toBeTruthy();
         expect(submitted.has('email')).toBe(false);
       });

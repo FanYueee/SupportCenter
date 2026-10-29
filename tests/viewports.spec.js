@@ -89,6 +89,24 @@ function inspect(mobile) {
     }
   }
 
+  // Fields, buttons and media stay inside the bordered card or panel around them
+  // (iOS once drew date fields 24px past the card edge without any page scroll).
+  const frame = el => {
+    for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) {
+      const style = getComputedStyle(p);
+      if (style.overflowX !== 'visible') return null; // scroll and clip containers are checked above
+      if (style.display !== 'inline' && style.display !== 'contents' && parseFloat(style.borderLeftWidth) > 0 && parseFloat(style.borderRightWidth) > 0) return p;
+    }
+    return null;
+  };
+  for (const el of document.body.querySelectorAll('input:not([type=hidden]), select, textarea, button, .button, img, table, pre, video')) {
+    if (hidden(el) || !visible(el) || el.closest('[aria-hidden="true"]')) continue;
+    const box = frame(el);
+    if (!box) continue;
+    const r = el.getBoundingClientRect(), b = box.getBoundingClientRect();
+    if (r.width && (r.right > b.right + 1 || r.left < b.left - 1)) problems.push(`sticks out of ${label(box)}: ${label(el)} [${Math.round(r.left)}..${Math.round(r.right)} in ${Math.round(b.left)}..${Math.round(b.right)}]`);
+  }
+
   const interactive = [...document.querySelectorAll('a[href], button, input:not([type=hidden]), select, textarea, summary')].filter(el => !hidden(el) && visible(el));
   for (const el of interactive) {
     const rect = el.getBoundingClientRect();

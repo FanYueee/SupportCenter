@@ -196,6 +196,12 @@ for (const scheme of ['light', 'dark']) {
       page.on('pageerror', e => errors.push(e.message));
       page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
       page.on('request', r => { if (!r.url().startsWith('http://127.0.0.1:8081')) external.push(r.url()); });
+      // WebKit screenshots inject a style this site's CSP rightly blocks, so page errors are checked before each shot.
+      const shot = async path => {
+        expect(errors).toEqual([]);
+        await page.screenshot({ path, fullPage: true });
+        errors.length = 0;
+      };
       await page.goto('/tickets');
       await expect(page.getByRole('heading', { name: /我的客服單/  })).toBeVisible();
       await expect(page.getByRole('link', { name: 'AtomRoute 支援中心' })).toBeVisible();
@@ -206,7 +212,7 @@ for (const scheme of ['light', 'dark']) {
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       expect(await page.locator('body').evaluate(el => getComputedStyle(el).backgroundColor)).toBe(scheme === 'dark' ? 'rgb(23, 23, 23)' : 'rgb(244, 244, 244)');
       fs.mkdirSync('artifacts', { recursive: true });
-      await page.screenshot({ path: `artifacts/tickets-${scheme}-${viewport.width}.png`, fullPage: true });
+      await shot(`artifacts/tickets-${scheme}-${viewport.width}.png`);
       await page.getByRole('navigation', { name: '客服單狀態篩選' }).getByRole('link', { name: '待您回覆' }).click();
       await expect(page.locator('tbody tr')).toHaveCount(1);
       await expect(page).toHaveURL(/status=waiting/);
@@ -219,7 +225,7 @@ for (const scheme of ['light', 'dark']) {
       await expect(page.getByRole('textbox', { name: /客服單主旨/ })).toBeVisible();
       await expect(page.getByRole('textbox', { name: /客服單主旨/ })).toHaveValue('');
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-      await page.screenshot({ path: `artifacts/new-${scheme}-${viewport.width}.png`, fullPage: true });
+      await shot(`artifacts/new-${scheme}-${viewport.width}.png`);
       await page.goto('/tickets/1048');
       await expect(page.getByRole('heading', { name: '代理連線出現逾時，想確認節點狀態' })).toBeVisible();
       const backLink = page.getByRole('link', { name: '客服單列表' });
@@ -227,7 +233,7 @@ for (const scheme of ['light', 'dark']) {
       expect((await backLink.boundingBox()).height).toBeGreaterThanOrEqual(40);
       await expect(page.locator('.message')).toHaveCount(2);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-      await page.screenshot({ path: `artifacts/detail-${scheme}-${viewport.width}.png`, fullPage: true });
+      await shot(`artifacts/detail-${scheme}-${viewport.width}.png`);
       expect(errors).toEqual([]);
       expect(external).toEqual([]);
     });
@@ -343,6 +349,26 @@ test('long ticket and customer names stay within the mobile layout', async ({ pa
   await page.locator('.detail-heading p').evaluate(el => { el.append('C'.repeat(160)); });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   expect(await page.locator('.detail-heading p').evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+  await page.locator('.assignment-name').first().evaluate(el => { el.append('S'.repeat(160)); });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
+// iOS Safari sizes native date and time fields as content-box with a minimum
+// width, pushing them past the card; without the native look they fit.
+test('date and time fields fit their cards without native sizing', async ({ page }) => {
+  for (const width of [320, 390, 1280]) {
+    await page.setViewportSize({ width, height: 844 });
+    await page.goto('/admin/automation');
+    const fields = page.locator('input[type="datetime-local"], .day-schedule[open] input[type="time"]');
+    expect(await fields.count()).toBeGreaterThanOrEqual(4);
+    for (const field of await fields.all()) {
+      const fit = await field.evaluate(el => {
+        const r = el.getBoundingClientRect(), card = el.closest('.account-card').getBoundingClientRect();
+        return { appearance: getComputedStyle(el).appearance, inside: r.left >= card.left && r.right <= card.right };
+      });
+      expect(fit).toEqual({ appearance: 'none', inside: true });
+    }
+  }
 });
 
 test('staff controls, closed tickets, and compact mobile navigation', async ({ page }) => {

@@ -663,7 +663,7 @@ templ AssignmentButton(p model.Page, person model.User, self bool) {
 			} else {
 				@Icon("plus")
 			}
-			{ assignmentLabel(ctx,p.Ticket,person,self) }
+			<span class="assignment-name">{ assignmentLabel(ctx,p.Ticket,person,self) }</span>
 		</button>
 	</form>
 }
@@ -1244,6 +1244,9 @@ templ Detail(p model.Page) {
 							<label class="field">{ i18n.T(ctx,"以 Email 邀請") }<input type="email" name="email" maxlength="254" required placeholder="name@example.com"/></label>
 							<button class="button secondary" type="submit">{ i18n.T(ctx,"邀請") }</button>
 						</form>
+					}
+					if len(p.Invites)==0 && p.Ticket.UserID!=p.User.ID {
+						<p class="field-hint">{ i18n.T(ctx,"尚無參與者") }</p>
 					}
 					<ul class="invite-list">
 						for _, participant:= range p.Invites {

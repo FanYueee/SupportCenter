@@ -373,3 +373,4 @@ Discord 限制了傳送頻率，請稍後再試。	Discord is rate limiting this
 無法連線到 Discord，稍後會自動重試。	Could not reach Discord. Sending will be retried automatically.
 Webhook 網址無效，請貼上 Discord 頻道的 Webhook 網址。	Invalid webhook URL. Paste the webhook URL from your Discord channel.
 請先設定 Webhook 網址。	Set up a webhook URL first.
+尚無參與者	No participants yet
