@@ -7,6 +7,11 @@ Apache License 2.0; see [LICENSES/jsquash.txt](LICENSES/jsquash.txt).
 
 Bundled by jSquash for codec feature detection. MIT License; see [LICENSES/wasm-feature-detect.txt](LICENSES/wasm-feature-detect.txt).
 
+# Natural Earth
+
+Generated data: `web/assets/globe.svg` and `web/globe.go` (sign-in page globe), derived from Natural Earth 1:50m land v5.1.2.
+Public domain; see <https://www.naturalearthdata.com/about/terms-of-use/>.
+
 # htmx
 
 Vendored file: `web/assets/htmx.min.js` (htmx.org 2.0.8).

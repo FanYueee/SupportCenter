@@ -1282,16 +1282,49 @@ templ Detail(p model.Page) {
 }
 
 templ Login(p model.Page) {
-	<main id="workspace" class="login-page">
-		<section class="login-card">
-			<span class="login-mark" aria-hidden="true">@Icon("ticket")</span>
-			<h1>{ i18n.T(ctx,"登入支援中心") }</h1>
-			<a class="button primary full-width login-action" href="/login">
-				<span>{ i18n.T(ctx,"繼續登入") }</span>
-				@Icon("arrow")
-			</a>
+	<main id="workspace" class="login-page login-split">
+		<section class="login-panel">
+			<div class="login-copy">
+				<span class="login-mark" aria-hidden="true">@Icon("ticket")</span>
+				<h1>{ i18n.T(ctx,"登入支援中心") }</h1>
+				<p class="login-lead">{ i18n.T(ctx,"建立、追蹤及回覆您的客服單。") }</p>
+				<div class="login-actions">
+					<a class="button primary login-action" href="/login">
+						<span>{ i18n.T(ctx,"繼續登入") }</span>
+						@Icon("arrow")
+					</a>
+					<a class="button secondary login-signup" href="/signup">{ i18n.T(ctx,"註冊帳號") }</a>
+				</div>
+				<ul class="login-points">
+					<li>@Icon("file")<span>{ i18n.T(ctx,"附上截圖、記錄檔或 PDF") }</span></li>
+					<li>@Icon("clock")<span>{ i18n.T(ctx,"隨時查看處理狀態與對話紀錄") }</span></li>
+					<li>@Icon("shield")<span>{ i18n.T(ctx,"僅您與受邀成員可查看客服單") }</span></li>
+				</ul>
+			</div>
+			<div class="login-visual" aria-hidden="true">
+				@LoginGlobe()
+			</div>
 		</section>
 	</main>
+}
+
+// LoginGlobe layers the cached dot map under inline routes, which CSS animates.
+templ LoginGlobe() {
+	<svg class="login-globe" viewBox="0 0 1000 1000" focusable="false">
+		for _, layer := range []string{"ocean-far", "ocean-near", "land-edge", "land-far", "land-mid", "land-near"} {
+			<use class={ "globe-" + layer } href={ assetURL("globe.svg") + "#" + layer }></use>
+		}
+		for i, route := range globeRoutes {
+			<path class="globe-route" d={ route }></path>
+			<path class={ "globe-pulse", "globe-delay-" + strconv.Itoa(i%3) } d={ route } pathLength="100"></path>
+		}
+		for i, node := range globeNodes {
+			<circle class={ "globe-node-ring", "globe-delay-" + strconv.Itoa(i%3) } cx={ node.X } cy={ node.Y } r="7"></circle>
+			<circle class="globe-node" cx={ node.X } cy={ node.Y } r="4"></circle>
+		}
+		<circle class="globe-node-ring globe-hub-ring" cx={ globeHub.X } cy={ globeHub.Y } r="10"></circle>
+		<circle class="globe-node globe-hub" cx={ globeHub.X } cy={ globeHub.Y } r="6"></circle>
+	</svg>
 }
 
 templ Automation(p model.Page) {

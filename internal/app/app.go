@@ -56,7 +56,9 @@ func (a *App) Handler() http.Handler {
 		}
 		w.Write([]byte("ok"))
 	})
-	mux.HandleFunc("GET /login", a.loginLimiter(a.login))
+	signIn := a.loginLimiter(a.login)
+	mux.HandleFunc("GET /login", signIn)
+	mux.HandleFunc("GET /signup", signIn)
 	mux.HandleFunc("GET /auth/callback", a.callback)
 	mux.HandleFunc("POST /logout", a.protected(false, a.logout))
 	mux.HandleFunc("POST /language", a.protected(false, a.language))

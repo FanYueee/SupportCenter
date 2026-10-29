@@ -119,6 +119,8 @@ ssh -L 8081:127.0.0.1:8081 your-user@your-vps
    | Allowed Logout URLs | `https://support.atomroute.com` |
    | Application Login URI（若使用） | `https://support.atomroute.com/login` |
 
+   登入頁的「註冊帳號」連到 `/signup`，以相同的 PKCE 流程開啟 Auth0 Universal Login 的註冊畫面（`screen_hint=signup`）；需在 Auth0 的資料庫連線保持允許註冊（未勾選 Disable Sign Ups）。
+
    `AUTH0_DOMAIN` 只填 hostname，不含 `https://` 或尾端 `/`。Client secret 只存於 VPS。登入身分以 Auth0 `sub` 對應，不能靠 email 自動取得客服權限。
 
 3. 設定 Client Secret 後建置並啟動：
@@ -176,6 +178,15 @@ UI 測試啟動獨立預覽，檢查明暗模式、390px / 1440px、搜尋、篩
 go run github.com/a-h/templ/cmd/templ@v0.3.1020 generate
 npm run build
 ```
+
+登入頁的點陣地球由 `scripts/build-globe.mjs` 從 Natural Earth 1:50m 陸地資料產生：陸地與海洋點陣在可快取的 `web/assets/globe.svg`，動態航線與節點在 `web/globe.go`，兩者皆已提交，建置時不需下載。調整視角或點距後重新產生：
+
+```sh
+curl -fsSLo /tmp/ne_50m_land.geojson https://raw.githubusercontent.com/nvkelso/natural-earth-vector/v5.1.2/geojson/ne_50m_land.geojson
+node scripts/build-globe.mjs /tmp/ne_50m_land.geojson
+```
+
+`npm run test:ui` 另包含 `tests/viewports.spec.js`：以 30 種手機、折疊機、平板與桌機尺寸及深淺色檢查所有預覽頁面的橫向溢出、裁切、重疊、觸控目標與 iOS 輸入框縮放，截圖輸出到 `artifacts/viewports/`。
 
 Go dependency 與 npm dependency 均以 lockfile 固定。`web/assets/htmx.min.js` 由 npm build 複製，瀏覽器不依賴 CDN。
 

@@ -163,3 +163,23 @@ func TestOIDCLoginAndSessionLifecycle(t *testing.T) {
 		})
 	}
 }
+
+func TestSignupOpensAuth0SignupScreen(t *testing.T) {
+	a, _, _, _, _ := testApp(t)
+	a.Auth = &Auth{OAuth: oauth2.Config{ClientID: "test-client", RedirectURL: a.Origin + "/auth/callback", Endpoint: oauth2.Endpoint{AuthURL: "https://sso.example.test/authorize"}, Scopes: []string{"openid"}}}
+	h := a.Handler()
+	for path, hint := range map[string]string{"/login": "", "/signup": "signup"} {
+		res := request(h, "GET", path, "", nil)
+		target, err := url.Parse(res.Header().Get("Location"))
+		if res.Code != http.StatusFound || err != nil || target.Host != "sso.example.test" {
+			t.Fatalf("%s: %d %q", path, res.Code, res.Header().Get("Location"))
+		}
+		q := target.Query()
+		if q.Get("screen_hint") != hint || q.Get("state") == "" || q.Get("code_challenge_method") != "S256" || q.Get("nonce") == "" {
+			t.Fatalf("%s: unexpected authorize parameters %v", path, q)
+		}
+		if !strings.Contains(res.Header().Get("Set-Cookie"), "__Host-support-login=") {
+			t.Fatalf("%s: login state cookie missing", path)
+		}
+	}
+}

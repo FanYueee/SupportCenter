@@ -65,8 +65,12 @@ test('automatic reply settings are clear on mobile', async ({ page }) => {
   await expect(monday.locator('input[name="day_start_0"]').nth(1)).toHaveValue('13:00');
   const row = monday.locator('.range-row').first();
   const inputBox = await row.locator('input[name="day_start_0"]').boundingBox();
+  const endBox = await row.locator('input[name="day_end_0"]').boundingBox();
   const removeBox = await row.getByRole('button', { name: '移除時段' }).boundingBox();
-  expect(Math.abs((inputBox.y + inputBox.height) - (removeBox.y + removeBox.height))).toBeLessThan(2);
+  // Narrow phones keep both times readable and move the remove action below the pair.
+  expect(inputBox.width).toBeGreaterThanOrEqual(110);
+  expect(removeBox.y).toBeGreaterThan(inputBox.y + inputBox.height);
+  expect(Math.abs((removeBox.x + removeBox.width) - (endBox.x + endBox.width))).toBeLessThan(2);
   await monday.getByRole('button', { name: '新增時段' }).click();
   await expect(monday.locator('.range-row')).toHaveCount(3);
   await monday.locator('.range-row').last().getByRole('button', { name: '移除時段' }).click();
@@ -312,7 +316,12 @@ test('login page loads only the small appearance script', async ({ page }) => {
   await page.goto('/login');
   await expect(page.getByRole('link', { name: '繼續登入' })).toBeVisible();
   await expect(page.locator('.login-action svg')).toBeVisible();
-  await expect(page.locator('.login-card')).toHaveCSS('border-top-width', '1px');
+  await expect(page.getByRole('link', { name: '註冊帳號' })).toHaveAttribute('href', '/signup');
+  // The decorative globe never covers the sign-in actions.
+  for (const name of ['繼續登入', '註冊帳號']) {
+    const box = await page.getByRole('link', { name }).boundingBox();
+    expect(await page.evaluate(([x, y]) => document.elementFromPoint(x, y).closest('a')?.textContent.trim(), [box.x + box.width / 2, box.y + box.height / 2])).toBe(name);
+  }
   await expect(page.locator('script')).toHaveCount(1);
   await expect(page.locator('script[src*="theme.js"]')).toHaveCount(1);
   await expect(page.locator('script[src*="htmx.min.js"], script[src*="app.js"]')).toHaveCount(0);

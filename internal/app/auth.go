@@ -64,7 +64,12 @@ func (a *App) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.SetCookie(w, cookie("__Host-support-login", state, 600))
-	http.Redirect(w, r, a.Auth.OAuth.AuthCodeURL(state, oidc.Nonce(nonce), oauth2.S256ChallengeOption(verifier)), http.StatusFound)
+	options := []oauth2.AuthCodeOption{oidc.Nonce(nonce), oauth2.S256ChallengeOption(verifier)}
+	// /signup runs the same flow but opens the Auth0 Universal Login sign-up screen.
+	if r.URL.Path == "/signup" {
+		options = append(options, oauth2.SetAuthURLParam("screen_hint", "signup"))
+	}
+	http.Redirect(w, r, a.Auth.OAuth.AuthCodeURL(state, options...), http.StatusFound)
 }
 func (a *App) callback(w http.ResponseWriter, r *http.Request) {
 	r = r.WithContext(database.WithRequestInfo(r.Context(), ClientRequestInfo(r)))

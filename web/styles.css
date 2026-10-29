@@ -40,6 +40,8 @@ html.preserving-scroll { overflow-anchor: none; }
   --priority-high-bg: #fff4df;
   --priority-urgent: #b32632;
   --priority-urgent-bg: #fff2f3;
+  --globe-land: #2b2b2b;
+  --globe-ocean: #c2c2c2;
 }
 html:lang(en) { --list-filter-width: 220px; }
 @media (prefers-color-scheme: dark) {
@@ -77,6 +79,8 @@ html:lang(en) { --list-filter-width: 220px; }
     --priority-high-bg: #342715;
     --priority-urgent: #f08c94;
     --priority-urgent-bg: #321f22;
+    --globe-land: #d6d6d6;
+    --globe-ocean: #3d3d3d;
   }
 }
 :root[data-theme="dark"] {
@@ -113,6 +117,8 @@ html:lang(en) { --list-filter-width: 220px; }
     --priority-high-bg: #342715;
     --priority-urgent: #f08c94;
     --priority-urgent-bg: #321f22;
+    --globe-land: #d6d6d6;
+    --globe-ocean: #3d3d3d;
 }
 
 * {
@@ -1314,6 +1320,165 @@ dd {
 .login-card .ticket-reference {
   margin-bottom: 15px;
 }
+/* Sign-in: copy on the left over a large globe cropped by the right edge. */
+.login-page.login-split {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-items: normal;
+  overflow: hidden;
+  padding: 48px 40px;
+}
+.login-panel {
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+}
+.login-copy {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  max-width: 420px;
+}
+.login-copy h1 {
+  margin: 0 0 12px;
+  font-size: clamp(30px, 3.2vw, 42px);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+.login-lead {
+  margin: 0 0 32px;
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1.6;
+}
+.login-actions {
+  display: grid;
+  gap: 10px;
+  width: min(100%, 340px);
+}
+.login-actions .button {
+  min-height: 46px;
+}
+.login-signup {
+  justify-content: flex-start;
+  background: var(--bg);
+}
+.login-points {
+  display: grid;
+  gap: 14px;
+  width: min(100%, 340px);
+  margin: 32px 0 0;
+  padding: 24px 0 0;
+  border-top: 1px solid var(--line);
+  list-style: none;
+}
+.login-points li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.login-points svg {
+  flex: none;
+  box-sizing: content-box;
+  width: 15px;
+  height: 15px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--text);
+}
+/* Decoration only: sized so its left edge stays clear of the copy. */
+.login-visual {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.login-globe {
+  --copy-reserve: 560px;
+  --globe-size: min(128dvh, 1500px, calc((100vw - var(--copy-reserve)) / 0.65));
+  position: absolute;
+  top: 50%;
+  right: calc(var(--globe-size) * -0.28);
+  width: var(--globe-size);
+  height: var(--globe-size);
+  transform: translateY(-50%);
+}
+.globe-ocean-far { color: var(--globe-ocean); opacity: 0.55; }
+.globe-ocean-near { color: var(--globe-ocean); }
+.globe-land-edge { color: var(--globe-land); opacity: 0.2; }
+.globe-land-far { color: var(--globe-land); opacity: 0.38; }
+.globe-land-mid { color: var(--globe-land); opacity: 0.68; }
+.globe-land-near { color: var(--globe-land); opacity: 0.9; }
+.globe-route { fill: none; stroke: var(--text); stroke-width: 1.2; opacity: 0.4; }
+.globe-pulse {
+  fill: none;
+  stroke: var(--text);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-dasharray: 4 96;
+  animation: globe-flow 4.8s linear infinite;
+}
+.globe-node { fill: var(--text); stroke: var(--bg); stroke-width: 2; }
+.globe-node-ring {
+  fill: none;
+  stroke: var(--text);
+  stroke-width: 1.5;
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: globe-ping 3.6s ease-out infinite;
+}
+.globe-delay-1 { animation-delay: 1.2s; }
+.globe-delay-2 { animation-delay: 2.4s; }
+@keyframes globe-flow {
+  to { stroke-dashoffset: -100; }
+}
+@keyframes globe-ping {
+  0% { transform: scale(0.6); opacity: 0.55; }
+  70%, 100% { transform: scale(2.6); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .globe-pulse { display: none; }
+  .globe-node-ring { animation: none; opacity: 0.3; }
+}
+/* Portrait screens stack the copy above a globe that bleeds off the right edge. */
+@media (orientation: portrait) and (max-width: 1100px), (max-width: 640px) {
+  .login-page.login-split { flex-direction: column; align-items: stretch; padding: 40px 40px 0; }
+  .login-panel { display: flex; flex: 1 0 auto; flex-direction: column; }
+  .login-copy { max-width: 520px; }
+  .login-visual {
+    position: relative;
+    inset: auto;
+    flex: 1 0 auto;
+    min-height: clamp(300px, 50dvh, 560px);
+    margin: 16px -40px 0;
+  }
+  .login-globe {
+    --globe-size: clamp(560px, 135vw, 1100px);
+    top: 0;
+    transform: none;
+  }
+}
+@media (max-width: 760px) {
+  .login-page.login-split { padding: 32px 20px 0; }
+}
+@media (orientation: portrait) and (max-width: 760px), (max-width: 640px) {
+  .login-visual { margin-inline: -20px; }
+}
+@media (max-height: 520px) and (orientation: landscape) {
+  .login-page.login-split { padding-block: 24px; }
+  .login-copy { max-width: 300px; }
+  .login-mark, .login-points { display: none; }
+  .login-lead { margin-bottom: 20px; }
+  .login-globe { --copy-reserve: 380px; }
+}
 .htmx-request button[type="submit"] {
   opacity: 0.65;
 }
@@ -1631,6 +1796,15 @@ dd {
     gap: 4px;
   }
 }
+/* iOS Safari zooms into focused fields under 16px, including landscape phones and tablets. */
+@media (pointer: coarse) {
+  :is(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), select, textarea) {
+    font-size: 16px;
+  }
+}
+@media (max-width: 300px) {
+  .brand-name { display: none; }
+}
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -1765,6 +1939,15 @@ dd {
 .button.handoff-action:hover { background: var(--priority-normal-bg); filter: brightness(.95); }
 .automated-avatar svg { width: 18px; height: 18px; }
 @media (max-width: 600px) { .range-row { grid-template-columns: minmax(0,1fr) minmax(0,1fr) auto; gap: 6px; } .range-remove { height: 44px; padding-inline: 8px; } }
+@media (max-width: 600px) { .settings-tabs { flex-wrap: wrap; gap: 0 20px; overflow-x: visible; } }
+/* Narrow phones keep both times readable; the remove action moves below the pair. */
+@media (max-width: 480px) {
+  .range-row { grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 8px 6px; }
+  .range-remove { grid-column: 1 / -1; justify-self: end; height: 36px; }
+}
+@media (pointer: coarse) and (max-width: 480px) {
+  .range-row input[type="time"]::-webkit-calendar-picker-indicator { display: none; }
+}
 @media (max-width: 600px) { .leave-time-grid { grid-template-columns: 1fr; } }
 @media (max-width: 600px) {
   .notification-item { flex-wrap: wrap; gap: 10px; }
