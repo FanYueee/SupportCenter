@@ -941,7 +941,7 @@ templ NewTicket(p model.Page) {
 				<span class="field-hint">{ i18n.T(ctx,"輸入 Email，多位參與者請以逗號分隔。") }</span>
 			</label>
 			if p.AIEnabled {
-				<p class="field-hint ai-disclosure">{ i18n.T(ctx,"AI 會讀取主旨及問題描述並回覆；公開訊息會傳送至 OpenCode Go。附件不會傳送。可隨時轉真人客服。") }</p>
+				<p class="field-hint ai-disclosure">{ i18n.T(ctx,"AI 會讀取主旨及問題描述並回覆；公開訊息會傳送至 OpenAI。附件不會傳送。可隨時轉真人客服。") }</p>
 			}
 			@Upload()
 			<div class="form-actions">
@@ -1402,7 +1402,7 @@ templ AISettings(p model.Page) {
 	<form class="ai-settings-form" method="post" action="/admin/ai">
 		<input type="hidden" name="csrf" value={ p.CSRF }/>
 		<section class="account-card">
-			<div class="ai-model-line"><h2>{ i18n.T(ctx,"回覆模型") }</h2><span>DeepSeek V4.1 Flash</span></div>
+			<div class="ai-model-line"><h2>{ i18n.T(ctx,"回覆模型") }</h2><span>{ p.AIModel }</span></div>
 			<div class="ai-model-line"><h2>{ i18n.T(ctx,"自動回覆") }</h2><span>{ i18n.T(ctx,choose(p.AIEnabled,"啟用中","未啟用")) }</span></div>
 		</section>
 		<section class="account-card">

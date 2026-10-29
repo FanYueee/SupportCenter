@@ -58,9 +58,15 @@ func (a *App) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	state, nonce, verifier := token(), token(), oauth2.GenerateVerifier()
-	_, err := a.Store.Pool.Exec(r.Context(), `INSERT INTO login_flows(state_hash,nonce,verifier,expires_at) VALUES($1,$2,$3,now()+interval '10 minutes')`, hash(state), nonce, verifier)
+	// Pending flows are capped so a flood cannot grow the table without bound.
+	res, err := a.Store.Pool.Exec(r.Context(), `INSERT INTO login_flows(state_hash,nonce,verifier,expires_at) SELECT $1,$2,$3,now()+interval '10 minutes' WHERE (SELECT count(*) FROM login_flows WHERE expires_at>now())<20000`, hash(state), nonce, verifier)
 	if err != nil {
 		a.fail(w, r, err)
+		return
+	}
+	if res.RowsAffected() == 0 {
+		w.Header().Set("Retry-After", "60")
+		a.problem(w, r, 429, "登入請求過多，請稍候再試。")
 		return
 	}
 	http.SetCookie(w, cookie("__Host-support-login", state, 600))

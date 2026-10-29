@@ -15,6 +15,7 @@ func (a *App) aiSettings(w http.ResponseWriter, r *http.Request) {
 	p := base(r)
 	p.Active, p.Title = "ai", "AI 回覆"
 	p.AIEnabled = a.AIEnabled
+	p.AIModel = a.AIModel
 	p.Saved = r.URL.Query().Get("saved") == "1"
 	var err error
 	p.AIPrompts, err = a.Store.AIPrompts(r.Context())

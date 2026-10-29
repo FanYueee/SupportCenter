@@ -95,7 +95,7 @@ test('admin settings share one stable menu and department prompts fit mobile', a
     expect(Math.max(...menuPositions) - Math.min(...menuPositions)).toBeLessThan(2);
     await page.goto('/admin/ai');
     await expect(page.getByRole('heading', { name: 'AI 指令' })).toBeVisible();
-    await expect(page.getByText('DeepSeek V4.1 Flash')).toBeVisible();
+    await expect(page.getByText('gpt-6-luna')).toBeVisible();
     for (const name of ['general_prompt', 'billing_prompt', 'technical_prompt']) {
       await expect(page.locator(`textarea[name="${name}"]`)).toBeVisible();
     }

@@ -10,6 +10,19 @@ import (
 	"supportcenter/internal/database"
 )
 
+// clientKey groups requests for rate limits. An IPv6 host usually controls a
+// whole /64, so its addresses count as one client.
+func clientKey(r *http.Request) string {
+	ip, err := netip.ParseAddr(ClientRequestInfo(r).IP)
+	if err != nil {
+		return ""
+	}
+	if ip.Is6() {
+		return netip.PrefixFrom(ip, 64).Masked().String()
+	}
+	return ip.String()
+}
+
 func ClientRequestInfo(r *http.Request) database.RequestInfo {
 	var info database.RequestInfo
 	host, _, err := net.SplitHostPort(r.RemoteAddr)

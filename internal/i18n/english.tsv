@@ -3,7 +3,7 @@ AI 助理已回覆	AI assistant replied
 AI 助理處理中	AI assistant is working
 AI 回覆	AI reply
 AI 指令	AI prompts
-AI 會讀取主旨及問題描述並回覆；公開訊息會傳送至 OpenCode Go。附件不會傳送。可隨時轉真人客服。	AI reads the subject and description to reply. Public messages are sent to OpenCode Go; attachments are not. You can switch to a person at any time.
+AI 會讀取主旨及問題描述並回覆；公開訊息會傳送至 OpenAI。附件不會傳送。可隨時轉真人客服。	AI reads the subject and description to reply. Public messages are sent to OpenAI; attachments are not. You can switch to a person at any time.
 AtomRoute 官方網站	AtomRoute website
 AtomRoute 支援中心	AtomRoute Support Center
 IP 未記錄	IP not recorded

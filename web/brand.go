@@ -17,8 +17,8 @@ type Brand struct {
 const DefaultBrand = "atomroute"
 
 var brands = map[string]Brand{
-	"atomroute": {Key: "atomroute", Name: "AtomRoute", LogoAlt: "AtomRoute Global Network", Logo: "atomroute-logo.png", Icon: "atomroute-icon.png", LogoWidth: "1200", LogoHeight: "280"},
-	"vproxy":    {Key: "vproxy", Name: "vProxy Cloud", LogoAlt: "vProxy Cloud", Logo: "vproxy-logo.png", Icon: "vproxy-icon.png", LogoWidth: "824", LogoHeight: "280"},
+	"atomroute": {Key: "atomroute", Name: "AtomRoute", LogoAlt: "AtomRoute Global Network", Logo: "atomroute-logo.png", Icon: "atomroute-icon.png", LogoWidth: "640", LogoHeight: "149"},
+	"vproxy":    {Key: "vproxy", Name: "vProxy Cloud", LogoAlt: "vProxy Cloud", Logo: "vproxy-logo.png", Icon: "vproxy-icon.png", LogoWidth: "440", LogoHeight: "150"},
 }
 
 func KnownBrand(key string) bool { _, ok := brands[key]; return ok }

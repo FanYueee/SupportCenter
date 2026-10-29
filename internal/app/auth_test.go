@@ -183,3 +183,21 @@ func TestSignupOpensAuth0SignupScreen(t *testing.T) {
 		}
 	}
 }
+
+func TestPendingLoginFlowsAreCapped(t *testing.T) {
+	a, _, _, _, _ := testApp(t)
+	a.Auth = &Auth{OAuth: oauth2.Config{ClientID: "test-client", RedirectURL: a.Origin + "/auth/callback", Endpoint: oauth2.Endpoint{AuthURL: "https://sso.example.test/authorize"}}}
+	h := a.Handler()
+	if _, err := a.Store.Pool.Exec(context.Background(), `INSERT INTO login_flows(state_hash,nonce,verifier,expires_at) SELECT md5(g::text),'n','v',now()+interval '10 minutes' FROM generate_series(1,20000) g`); err != nil {
+		t.Fatal(err)
+	}
+	if res := request(h, "GET", "/login", "", nil); res.Code != http.StatusTooManyRequests {
+		t.Fatal("login flow table grew past its cap", res.Code)
+	}
+	if _, err := a.Store.Pool.Exec(context.Background(), `UPDATE login_flows SET expires_at=now()-interval '1 second' WHERE state_hash IN (SELECT state_hash FROM login_flows LIMIT 1)`); err != nil {
+		t.Fatal(err)
+	}
+	if res := request(h, "GET", "/login", "", nil); res.Code != http.StatusFound {
+		t.Fatal("expired flows still counted against the cap", res.Code)
+	}
+}

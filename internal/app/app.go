@@ -25,6 +25,7 @@ import (
 type App struct {
 	Store       *database.Store
 	AIEnabled   bool
+	AIModel     string
 	MailEnabled bool
 	Auth        *Auth
 	Files       *os.Root
@@ -41,8 +42,7 @@ type App struct {
 func (a *App) Handler() http.Handler {
 	mux := http.NewServeMux()
 	a.registerPortalAPI(mux)
-	assets, _ := fs.Sub(web.Assets, "assets")
-	mux.Handle("GET /assets/", http.StripPrefix("/assets/", http.FileServerFS(assets)))
+	mux.Handle("GET /assets/", AssetHandler())
 	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
 		if _, err := a.session(r); err == nil {
 			http.Redirect(w, r, "/tickets", 303)
@@ -125,7 +125,7 @@ func (a *App) Handler() http.Handler {
 		if r.Method == http.MethodPost {
 			ip := ""
 			if !strings.HasPrefix(r.URL.Path, "/api/portal/") {
-				ip = ClientRequestInfo(r).IP
+				ip = clientKey(r)
 			}
 			clientsMu.Lock()
 			allowed := ip == "" || clients[ip] < 2
@@ -179,6 +179,24 @@ func (a *App) site(r *http.Request) (origin, brand string) {
 	}
 	return a.Origin, web.DefaultBrand
 }
+
+// AssetHandler serves embedded assets. Pages link them with ?v=<content hash>,
+// so a matching URL can be cached for a year; every asset also gets an ETag so
+// unversioned files (worker codecs, wasm) revalidate without a download.
+func AssetHandler() http.Handler {
+	assets, _ := fs.Sub(web.Assets, "assets")
+	static := http.StripPrefix("/assets/", http.FileServerFS(assets))
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if version, ok := web.AssetVersion(strings.TrimPrefix(r.URL.Path, "/assets/")); ok {
+			w.Header().Set("ETag", `"`+version+`"`)
+			if r.URL.Query().Get("v") == version {
+				w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+			}
+		}
+		static.ServeHTTP(w, r)
+	})
+}
+
 func SecurityHeaders(next http.Handler, authOrigins ...string) http.Handler {
 	formAction := "form-action 'self'"
 	for _, origin := range authOrigins {
@@ -620,25 +638,22 @@ func (a *App) afterMutation(w http.ResponseWriter, r *http.Request, id int64, ad
 	}
 }
 
-// Bounded login rate limits prevent unauthenticated database growth; the
-// per-client limit keeps one source from exhausting the global allowance.
+// The per-client login limit slows one source without a site-wide cap that a
+// many-address attacker could exhaust for everyone; login() bounds stored flows.
 func (a *App) loginLimiter(next http.HandlerFunc) http.HandlerFunc {
 	var mu sync.Mutex
 	var start time.Time
-	count := 0
 	clients := map[string]int{}
 	return func(w http.ResponseWriter, r *http.Request) {
-		ip := ClientRequestInfo(r).IP
+		key := clientKey(r)
 		mu.Lock()
 		if time.Since(start) > time.Minute {
 			start = time.Now()
-			count = 0
 			clear(clients)
 		}
-		allowed := count < 600 && clients[ip] < 5
+		allowed := clients[key] < 5 && (clients[key] > 0 || len(clients) < 100000)
 		if allowed {
-			count++
-			clients[ip]++
+			clients[key]++
 		}
 		mu.Unlock()
 		if !allowed {

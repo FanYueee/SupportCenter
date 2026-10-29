@@ -4,7 +4,6 @@ package main
 import (
 	"crypto/rand"
 	"crypto/subtle"
-	"io/fs"
 	"log"
 	"net/http"
 	"sort"
@@ -12,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"supportcenter/internal/ai"
 	"supportcenter/internal/app"
 	"supportcenter/internal/i18n"
 	"supportcenter/internal/model"
@@ -20,8 +20,7 @@ import (
 
 func main() {
 	mux := http.NewServeMux()
-	assets, _ := fs.Sub(web.Assets, "assets")
-	mux.Handle("GET /assets/", http.StripPrefix("/assets/", http.FileServerFS(assets)))
+	mux.Handle("GET /assets/", app.AssetHandler())
 	mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
 		p := fixture()
 		p.CSRF = rand.Text()
@@ -74,6 +73,7 @@ func main() {
 		if r.URL.Path == "/admin/ai" {
 			p.Active, p.Title = "ai", "AI 指令"
 			p.AIEnabled = true
+			p.AIModel = ai.DefaultModel
 			p.AIPrompts = model.AIPrompts{General: "請先確認客戶的需求，再給出簡短步驟。", Billing: "帳務問題請先核對訂單編號，無法查證時交由真人客服。", Technical: "技術問題請先請客戶提供發生時間與錯誤訊息。"}
 		}
 		if r.URL.Path == "/admin/departments" {

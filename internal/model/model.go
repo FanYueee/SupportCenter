@@ -254,6 +254,7 @@ type Page struct {
 	HasMoreActivities, HasMoreLogins, Saved                                                                   bool
 	Page, MessagePage                                                                                         int
 	HasNext, HasMoreMessages, Admin, Preview, AIEnabled, MailEnabled                                          bool
+	AIModel                                                                                                   string
 }
 
 func Status(s string) string {

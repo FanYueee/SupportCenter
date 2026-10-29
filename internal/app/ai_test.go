@@ -20,8 +20,8 @@ func TestAIReplyAndHandoff(t *testing.T) {
 	var calls int
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		calls++
-		if r.Header.Get("Authorization") != "Bearer test-key" || !strings.HasPrefix(r.Header.Get("x-opencode-session"), "supportcenter-") {
-			t.Error("missing provider authorization or stable session")
+		if r.Header.Get("Authorization") != "Bearer test-key" || r.Header.Get("x-opencode-session") != "" {
+			t.Error("missing OpenAI authorization or leftover provider header")
 		}
 		var payload struct {
 			Model    string `json:"model"`
@@ -29,8 +29,12 @@ func TestAIReplyAndHandoff(t *testing.T) {
 				Role    string `json:"role"`
 				Content string `json:"content"`
 			} `json:"messages"`
+			Store            *bool  `json:"store"`
+			ReasoningEffort  string `json:"reasoning_effort"`
+			SafetyIdentifier string `json:"safety_identifier"`
+			MaxTokens        int    `json:"max_completion_tokens"`
 		}
-		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil || payload.Model != ai.Model || len(payload.Messages) != calls*2 || payload.Messages[0].Role != "user" || payload.Messages[0].Content != "節點連線" || payload.Messages[1].Role != "user" || payload.Messages[1].Content != "節點連線逾時" {
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil || payload.Model != ai.DefaultModel || payload.Store == nil || *payload.Store || payload.ReasoningEffort != "low" || payload.MaxTokens <= 0 || !strings.HasPrefix(payload.SafetyIdentifier, "supportcenter-") || strings.Contains(payload.SafetyIdentifier, "alice") || len(payload.Messages) != calls*2 || payload.Messages[0].Role != "user" || payload.Messages[0].Content != "節點連線" || payload.Messages[1].Role != "user" || payload.Messages[1].Content != "節點連線逾時" {
 			t.Errorf("unexpected provider request: %+v %v", payload, err)
 		}
 		if calls == 2 && (payload.Messages[2].Role != "assistant" || payload.Messages[3].Content != "今天早上，台北節點") {
@@ -154,7 +158,7 @@ func TestAIFailureTransfersToHuman(t *testing.T) {
 func TestAIEnabledCreationDisclosesAndQueues(t *testing.T) {
 	a, h, alice, _, _ := testApp(t)
 	a.AIEnabled = true
-	if got := request(h, "GET", "/tickets/new", "alice", nil); got.Code != 200 || !strings.Contains(got.Body.String(), "公開訊息會傳送至 OpenCode Go") {
+	if got := request(h, "GET", "/tickets/new", "alice", nil); got.Code != 200 || !strings.Contains(got.Body.String(), "公開訊息會傳送至 OpenAI") {
 		t.Fatalf("AI disclosure missing: %d", got.Code)
 	}
 	form := url.Values{"csrf": {"csrf-alice"}, "subject": {"AI create"}, "category": {"other"}, "priority": {"normal"}, "body": {"hello"}}
@@ -171,6 +175,7 @@ func TestAIEnabledCreationDisclosesAndQueues(t *testing.T) {
 
 func TestAIPromptsAdminAndDepartmentRouting(t *testing.T) {
 	a, h, alice, _, _ := testApp(t)
+	a.AIModel = ai.DefaultModel
 	path := "/admin/ai"
 	if got := request(h, "GET", path, "alice", nil); got.Code != 404 {
 		t.Fatalf("user read: %d", got.Code)
@@ -190,7 +195,7 @@ func TestAIPromptsAdminAndDepartmentRouting(t *testing.T) {
 		t.Fatalf("admin save: %d", got.Code)
 	}
 	page := request(h, "GET", path, "admin", nil)
-	if page.Code != 200 || !strings.Contains(page.Body.String(), "DeepSeek V4.1 Flash") || !strings.Contains(page.Body.String(), "留空就不送系統指令") || !strings.Contains(page.Body.String(), "技術部門專用 &lt;script&gt;") || strings.Contains(page.Body.String(), "<script>alert(1)</script>") {
+	if page.Code != 200 || !strings.Contains(page.Body.String(), ai.DefaultModel) || !strings.Contains(page.Body.String(), "留空就不送系統指令") || !strings.Contains(page.Body.String(), "技術部門專用 &lt;script&gt;") || strings.Contains(page.Body.String(), "<script>alert(1)</script>") {
 		t.Fatalf("settings page did not render escaped prompts: %d", page.Code)
 	}
 	if got := request(h, "POST", path, "admin", url.Values{"csrf": {"csrf-admin"}, "general_prompt": {strings.Repeat("中", 4001)}}); got.Code != 422 {
@@ -209,7 +214,7 @@ func TestAIPromptsAdminAndDepartmentRouting(t *testing.T) {
 				Content string `json:"content"`
 			} `json:"messages"`
 		}
-		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil || payload.Model != ai.Model || len(payload.Messages) == 0 || payload.Messages[0].Role != "system" {
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil || payload.Model != "gpt-6.1-luna" || len(payload.Messages) == 0 || payload.Messages[0].Role != "system" {
 			t.Errorf("provider payload: %+v %v", payload, err)
 		} else {
 			gotSystems = append(gotSystems, payload.Messages[0].Content)
@@ -217,7 +222,8 @@ func TestAIPromptsAdminAndDepartmentRouting(t *testing.T) {
 		fmt.Fprint(w, `{"choices":[{"message":{"content":"已收到，會協助處理。"}}]}`)
 	}))
 	defer provider.Close()
-	worker := &ai.Worker{Store: a.Store, Key: "test-key", Endpoint: provider.URL, Client: provider.Client()}
+	// OPENAI_MODEL overrides the default model.
+	worker := &ai.Worker{Store: a.Store, Key: "test-key", Model: "gpt-6.1-luna", Endpoint: provider.URL, Client: provider.Client()}
 	for _, category := range []string{"other", "billing", "technical"} {
 		_, err := a.Store.Create(context.Background(), alice, model.Ticket{Subject: category, Category: category, Priority: "normal", AssistanceMode: "ai"}, "測試問題", nil)
 		if err != nil {

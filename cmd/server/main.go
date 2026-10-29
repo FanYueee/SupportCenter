@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"regexp"
 	"strings"
 	"syscall"
 	"time"
@@ -24,6 +25,9 @@ func main() {
 		os.Exit(1)
 	}
 }
+
+var aiModelName = regexp.MustCompile(`^[a-z0-9][a-z0-9.-]{0,63}$`)
+
 func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
@@ -68,9 +72,16 @@ func run() error {
 		return err
 	}
 	aiEnabled := os.Getenv("AI_AUTO_REPLY_ENABLED") == "true"
-	aiKey := os.Getenv("OPENCODE_GO_API_KEY")
+	aiKey := os.Getenv("OPENAI_API_KEY")
 	if aiEnabled && aiKey == "" {
-		return errors.New("AI_AUTO_REPLY_ENABLED requires OPENCODE_GO_API_KEY")
+		return errors.New("AI_AUTO_REPLY_ENABLED requires OPENAI_API_KEY")
+	}
+	aiModel := os.Getenv("OPENAI_MODEL")
+	if aiModel == "" {
+		aiModel = ai.DefaultModel
+	}
+	if !aiModelName.MatchString(aiModel) {
+		return errors.New("OPENAI_MODEL must be an OpenAI model ID such as " + ai.DefaultModel)
 	}
 	mailConfig := notify.Config{
 		Host: os.Getenv("SMTP_HOST"), Port: os.Getenv("SMTP_PORT"), From: os.Getenv("SMTP_FROM"),
@@ -89,9 +100,9 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	a := &app.App{Store: store, Auth: auth, Files: files, Origin: origin, BrandHosts: brandHosts, Log: slog.Default(), AIEnabled: aiEnabled, MailEnabled: mailConfig.Enabled(), PortalAPI: portalAPI}
+	a := &app.App{Store: store, Auth: auth, Files: files, Origin: origin, BrandHosts: brandHosts, Log: slog.Default(), AIEnabled: aiEnabled, AIModel: aiModel, MailEnabled: mailConfig.Enabled(), PortalAPI: portalAPI}
 	if aiEnabled {
-		go (&ai.Worker{Store: store, Key: aiKey, Log: slog.Default()}).Run(ctx)
+		go (&ai.Worker{Store: store, Key: aiKey, Model: aiModel, Log: slog.Default()}).Run(ctx)
 	}
 	if mailConfig.Enabled() {
 		go (&notify.Worker{Store: store, Sender: notify.SMTP{Config: mailConfig}, Origin: origin, Log: slog.Default()}).Run(ctx)

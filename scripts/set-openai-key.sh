@@ -12,13 +12,13 @@ if [[ ! -r /dev/tty ]]; then
   echo 'Run this script from an interactive VPS terminal.' >&2
   exit 1
 fi
-read -r -s -p 'OpenCode Go API key: ' opencode_key </dev/tty
+read -r -s -p 'OpenAI API key: ' openai_key </dev/tty
 printf '\n' >/dev/tty
-if [[ -z "$opencode_key" ]]; then
+if [[ -z "$openai_key" ]]; then
   echo 'API key cannot be empty.' >&2
   exit 1
 fi
-printf '%s' "$opencode_key" | python3 -c '
+printf '%s' "$openai_key" | python3 -c '
 import os
 import pathlib
 import sys
@@ -29,7 +29,7 @@ secret = sys.stdin.read()
 if any(c in secret for c in "\r\n\x00\047\\"):
     raise SystemExit("API key contains a character unsupported by this installer.")
 lines = path.read_text().splitlines(keepends=True)
-for key, value in (("OPENCODE_GO_API_KEY", "\047" + secret + "\047"), ("AI_AUTO_REPLY_ENABLED", "true")):
+for key, value in (("OPENAI_API_KEY", "\047" + secret + "\047"), ("AI_AUTO_REPLY_ENABLED", "true")):
     matches = [i for i, line in enumerate(lines) if line.startswith(key + "=")]
     if len(matches) > 1:
         raise SystemExit("Duplicate " + key + " entries in .env")
@@ -48,6 +48,6 @@ except BaseException:
     os.unlink(name)
     raise
 ' "$env_file"
-unset opencode_key
-echo 'OpenCode Go key saved; AI automatic replies enabled in .env.'
+unset openai_key
+echo 'OpenAI key saved; AI automatic replies enabled in .env.'
 echo 'Restart the app container to apply the setting: docker compose up -d --no-deps app'

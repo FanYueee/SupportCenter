@@ -88,7 +88,10 @@ func webpPreview(ctx context.Context, data []byte, name string, width, height in
 	case <-deadline.Done():
 		return nil, errors.New("無法產生圖片預覽")
 	}
-	if err = exec.CommandContext(deadline, "cwebp", args...).Run(); err != nil {
+	cmd := exec.CommandContext(deadline, "cwebp", args...)
+	// The decoder parses untrusted images; keep server secrets out of its environment.
+	cmd.Env = []string{"PATH=/usr/local/bin:/usr/bin:/bin"}
+	if err = cmd.Run(); err != nil {
 		return nil, errors.New("無法產生圖片預覽")
 	}
 	result, err := os.ReadFile(output)
