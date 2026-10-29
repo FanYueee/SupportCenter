@@ -189,8 +189,9 @@ func main() {
 			}
 		}
 		if p.Active == "detail" && r.URL.Query().Get("participants") != "" {
-			p.Invites = []model.Participant{{UserID: 3, Name: "Taylor Lee", Email: "taylor@example.com"}, {Email: "future.participant@example.com"}}
-			if r.URL.Query().Get("participants") == "member" {
+			member := r.URL.Query().Get("participants") == "member"
+			p.Invites = []model.Participant{{Email: "taylor@example.com", Self: member}, {Email: "future.participant@example.com"}}
+			if member {
 				p.User = model.User{ID: 3, Name: "Taylor Lee", Email: "taylor@example.com", Role: "user"}
 				p.Admin = false
 			}

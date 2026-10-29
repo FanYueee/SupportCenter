@@ -1246,18 +1246,14 @@ templ Detail(p model.Page) {
 						for _, participant:= range p.Invites {
 							<li>
 								<span class="participant-identity">
-									if participant.UserID>0 {
-										<strong>{ participant.Name }</strong>
-									} else {
-										<strong>{ participant.Email }</strong>
-									}
+									<strong>{ participant.Email }</strong>
 								</span>
 								if p.Ticket.UserID==p.User.ID {
 									<form method="post" action={ fmt.Sprintf("/tickets/%d/uninvite",p.Ticket.ID) }>
 										<input type="hidden" name="csrf" value={ p.CSRF }/><input type="hidden" name="email" value={ participant.Email }/>
-										<button class="button small secondary" type="submit" aria-label={ i18n.T(ctx,"移除") + " " + choose(participant.UserID>0,participant.Name,participant.Email) }>{ i18n.T(ctx,"移除") }</button>
+										<button class="button small secondary" type="submit" aria-label={ i18n.T(ctx,"移除") + " " + participant.Email }>{ i18n.T(ctx,"移除") }</button>
 									</form>
-								} else if participant.UserID==p.User.ID {
+								} else if participant.Self {
 									<form method="post" action={ fmt.Sprintf("/tickets/%d/leave",p.Ticket.ID) }>
 										<input type="hidden" name="csrf" value={ p.CSRF }/>
 										<button class="button small secondary" type="submit">{ i18n.T(ctx,"退出客服單") }</button>

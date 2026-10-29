@@ -12,9 +12,12 @@ type User struct {
 	Departments                  []string
 }
 
+// Participants are shown only by email, so an invitation never reveals
+// whether the address belongs to a registered account. Self marks the
+// viewer's own invitation.
 type Participant struct {
-	Email, Name string
-	UserID      int64
+	Email string
+	Self  bool
 }
 
 func (u User) Staff() bool { return u.Role == "support" || u.Role == "admin" }

@@ -153,7 +153,7 @@ func (a *App) portalDetail(w http.ResponseWriter, r *http.Request) {
 	}
 	invites := []map[string]any{}
 	for _, person := range invited {
-		invites = append(invites, map[string]any{"email": person.Email, "name": person.Name, "userId": person.UserID})
+		invites = append(invites, map[string]any{"email": person.Email})
 	}
 	own := ticket.UserID == identity.User.ID
 	data := map[string]any{"ticket": portalTicket(ticket, identity.User.ID, identity.Staff), "messages": portalMessages(messages), "messagePage": page, "hasMoreMessages": more, "participants": invites,

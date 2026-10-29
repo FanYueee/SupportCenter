@@ -5,7 +5,7 @@ for (const locale of ['zh-TW', 'en-US']) {
   test.describe(`${locale} ticket participants`, () => {
     test.use({ locale });
     for (const width of [320, 1440]) {
-      test(`${width}px: creation, account names and self exit`, async ({ page }) => {
+      test(`${width}px: creation, email-only list and self exit`, async ({ page }) => {
         await page.setViewportSize({ width, height: 900 });
         await page.goto('/tickets/new');
         const addresses = page.getByLabel(locale === 'en-US' ? 'Participants (optional)' : '參與者（選填）');
@@ -19,9 +19,11 @@ for (const locale of ['zh-TW', 'en-US']) {
 
         await page.goto('/tickets/1048?participants=owner');
         const participants = page.locator('.invite-list');
-        await expect(participants).toContainText('Taylor Lee');
-        await expect(participants).not.toContainText('taylor@example.com');
-        await expect(participants).toContainText('future.participant@example.com');
+        // Every participant is listed by email, registered or not, with no name or avatar.
+        await expect(participants.locator('li strong')).toHaveText(['taylor@example.com', 'future.participant@example.com']);
+        await expect(participants).not.toContainText('Taylor Lee');
+        await expect(participants.locator('img, .avatar')).toHaveCount(0);
+        await expect(participants.getByRole('button', { name: /taylor@example\.com/ })).toHaveCount(1);
         await expect(participants).not.toContainText(locale === 'en-US' ? 'Awaiting registration' : '等待加入');
         await expect(participants.getByRole('button')).toHaveCount(2);
         await expect(page.locator('form[action="/tickets/1048/invite"]')).toBeVisible();
@@ -34,6 +36,7 @@ for (const locale of ['zh-TW', 'en-US']) {
         await expect(page.locator('form[action="/tickets/1048/invite"]')).toHaveCount(0);
         await expect(page.locator('form[action="/tickets/1048/uninvite"]')).toHaveCount(0);
         await expect(participants.getByRole('button')).toHaveCount(1);
+        await expect(participants).not.toContainText('Taylor Lee');
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
         fs.mkdirSync('artifacts', { recursive: true });
         await page.screenshot({ path: `artifacts/participants-${locale}-${width}-light.png`, fullPage: true });

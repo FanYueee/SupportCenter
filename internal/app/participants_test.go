@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http/httptest"
 	"net/url"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -29,12 +31,12 @@ func TestCreateWithEmailParticipantsAndPendingRegistration(t *testing.T) {
 		t.Fatal(err)
 	}
 	participants, err := a.Store.Invites(ctx, alice, id)
-	if err != nil || len(participants) != 2 || participants[0].UserID != bob.ID || participants[0].Name != "Bob Example" || participants[1].UserID != 0 {
+	if err != nil || len(participants) != 2 || participants[0] != (model.Participant{Email: "bob@example.test"}) || participants[1] != (model.Participant{Email: "future@example.test"}) {
 		t.Fatalf("registered/pending participants: %+v %v", participants, err)
 	}
 	ownerPage := request(h, "GET", path, "alice", nil).Body.String()
-	if !strings.Contains(ownerPage, "<strong>Bob Example</strong>") || strings.Contains(ownerPage, "<strong>bob@example.test</strong>") || strings.Contains(ownerPage, "等待加入") || !strings.Contains(ownerPage, "future@example.test") {
-		t.Fatal("participant display must use verified account names and pending email invitations")
+	if !strings.Contains(ownerPage, "<strong>bob@example.test</strong>") || strings.Contains(ownerPage, "Bob Example") || strings.Contains(ownerPage, "等待加入") || !strings.Contains(ownerPage, "<strong>future@example.test</strong>") {
+		t.Fatal("participants must be listed by email only, registered or not")
 	}
 	memberPage := request(h, "GET", path, "bob", nil)
 	if memberPage.Code != 200 || !strings.Contains(memberPage.Body.String(), "退出客服單") || strings.Contains(memberPage.Body.String(), `action="`+path+`/invite"`) {
@@ -63,8 +65,8 @@ func TestCreateWithEmailParticipantsAndPendingRegistration(t *testing.T) {
 	if _, err = a.Store.Ticket(ctx, future, id, false); err != nil {
 		t.Fatal("verified pending invite did not grant access", err)
 	}
-	if body := request(h, "GET", path, "alice", nil).Body.String(); !strings.Contains(body, "<strong>Future Colleague</strong>") || strings.Contains(body, "<strong>future@example.test</strong>") {
-		t.Fatal("pending email did not become the account name")
+	if body := request(h, "GET", path, "alice", nil).Body.String(); strings.Contains(body, "Future Colleague") || !strings.Contains(body, "<strong>future@example.test</strong>") {
+		t.Fatal("registering revealed the account name to the ticket owner")
 	}
 	// Creation does not remove the ability to invite another person later.
 	if later := request(h, "POST", path+"/invite", "alice", url.Values{"csrf": {"csrf-alice"}, "email": {"later@example.test"}}); later.Code != 303 {
@@ -108,9 +110,12 @@ func TestDirectParticipationIsBoundToInvitedAccount(t *testing.T) {
 	if page := request(h, "GET", path, "bob", nil); page.Code != 200 || !strings.Contains(page.Body.String(), "退出客服單") {
 		t.Fatal("existing account must join without accepting or verifying again")
 	}
-	participants, err := a.Store.Invites(ctx, alice, id)
-	if err != nil || participants[0].UserID != bob.ID || participants[0].Name != bob.Name {
-		t.Fatalf("existing account name: %+v %v", participants, err)
+	participants, err := a.Store.Invites(ctx, bob, id)
+	if err != nil || len(participants) != 2 || participants[0] != (model.Participant{Email: bob.Email, Self: true}) || participants[1].Self {
+		t.Fatalf("participant's own invitation: %+v %v", participants, err)
+	}
+	if boundTo(t, a, id, bob.Email) != bob.ID {
+		t.Fatal("invitation was not bound to the existing account")
 	}
 	// Another Auth0 identity with the same email cannot claim a bound invitation.
 	other, err := a.Store.User(ctx, "different-subject", "Another account", bob.Email, true)
@@ -176,8 +181,11 @@ func TestInvitedStaffJoinImmediatelyAsCustomers(t *testing.T) {
 		t.Fatal("invited staff account did not join as a customer immediately")
 	}
 	participants, err := a.Store.Invites(ctx, alice, id)
-	if err != nil || len(participants) != 1 || participants[0].UserID != staff.ID || participants[0].Name != staff.Name {
-		t.Fatalf("staff participant name: %+v %v", participants, err)
+	if err != nil || len(participants) != 1 || participants[0] != (model.Participant{Email: staff.Email}) {
+		t.Fatalf("staff participant: %+v %v", participants, err)
+	}
+	if boundTo(t, a, id, staff.Email) != staff.ID {
+		t.Fatal("invitation was not bound to the staff account")
 	}
 	other, err := a.Store.User(ctx, "staff-email-impostor", "Different account", staff.Email, false)
 	if err != nil {
@@ -286,6 +294,67 @@ func TestParticipantExitRevokesAccessAndNotifications(t *testing.T) {
 	if page := request(h, "GET", path, "alice", nil); page.Code != 200 {
 		t.Fatal("participant exit removed the ticket owner")
 	}
+}
+
+// Inviting an address must look the same whether or not it has an account,
+// so the invite form cannot be used to probe for registered emails.
+func TestInvitationDoesNotRevealRegistration(t *testing.T) {
+	a, h, alice, _, _ := testApp(t)
+	ctx := context.Background()
+	id, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "probe", Category: "other", Priority: "normal"}, "question", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := fmt.Sprintf("/tickets/%d", id)
+	list := regexp.MustCompile(`(?s)<ul class="invite-list">.*?</ul>`)
+	type outcome struct {
+		code              int
+		location, body    string
+		htmxCode          int
+		htmxURL, htmxList string
+		page              string
+	}
+	invite := func(email string) outcome {
+		var o outcome
+		form := url.Values{"csrf": {"csrf-alice"}, "email": {email}}
+		res := request(h, "POST", path+"/invite", "alice", form)
+		o.code, o.location, o.body = res.Code, res.Header().Get("Location"), res.Body.String()
+		if res := request(h, "POST", path+"/uninvite", "alice", form); res.Code != 303 {
+			t.Fatal("uninvite failed", res.Code)
+		}
+		r := httptest.NewRequest("POST", "https://support.example.test"+path+"/invite", strings.NewReader(form.Encode()))
+		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		r.Header.Set("HX-Request", "true")
+		r.AddCookie(cookie("__Host-support-session", "alice", 86400))
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, r)
+		o.htmxCode, o.htmxURL, o.htmxList = w.Code, w.Header().Get("HX-Replace-Url"), list.FindString(w.Body.String())
+		o.page = list.FindString(request(h, "GET", path, "alice", nil).Body.String())
+		if res := request(h, "POST", path+"/uninvite", "alice", form); res.Code != 303 {
+			t.Fatal("uninvite failed", res.Code)
+		}
+		return o
+	}
+	unregistered := invite("probe@example.test")
+	if _, err = a.Store.User(ctx, "probe", "Registered Probe", "probe@example.test", true); err != nil {
+		t.Fatal(err)
+	}
+	registered := invite("probe@example.test")
+	if registered != unregistered {
+		t.Fatalf("invitation reveals registration:\nunregistered %+v\nregistered   %+v", unregistered, registered)
+	}
+	if unregistered.code != 303 || unregistered.htmxCode != 200 || !strings.Contains(unregistered.page, "<strong>probe@example.test</strong>") || strings.Contains(registered.page, "Registered Probe") || strings.Contains(registered.page, "avatar") {
+		t.Fatalf("unexpected invitation outcome: %+v", registered)
+	}
+}
+
+func boundTo(t *testing.T, a *App, ticketID int64, email string) int64 {
+	t.Helper()
+	var userID int64
+	if err := a.Store.Pool.QueryRow(context.Background(), `SELECT COALESCE(user_id,0) FROM ticket_invites WHERE ticket_id=$1 AND email_key=lower($2)`, ticketID, email).Scan(&userID); err != nil {
+		t.Fatal(err)
+	}
+	return userID
 }
 
 func makeParticipantEmails(count int) []string {

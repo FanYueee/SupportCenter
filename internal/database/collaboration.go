@@ -196,10 +196,9 @@ func (s *Store) Invites(ctx context.Context, viewer model.User, ticketID int64) 
 	if err != nil {
 		return nil, notFound(err)
 	}
-	rows, err := s.Pool.Query(ctx, `SELECT i.email_key,COALESCE(member.name,''),COALESCE(member.id,0) FROM ticket_invites i
- LEFT JOIN LATERAL (SELECT id,name FROM users WHERE id=i.user_id OR
-  (i.user_id IS NULL AND email_verified AND lower(email)=i.email_key)
-  ORDER BY CASE WHEN id=$2 THEN 0 ELSE 1 END,id LIMIT 1) member ON true
+	rows, err := s.Pool.Query(ctx, `SELECT i.email_key,COALESCE(i.user_id=viewer.id OR
+ (i.user_id IS NULL AND viewer.email_verified AND i.email_key=lower(viewer.email)),false)
+ FROM ticket_invites i LEFT JOIN users viewer ON viewer.id=$2
  WHERE i.ticket_id=$1 ORDER BY i.created_at,i.email_key`, ticketID, viewer.ID)
 	if err != nil {
 		return nil, err
@@ -208,7 +207,7 @@ func (s *Store) Invites(ctx context.Context, viewer model.User, ticketID int64) 
 	participants := []model.Participant{}
 	for rows.Next() {
 		var participant model.Participant
-		if err = rows.Scan(&participant.Email, &participant.Name, &participant.UserID); err != nil {
+		if err = rows.Scan(&participant.Email, &participant.Self); err != nil {
 			return nil, err
 		}
 		participants = append(participants, participant)
