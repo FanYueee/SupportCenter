@@ -29,10 +29,21 @@
     preference = readPreference();
     apply();
   });
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   document.addEventListener('click', event => {
-    if (!event.target.closest?.('[data-theme-toggle]')) return;
+    const button = event.target.closest?.('[data-theme-toggle]');
+    if (!button) return;
     preference = current() === 'dark' ? 'light' : 'dark';
     try { localStorage.setItem(storageKey, preference); } catch { /* Switching still works for this page. */ }
-    apply();
+    if (!document.startViewTransition || reducedMotion.matches) {
+      apply();
+      return;
+    }
+    // The new appearance grows as a circle from the switch (see theme-reveal in app.css).
+    const box = button.getBoundingClientRect();
+    root.style.setProperty('--theme-x', `${box.left + box.width / 2}px`);
+    root.style.setProperty('--theme-y', `${box.top + box.height / 2}px`);
+    root.classList.add('theme-transition');
+    document.startViewTransition(apply).finished.finally(() => root.classList.remove('theme-transition'));
   });
 })();

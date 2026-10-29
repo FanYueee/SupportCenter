@@ -8,8 +8,6 @@ html.preserving-scroll { overflow-anchor: none; }
   font-family:
     -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC", sans-serif;
   color-scheme: light;
-  --theme-sun-display: block;
-  --theme-moon-display: none;
   --bg: #f4f4f4;
   --text: #242424;
   --muted: #6b6b6b;
@@ -40,6 +38,7 @@ html.preserving-scroll { overflow-anchor: none; }
   --priority-high-bg: #fff4df;
   --priority-urgent: #b32632;
   --priority-urgent-bg: #fff2f3;
+  --login-sheen: rgb(255 255 255 / 0.22);
   --globe-land: #2b2b2b;
   --globe-ocean: #c2c2c2;
 }
@@ -47,8 +46,6 @@ html:lang(en) { --list-filter-width: 220px; }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
-    --theme-sun-display: none;
-    --theme-moon-display: block;
     --bg: #171717;
     --text: #e5e5e5;
     --muted: #a0a0a0;
@@ -79,14 +76,13 @@ html:lang(en) { --list-filter-width: 220px; }
     --priority-high-bg: #342715;
     --priority-urgent: #f08c94;
     --priority-urgent-bg: #321f22;
+    --login-sheen: rgb(0 0 0 / 0.1);
     --globe-land: #d6d6d6;
     --globe-ocean: #3d3d3d;
   }
 }
 :root[data-theme="dark"] {
     color-scheme: dark;
-    --theme-sun-display: none;
-    --theme-moon-display: block;
     --bg: #171717;
     --text: #e5e5e5;
     --muted: #a0a0a0;
@@ -117,6 +113,7 @@ html:lang(en) { --list-filter-width: 220px; }
     --priority-high-bg: #342715;
     --priority-urgent: #f08c94;
     --priority-urgent-bg: #321f22;
+    --login-sheen: rgb(0 0 0 / 0.1);
     --globe-land: #d6d6d6;
     --globe-ocean: #3d3d3d;
 }
@@ -339,9 +336,56 @@ input[type="checkbox"] {
   margin-left: auto;
 }
 .icon-button.theme-toggle { display: none; }
-.theme-enabled .icon-button.theme-toggle { display: inline-flex; }
-.theme-icon-sun { display: var(--theme-sun-display); }
-.theme-icon-moon { display: var(--theme-moon-display); }
+.theme-enabled .icon-button.theme-toggle { display: inline-grid; place-items: center; }
+/* Both icons share one cell; the inactive one turns away, fades, then hides. */
+.theme-icon-sun,
+.theme-icon-moon {
+  grid-area: 1 / 1;
+  display: block;
+  line-height: 0;
+  transition: opacity 200ms ease, transform 400ms cubic-bezier(0.2, 0.8, 0.2, 1), visibility 0s;
+}
+.theme-icon-moon,
+:root[data-theme="dark"] .theme-icon-sun {
+  opacity: 0;
+  visibility: hidden;
+  transform: rotate(90deg) scale(0.5);
+  transition: opacity 200ms ease, transform 400ms cubic-bezier(0.2, 0.8, 0.2, 1), visibility 0s 400ms;
+}
+:root[data-theme="dark"] .theme-icon-sun { transform: rotate(-90deg) scale(0.5); }
+:root[data-theme="dark"] .theme-icon-moon {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  transition: opacity 200ms ease, transform 400ms cubic-bezier(0.2, 0.8, 0.2, 1), visibility 0s;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .theme-icon-sun {
+    opacity: 0;
+    visibility: hidden;
+    transform: rotate(-90deg) scale(0.5);
+    transition: opacity 200ms ease, transform 400ms cubic-bezier(0.2, 0.8, 0.2, 1), visibility 0s 400ms;
+  }
+  :root:not([data-theme="light"]) .theme-icon-moon {
+    opacity: 1;
+    visibility: visible;
+    transform: none;
+    transition: opacity 200ms ease, transform 400ms cubic-bezier(0.2, 0.8, 0.2, 1), visibility 0s;
+  }
+}
+/* theme.js reveals the new appearance as a circle growing from the switch. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+html.theme-transition::view-transition-new(root) {
+  animation: theme-reveal 560ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+@keyframes theme-reveal {
+  from { clip-path: circle(0 at var(--theme-x, 100%) var(--theme-y, 0)); }
+  to { clip-path: circle(150vmax at var(--theme-x, 100%) var(--theme-y, 0)); }
+}
 .notification-link { position: relative; }
 .notification-count { position: absolute; top: -3px; right: -5px; min-width: 16px; padding: 0 3px; font-size: 10px; line-height: 16px; background: var(--text); color: var(--bg); text-align: center; }
 .notification-list { border-top: 1px solid var(--line); }
@@ -1293,24 +1337,8 @@ dd {
   border: 1px solid var(--line);
   padding: 32px;
 }
-.login-mark {
-  display: inline-grid;
-  place-items: center;
-  width: 38px;
-  height: 38px;
-  border: 1px solid var(--line);
-  margin-bottom: 22px;
-}
-.login-mark svg {
-  width: 19px;
-  height: 19px;
-}
 .login-card h1 {
   margin-bottom: 26px;
-}
-.login-action {
-  justify-content: space-between;
-  min-height: 44px;
 }
 .login-card p {
   font-size: 14px;
@@ -1342,10 +1370,14 @@ dd {
   align-items: flex-start;
   max-width: 420px;
 }
+.login-logo {
+  display: block;
+  margin-bottom: 32px;
+}
 .login-copy h1 {
-  margin: 0 0 12px;
-  font-size: clamp(30px, 3.2vw, 42px);
-  line-height: 1.15;
+  margin: 0 0 10px;
+  font-size: clamp(28px, 2.6vw, 34px);
+  line-height: 1.2;
   letter-spacing: -0.02em;
 }
 .login-lead {
@@ -1354,44 +1386,61 @@ dd {
   font-size: 16px;
   line-height: 1.6;
 }
-.login-actions {
-  display: grid;
-  gap: 10px;
-  width: min(100%, 340px);
+.login-copy .login-action {
+  position: relative;
+  overflow: hidden;
+  width: min(100%, 380px);
+  min-height: 52px;
+  gap: 12px;
+  font-weight: 600;
+  white-space: normal;
+  text-align: center;
 }
-.login-actions .button {
-  min-height: 46px;
+.login-action svg {
+  width: 18px;
+  height: 18px;
+  transition: transform 200ms ease;
+}
+.login-action:hover svg { transform: translateX(3px); }
+/* A soft light passes over the sign-in action now and then. */
+.login-action::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 30%, var(--login-sheen) 50%, transparent 70%);
+  transform: translateX(-100%);
+  animation: login-sheen 5s ease-in-out 1.6s infinite;
+  pointer-events: none;
 }
 .login-signup {
-  justify-content: flex-start;
-  background: var(--bg);
-}
-.login-points {
-  display: grid;
-  gap: 14px;
-  width: min(100%, 340px);
-  margin: 32px 0 0;
-  padding: 24px 0 0;
-  border-top: 1px solid var(--line);
-  list-style: none;
-}
-.login-points li {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+  width: min(100%, 380px);
+  margin: 24px 0 0;
   color: var(--muted);
   font-size: 14px;
-  line-height: 1.5;
+  text-align: center;
 }
-.login-points svg {
-  flex: none;
-  box-sizing: content-box;
-  width: 15px;
-  height: 15px;
-  padding: 6px;
-  border: 1px solid var(--line);
-  background: var(--bg);
+.login-signup a {
+  margin-left: 6px;
   color: var(--text);
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: var(--input-line);
+  text-underline-offset: 4px;
+  transition: text-decoration-color 150ms ease;
+}
+.login-signup a:hover { text-decoration-color: currentColor; }
+/* Entrance: the copy rises in sequence while the globe settles in. */
+.login-copy > * { animation: login-rise 640ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.login-copy > :nth-child(2) { animation-delay: 70ms; }
+.login-copy > :nth-child(3) { animation-delay: 140ms; }
+.login-copy > :nth-child(4) { animation-delay: 210ms; }
+.login-copy > :nth-child(5) { animation-delay: 280ms; }
+@keyframes login-rise {
+  from { opacity: 0; transform: translateY(16px); }
+}
+@keyframes login-sheen {
+  0% { transform: translateX(-100%); }
+  30%, 100% { transform: translateX(100%); }
 }
 /* Decoration only: sized so its left edge stays clear of the copy. */
 .login-visual {
@@ -1401,6 +1450,7 @@ dd {
   pointer-events: none;
 }
 .login-globe {
+  animation: globe-in 1400ms cubic-bezier(0.2, 0.8, 0.2, 1) 120ms both;
   --copy-reserve: 560px;
   --globe-size: min(128dvh, 1500px, calc((100vw - var(--copy-reserve)) / 0.65));
   position: absolute;
@@ -1437,6 +1487,9 @@ dd {
 }
 .globe-delay-1 { animation-delay: 1.2s; }
 .globe-delay-2 { animation-delay: 2.4s; }
+@keyframes globe-in {
+  from { opacity: 0; scale: 0.94; }
+}
 @keyframes globe-flow {
   to { stroke-dashoffset: -100; }
 }
@@ -1445,8 +1498,9 @@ dd {
   70%, 100% { transform: scale(2.6); opacity: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .globe-pulse { display: none; }
+  .globe-pulse, .login-action::after { display: none; }
   .globe-node-ring { animation: none; opacity: 0.3; }
+  .login-copy > *, .login-globe { animation: none; }
 }
 /* Portrait screens stack the copy above a globe that bleeds off the right edge. */
 @media (orientation: portrait) and (max-width: 1100px), (max-width: 640px) {
@@ -1475,7 +1529,7 @@ dd {
 @media (max-height: 520px) and (orientation: landscape) {
   .login-page.login-split { padding-block: 24px; }
   .login-copy { max-width: 300px; }
-  .login-mark, .login-points { display: none; }
+  .login-logo { display: none; }
   .login-lead { margin-bottom: 20px; }
   .login-globe { --copy-reserve: 380px; }
 }

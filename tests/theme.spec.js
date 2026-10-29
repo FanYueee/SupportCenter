@@ -90,3 +90,24 @@ test('without JavaScript the system theme and normal navigation remain available
     await context.close();
   }
 });
+
+test('switching appearance animates the icons and reveals the new theme from the switch', async ({ page }) => {
+  await page.emulateMedia({ colorScheme: 'light', reducedMotion: 'no-preference' });
+  const errors = [];
+  page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
+  await page.goto('/tickets');
+  const toggle = page.locator('[data-theme-toggle]');
+  await expect(toggle.locator('.theme-icon-sun')).toBeVisible();
+  const box = await toggle.boundingBox();
+  await toggle.click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  // The circle grows from the centre of the switch.
+  const origin = await page.evaluate(() => [getComputedStyle(document.documentElement).getPropertyValue('--theme-x'), getComputedStyle(document.documentElement).getPropertyValue('--theme-y')]);
+  expect(Math.abs(parseFloat(origin[0]) - (box.x + box.width / 2))).toBeLessThan(1);
+  expect(Math.abs(parseFloat(origin[1]) - (box.y + box.height / 2))).toBeLessThan(1);
+  await expect(toggle.locator('.theme-icon-moon')).toBeVisible();
+  await expect(toggle.locator('.theme-icon-sun')).toBeHidden();
+  await expect(page.locator('html')).not.toHaveClass(/theme-transition/);
+  expect(await page.locator('body').evaluate(el => getComputedStyle(el).backgroundColor)).toBe('rgb(23, 23, 23)');
+  expect(errors).toEqual([]);
+});

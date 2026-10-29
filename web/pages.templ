@@ -177,6 +177,8 @@ templ Icon(name string) {
 				<path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3Zm3 5h6m-6 4h6"></path>
 			case "category-other", "category-account":
 				<path d="M4 5h16v12H9l-5 4V5Zm4 4h8m-8 4h5"></path>
+			case "login":
+				<path d="M14 4h6v16h-6M3 12h12m-4-4 4 4-4 4"></path>
 			case "logout":
 				<path d="M10 4H4v16h6m-1-8h12m-4-4 4 4-4 4"></path>
 			case "shield":
@@ -1285,21 +1287,14 @@ templ Login(p model.Page) {
 	<main id="workspace" class="login-page login-split">
 		<section class="login-panel">
 			<div class="login-copy">
-				<span class="login-mark" aria-hidden="true">@Icon("ticket")</span>
-				<h1>{ i18n.T(ctx,"登入支援中心") }</h1>
-				<p class="login-lead">{ i18n.T(ctx,"建立、追蹤及回覆您的客服單。") }</p>
-				<div class="login-actions">
-					<a class="button primary login-action" href="/login">
-						<span>{ i18n.T(ctx,"繼續登入") }</span>
-						@Icon("arrow")
-					</a>
-					<a class="button secondary login-signup" href="/signup">{ i18n.T(ctx,"註冊帳號") }</a>
-				</div>
-				<ul class="login-points">
-					<li>@Icon("file")<span>{ i18n.T(ctx,"附上截圖、記錄檔或 PDF") }</span></li>
-					<li>@Icon("clock")<span>{ i18n.T(ctx,"隨時查看處理狀態與對話紀錄") }</span></li>
-					<li>@Icon("shield")<span>{ i18n.T(ctx,"僅您與受邀成員可查看客服單") }</span></li>
-				</ul>
+				<img class="login-logo" src={ assetURL("atomroute-icon.png") } width="44" height="44" alt=""/>
+				<h1>{ i18n.T(ctx,"登入 AtomRoute 支援中心") }</h1>
+				<p class="login-lead">{ i18n.T(ctx,"登入後即可建立及追蹤客服單。") }</p>
+				<a class="button primary login-action" href="/login">
+					@Icon("login")
+					<span>{ i18n.T(ctx,"使用 AtomRoute 帳號繼續") }</span>
+				</a>
+				<p class="login-signup">{ i18n.T(ctx,"還沒有帳號？") }<a href="/signup">{ i18n.T(ctx,"註冊") }</a></p>
 			</div>
 			<div class="login-visual" aria-hidden="true">
 				@LoginGlobe()
