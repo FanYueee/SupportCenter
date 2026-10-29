@@ -66,9 +66,18 @@ func TestBrandHostSharesSignInWithItsOwnOrigin(t *testing.T) {
 			t.Fatalf("%s: expected only %s", host, logo)
 		}
 	}
-	for host, heading := range map[string]string{"support.vproxy.test": "<h1>登入 vProxy Cloud 支援中心</h1>", "support.example.test": "<h1>登入 AtomRoute 支援中心</h1>"} {
-		if body := send("GET", host, "/", "", nil).Body.String(); !strings.Contains(body, heading) {
-			t.Fatalf("%s: sign-in heading should be %s", host, heading)
+	for host, want := range map[string][]string{
+		"support.vproxy.test":  {"<h1>登入 vProxy Cloud 支援中心</h1>", `href="https://vproxy.cloud"`, "vProxy Cloud</a></footer>"},
+		"support.example.test": {"<h1>登入 AtomRoute 支援中心</h1>", `href="https://www.atomroute.com/zh"`, "AtomRoute Global Network (US) LLC</a></footer>"},
+	} {
+		body := send("GET", host, "/", "", nil).Body.String()
+		for _, text := range want {
+			if !strings.Contains(body, text) {
+				t.Fatalf("%s: missing %s", host, text)
+			}
+		}
+		if host == "support.vproxy.test" && strings.Contains(body, "AtomRoute Global Network") {
+			t.Fatal("vProxy pages still show the AtomRoute copyright")
 		}
 	}
 	// Each hostname accepts form posts only from its own origin.
