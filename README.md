@@ -1,6 +1,6 @@
-# vProxy / AtomRoute Support Center
+# Support Center
 
-以 Go SSR、templ、HTMX、Tailwind CSS、PostgreSQL 和 Auth0 建立的輕量客服單系統。附件存放在 VPS 的私有 Docker volume。介面採方正設計，支援手機，預設以 `prefers-color-scheme` 自動跟隨系統深淺色；右上角的小型太陽／月亮按鈕顯示目前外觀，可手動切換並在同一瀏覽器記住選擇。頁首使用儲存在 VPS 的 [AtomRoute 官網 Logo](https://www.atomroute.com/zh)。客服單時間依瀏覽器時區顯示，未啟用 JavaScript 時明確顯示 UTC。介面採中性灰階，只保留客服單操作所需的文字。
+以 Go SSR、templ、HTMX、Tailwind CSS、PostgreSQL 和 Auth0 建立的輕量客服單系統。附件存放在 VPS 的私有 Docker volume。介面採方正設計，支援手機，預設以 `prefers-color-scheme` 自動跟隨系統深淺色；右上角的小型太陽／月亮按鈕顯示目前外觀，可手動切換並在同一瀏覽器記住選擇。網站名稱、Logo、圖示與頁尾版權由 `.env` 設定（見[網站名稱與 Logo](#網站名稱與-logo)），未設定時只顯示「支援中心」與內建圖示。客服單時間依瀏覽器時區顯示，未啟用 JavaScript 時明確顯示 UTC。介面採中性灰階，只保留客服單操作所需的文字。
 
 ## 已實作
 
@@ -13,9 +13,9 @@
 - 自動結案：在「管理設定 → 自動訊息」設定已解決後 1–365 天結案，0 表示停用（預設）。到期檢查每分鐘執行；公開回覆或重新開啟會取消倒數，內部備註及更換負責人不影響期限。客服單的開單者及已加入的受邀使用者會收到已解決與自動結案的站內通知，包含以使用者身分參與的管理員及客服；手動結案也會新增「已結案」通知，已讀及未讀的歷史通知均保留，客服指派及其他後台管理事項不產生站內通知；管理員的通知頁也只顯示自己作為使用者參與的客服單。右上鈴鐺可查看、開啟或標為已讀，開啟時進入一般使用者的客服單頁面；客服單也顯示預計結案時間。變更天數套用目前已解決的客服單。首次安裝時，既有已解決客服單從安裝時間開始計算，保留完整寬限期。已有解決通知但缺少手動結案通知的客服單，會依最新結案紀錄補回通知並重查參與權限。
 - 管理員在單一「管理設定」選單切換公告、AI 指令、自動訊息、Discord 通知、Email 通知、使用者與客服分組。可把客服加入一般、帳務、技術部門；指派按鈕依部門呈現，其他部門仍可選，方便修正客戶選錯類別。自動訊息可設定開單訊息、非服務時間訊息、臨時休假期間的優先回覆、時區，以及週一至週日各自的服務時段（每天最多 8 段）。各日未涵蓋的時間（例如午休）會套用非服務時間規則。臨時休假與非服務時間僅顯示於回覆框上方；沒有這些提示時，開單可送出一則標明「自動回覆」的一般開單訊息。休假結束後自動恢復原規則，預設不啟用。
 - 技術類別的新客服單、轉入技術類別，以及指派技術部門成員，會為已驗證電子郵件的技術部門客服建立通知。設定 SMTP 後由背景工作寄送；未設定時暫存最多 7 天，不會假裝已寄出。詳見 [通知設定](docs/notifications.md)。
-- Email 通知：設定 SMTP 後，真人客服或 AI 公開回覆時寄信給開單者和已加入的參與者（需已驗證 Email），回覆後等 2 分鐘再寄並合併期間的多則回覆，對方已回覆就不寄；邀請參與者時寄信給受邀的 Email，不論是否已註冊，信中只有邀請人 Email 與單號、不含客服單內容，並限制每人每天 30 封、每個地址每天 3 封。信件依客服單建立時的網域使用 AtomRoute 或 vProxy Cloud 的名稱與連結，同時提供純文字與 HTML。管理員在「管理設定 → Email 通知」開關各類信件、選擇是否附上回覆內容並寄測試信；每個人可在「個人設定」關閉自己的通知。詳見 [通知設定](docs/notifications.md)。
+- Email 通知：設定 SMTP 後，真人客服或 AI 公開回覆時寄信給開單者和已加入的參與者（需已驗證 Email），回覆後等 2 分鐘再寄並合併期間的多則回覆，對方已回覆就不寄；邀請參與者時寄信給受邀的 Email，不論是否已註冊，信中只有邀請人 Email 與單號、不含客服單內容，並限制每人每天 30 封、每個地址每天 3 封。寄件人名稱為「`SITE_NAME` 支援中心」，連結回到 `APP_URL`，同時提供純文字與 HTML。管理員在「管理設定 → Email 通知」開關各類信件、選擇是否附上回覆內容並寄測試信；每個人可在「個人設定」關閉自己的通知。詳見 [通知設定](docs/notifications.md)。
 - 帳號合併：以 SSO 登入且 Email 已驗證時，會接手 Portal 先前以同一 Email 建立的帳號，兩邊看到同一份客服單。
-- Discord 通知：管理員在「管理設定 → Discord 通知」貼上 Discord 頻道的 Webhook 網址，可分別開關「新客服單」與「客戶回覆」（開單者與參與者的公開回覆；不含客服回覆、內部備註和自動訊息），以及是否附上訊息前 200 字的摘要。每則通知含單號、主旨、客戶名稱、部門、優先級（緊急為紅色）和後台連結。事件與客服單／回覆在同一個資料庫交易內排入佇列，背景工作每次最多合併 10 則送出，遵守 Discord 的頻率限制，失敗時退避重試，超過 1 天的事件不再傳送；Webhook 被刪除時會在設定頁顯示原因，並可傳送測試訊息。只接受 `discord.com`／`discordapp.com` 的 Webhook 網址，儲存後不再顯示 token；客戶文字的 Markdown 會跳脫，且不會觸發 @everyone 或其他提及。
+- Discord 通知：管理員在「管理設定 → Discord 通知」貼上 Discord 頻道的 Webhook 網址，可分別開關「新客服單」與「客戶回覆」（開單者與參與者的公開回覆；不含客服回覆、內部備註和自動訊息），以及是否附上訊息前 200 字的摘要。每則通知含單號、主旨、客戶名稱、部門、優先級（緊急為紅色）、後台連結，底部標示網站名稱。事件與客服單／回覆在同一個資料庫交易內排入佇列，背景工作每次最多合併 10 則送出，遵守 Discord 的頻率限制，失敗時退避重試，超過 1 天的事件不再傳送；Webhook 被刪除時會在設定頁顯示原因，並可傳送測試訊息。只接受 `discord.com`／`discordapp.com` 的 Webhook 網址，儲存後不再顯示 token；客戶文字的 Markdown 會跳脫，且不會觸發 @everyone 或其他提及。
 - 客戶回覆輸入框上方顯示當前目前非客服服務時間或臨時休假訊息，使用後台設定的原文與時區，休假優先；恢復服務或停用規則後消失。AI 可繼續回覆，已解決及已結案時不顯示。提示不會寫入對話；符合目前非服務時間／休假文案的舊自動訊息會標記並隱藏，保留原始資料，一般開單及自動結案訊息仍顯示。
 - 可選的 AI 回覆使用 OpenAI 官方 API 的 `gpt-6-luna`（可用 `OPENAI_MODEL` 調整）。管理員可依一般、帳務、技術支援設定完整的系統指令；空白欄位不傳送系統指令。AI 處理中與已回覆有不同狀態標示；回覆後，擁有者可確認「已解決」或轉真人。未轉真人時，使用者繼續回覆仍由 AI 接續處理。背景工作會重試失敗回覆，三次失敗後交回真人；使用者或客服也可立即轉真人。需設定金鑰及啟用開關，詳見 [AI 整合說明](docs/ai-assistance.md)。
 - 私有附件：每次最多 3 個、每個 10 MiB，整個 request 最多 32 MiB；JPG、PNG、WebP、TXT、LOG、PDF、ZIP。
@@ -93,6 +93,7 @@ go run ./cmd/preview
 - `/admin/automation`：管理員自動回覆設定。
 - `/admin/departments`：管理員客服分組。
 - `/admin/announcements`：管理員公告設定；其他預覽頁加上 `?announcements=1` 可查看多則公告。
+- 預覽使用示範的網站名稱與 Logo；任一頁加上 `?site=text` 查看沒有 Logo 的頁首，`?site=none` 查看完全未設定網站名稱的樣子。
 
 預覽僅綁定 loopback、只提供示範資料，不接受寫入，也不包含在正式 Docker 映像裡。從自己的電腦查看遠端 VPS 預覽可使用 SSH tunnel：
 
@@ -102,7 +103,7 @@ ssh -L 8081:127.0.0.1:8081 your-user@your-vps
 
 ## VPS 部署
 
-需要 Docker Engine、Compose v2 和你管理的 Cloudflare Tunnel。正式 Go 服務只綁定 VPS 的 loopback；PostgreSQL 不向主機公開。現有 Tunnel 的 `support.atomroute.com` 來源服務是 `http://127.0.0.1:8082`。在切換前，`.env` 的 `SUPPORT_BIND_PORT=8080` 讓正式服務可與使用 `8082` 的驗收站並行驗證。切換時改為 `8082`，不必改 Cloudflare 路由。
+需要 Docker Engine、Compose v2 和你管理的 Cloudflare Tunnel。正式 Go 服務只綁定 VPS 的 loopback；PostgreSQL 不向主機公開。以下假設 Tunnel 或反向代理把 `support.example.com` 轉到 `http://127.0.0.1:8082`。在切換前，`.env` 的 `SUPPORT_BIND_PORT=8080` 讓正式服務可與使用 `8082` 的驗收站並行驗證。切換時改為 `8082`，不必改 Cloudflare 路由。
 
 1. 準備設定檔，請勿把真實 secret 提交到 Git。本 VPS 若已由維運程序建立 `.env`，保留既有資料庫密碼，不要覆蓋。
 
@@ -112,17 +113,17 @@ ssh -L 8081:127.0.0.1:8081 your-user@your-vps
    openssl rand -hex 32
    ```
 
-   把產生的值設為 `POSTGRES_PASSWORD`（使用 hex 可避免資料庫 URL 的特殊字元問題）。本專案範例已填入 `support.atomroute.com`、`sso.atomroute.com` 和 Support 應用程式的 Client ID。到 Auth0 後台讀取 Client Secret 後，**只在 VPS 終端**執行 `bash scripts/set-auth0-secret.sh` 並貼上；輸入不會顯示，也不會進入 shell history。不要把 secret 貼到聊天、issue 或指令列參數。
+   把產生的值設為 `POSTGRES_PASSWORD`（使用 hex 可避免資料庫 URL 的特殊字元問題）。在 `.env` 填入自己的 `SUPPORT_DOMAIN`、`AUTH0_DOMAIN` 與 `AUTH0_CLIENT_ID`，網站名稱與 Logo 見[網站名稱與 Logo](#網站名稱與-logo)。到 Auth0 後台讀取 Client Secret 後，**只在 VPS 終端**執行 `bash scripts/set-auth0-secret.sh` 並貼上；輸入不會顯示，也不會進入 shell history。不要把 secret 貼到聊天、issue 或指令列參數。
 
-2. 在 Auth0 的既有 **Support / Regular Web Application** 設定以下值，啟用 Authorization Code grant，並確認要使用的登入連線已對這個應用程式開啟。
+2. 在 Auth0 的 **Regular Web Application** 設定以下值，啟用 Authorization Code grant，並確認要使用的登入連線已對這個應用程式開啟。
 
    | Auth0 欄位 | 值 |
    | --- | --- |
-   | Allowed Callback URLs | `https://support.atomroute.com/auth/callback` |
-   | Allowed Logout URLs | `https://support.atomroute.com` |
-   | Application Login URI（若使用） | `https://support.atomroute.com/login` |
+   | Allowed Callback URLs | `https://support.example.com/auth/callback` |
+   | Allowed Logout URLs | `https://support.example.com` |
+   | Application Login URI（若使用） | `https://support.example.com/login` |
 
-   其他品牌網域以 `.env` 的 `BRAND_HOSTS` 設定，例如 `BRAND_HOSTS=support.vproxy.cloud=vproxy`：與主網域共用登入、帳號及資料，只依網域切換 Logo、圖示與網站小圖示。每個網域都要在 Auth0 加入 `https://網域/auth/callback`（Allowed Callback URLs）與 `https://網域`（Allowed Logout URLs）；session cookie 以網域區分，換網域需再登入一次（Auth0 SSO 會自動帶過）。未列在 `BRAND_HOSTS` 的 Host 一律使用 `APP_URL` 的設定。
+   登入、登出、Email 與 Discord 連結一律使用 `APP_URL`（Compose 由 `SUPPORT_DOMAIN` 組成）；以其他 Host 連進來時也是如此，表單只接受來自 `APP_URL` 的提交。
 
    登入頁的「註冊」連到 `/signup`，以相同的 PKCE 流程開啟 Auth0 Universal Login 的註冊畫面（`screen_hint=signup`）；需在 Auth0 的資料庫連線保持允許註冊（未勾選 Disable Sign Ups）。
 
@@ -137,7 +138,7 @@ ssh -L 8081:127.0.0.1:8081 your-user@your-vps
    curl -fsS http://127.0.0.1:8080/healthz
    ```
 
-   啟動時會初始化資料表並檢查 Auth0 discovery。若環境值、資料庫或 Auth0 連線不正確，應用程式會停止而不開放未驗證模式。從本機請求 `/login` 應收到導向 `https://sso.atomroute.com/authorize`，回呼網址應為 `https://support.atomroute.com/auth/callback`。確認後停止驗收 app，在 `.env` 把 `SUPPORT_BIND_PORT` 改為 `8082`，並執行 `docker compose up -d --force-recreate app`。驗收資料庫與附件仍保留；若要回退，先停止正式 app，把 `SUPPORT_BIND_PORT` 改回 `8080`，再啟動驗收 app。公開站點須以真正的 Auth0 帳號完成登入及登出驗收。
+   啟動時會初始化資料表並檢查 Auth0 discovery。若環境值、資料庫或 Auth0 連線不正確，應用程式會停止而不開放未驗證模式。從本機請求 `/login` 應收到導向 `https://<AUTH0_DOMAIN>/authorize`，回呼網址應為 `https://<SUPPORT_DOMAIN>/auth/callback`。確認後停止驗收 app，在 `.env` 把 `SUPPORT_BIND_PORT` 改為 `8082`，並執行 `docker compose up -d --force-recreate app`。驗收資料庫與附件仍保留；若要回退，先停止正式 app，把 `SUPPORT_BIND_PORT` 改回 `8080`，再啟動驗收 app。公開站點須以真正的 Auth0 帳號完成登入及登出驗收。
 
 4. 客服／管理員先正常登入一次，再於 VPS 指派角色：
 
@@ -147,6 +148,20 @@ ssh -L 8081:127.0.0.1:8081 your-user@your-vps
    ```
 
    使用 Auth0 後台顯示的完整 User ID。每次請求從資料庫取得角色，因此權限變更不需重新登入。支援 `user`、`support`、`admin`；目前 support/admin 的客服單操作權限相同，角色異動只允許 VPS 操作者透過 CLI 執行。
+
+### 網站名稱與 Logo
+
+在 `.env` 設定，修改後執行 `docker compose up -d --no-build app` 套用：
+
+| 設定 | 用途 |
+| --- | --- |
+| `SITE_NAME` | 顯示在「支援中心」前面，例如 `Example Cloud` 會顯示「Example Cloud 支援中心」；也用於頁面標題、登入標題、Email 寄件人名稱與 Discord 通知。最多 60 字。 |
+| `SITE_OWNER` | 頁尾的版權所有者，未設定時使用 `SITE_NAME`；兩者都未設定時不顯示頁尾。 |
+| `SITE_WEBSITE` | 頁尾連到的官方網站（http 或 https）。 |
+| `SITE_LOGO` | 桌機頁首的橫式 Logo，縮放為 48px 高、最寬 240px。 |
+| `SITE_ICON` | 手機頁首、登入頁與瀏覽器分頁的正方形圖示。 |
+
+Logo 與圖示接受 PNG、JPEG 或 WebP，每檔最多 1 MiB、每邊 16–4096px。把檔案放在 `compose.yaml` 旁的 `branding/`（唯讀掛載到容器的 `/branding`），例如 `SITE_LOGO=/branding/logo.png`，並讓容器使用者可讀取（`chmod 644`）。檔案在啟動時讀進記憶體，以內容雜湊作為快取版本；檔案不存在或格式不符時服務不會啟動。未設定圖示時使用內建圖示，未設定 Logo 時頁首改顯示圖示與網站名稱。
 
 正式公開環境強制 HTTPS；Tunnel 到 VPS 本機的連線使用 loopback HTTP。session cookie 使用 `Secure`、`HttpOnly`、`SameSite=Lax` 和 `__Host-` 前綴。不要為了以 HTTP 預覽而移除這些設定。
 
@@ -195,7 +210,7 @@ node scripts/build-globe.mjs /tmp/ne_50m_land.geojson
 
 Go dependency 與 npm dependency 均以 lockfile 固定。`web/assets/htmx.min.js` 由 npm build 複製，瀏覽器不依賴 CDN。
 
-## vProxy Portal API
+## Portal API
 
 `PORTAL_API_SIGNING_KEY`（64 字元 hex）與 `PORTAL_API_HOSTNAMES` 同時設定時，啟用 `/api/portal/v1/*`。每個請求以 HMAC-SHA256 簽名（`X-Portal-*` 標頭，含時間戳、一次性 nonce 與本文雜湊），簽名金鑰等同可代表任何使用者操作，只存在 VPS 的 `.env`。
 

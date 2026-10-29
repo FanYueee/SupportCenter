@@ -2,8 +2,12 @@
 package main
 
 import (
+	"bytes"
 	"crypto/rand"
 	"crypto/subtle"
+	"image"
+	"image/color"
+	"image/png"
 	"log"
 	"net/http"
 	"sort"
@@ -19,8 +23,10 @@ import (
 )
 
 func main() {
+	site := previewSite()
 	mux := http.NewServeMux()
 	mux.Handle("GET /assets/", app.AssetHandler())
+	mux.Handle("GET /branding/{file}", app.BrandingHandler(site))
 	mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
 		p := fixture()
 		p.CSRF = rand.Text()
@@ -99,7 +105,7 @@ func main() {
 		if r.URL.Path == "/admin/email" {
 			p.Active, p.Title = "email", "Email 通知"
 			sent := time.Now().UTC().Add(-5 * time.Minute)
-			p.MailEnabled, p.MailFrom = true, "noreply-support@vproxy.cloud"
+			p.MailEnabled, p.MailFrom = true, "noreply@support.example.com"
 			p.Email = model.EmailSettings{OnReply: true, IncludeReply: true, OnInvite: true, LastSentAt: &sent}
 			switch r.URL.Query().Get("state") {
 			case "off":
@@ -284,15 +290,61 @@ func main() {
 		web.ErrorPage(405, i18n.T(r.Context(), "這是唯讀預覽，操作不會儲存。")).Render(r.Context(), w)
 	})
 	log.Println("Read-only UI preview: http://127.0.0.1:8081")
-	// ?brand=vproxy previews another hostname's logos.
+	// ?site=text previews a site without a logo, and ?site=none one with no settings at all.
 	branded := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		brand := web.DefaultBrand
-		if b := r.URL.Query().Get("brand"); web.KnownBrand(b) {
-			brand = b
+		shown := site
+		switch r.URL.Query().Get("site") {
+		case "text":
+			shown.Logo, shown.Icon = nil, nil
+		case "none":
+			shown = web.Site{}
 		}
-		mux.ServeHTTP(w, r.WithContext(web.WithBrand(r.Context(), brand)))
+		mux.ServeHTTP(w, r.WithContext(web.WithSite(r.Context(), shown)))
 	})
 	log.Fatal(http.ListenAndServe("127.0.0.1:8081", i18n.Middleware(app.SecurityHeaders(branded))))
+}
+
+// previewSite stands in for an operator's settings, with drawn placeholder logos.
+func previewSite() web.Site {
+	blue, grey := color.RGBA{37, 99, 235, 255}, color.RGBA{138, 148, 166, 255}
+	draw := func(name string, w, h int, paint func(x, y int) color.Color) *web.Image {
+		canvas := image.NewNRGBA(image.Rect(0, 0, w, h))
+		for y := range h {
+			for x := range w {
+				if c := paint(x, y); c != nil {
+					canvas.Set(x, y, c)
+				}
+			}
+		}
+		var out bytes.Buffer
+		if err := png.Encode(&out, canvas); err != nil {
+			log.Fatal(err)
+		}
+		img, err := web.NewImage(out.Bytes(), name)
+		if err != nil {
+			log.Fatal(err)
+		}
+		return img
+	}
+	mark := func(x, y, size int) color.Color {
+		if x > size*3/10 && x < size*7/10 && y > size*45/100 && y < size*55/100 {
+			return color.White
+		}
+		return blue
+	}
+	return web.Site{
+		Name: "Example Cloud", Owner: "Example Cloud Ltd.", Website: "https://example.com",
+		Logo: draw("logo", 440, 150, func(x, y int) color.Color {
+			switch {
+			case x < 150:
+				return mark(x, y, 150)
+			case x >= 180 && y >= 45 && y < 75, x >= 180 && x < 360 && y >= 90 && y < 108:
+				return grey
+			}
+			return nil
+		}),
+		Icon: draw("icon", 128, 128, func(x, y int) color.Color { return mark(x, y, 128) }),
+	}
 }
 
 func announcementFixture() []model.Announcement {
@@ -331,7 +383,7 @@ func fixture() model.Page {
 		p.Tickets = append(p.Tickets, ticket)
 	}
 	p.Ticket = p.Tickets[0]
-	p.Messages = []model.Message{{ID: 1, Author: "Alex Chen", Role: "user", Body: "你好，今天早上使用代理服務時，偶爾會出現連線逾時。\n\n已經嘗試重新連線及更換本機網路，但仍有同樣的情況。想請你們協助確認目前的節點狀態，謝謝！", CreatedAt: now.Add(-2 * time.Hour)}, {ID: 2, Author: "Jamie", Role: "support", Body: "你好 Alex，謝謝你提供這些資訊。\n\n我們正在確認相關節點的連線狀態。為了更快定位問題，方便補充受影響的節點地區，以及大約發生的時間嗎？節點狀態可至 https://status.vproxy.cloud/nodes 查看。\n\n請直接在這張客服單回覆，我們會持續協助你。", CreatedAt: now.Add(-time.Hour)}}
+	p.Messages = []model.Message{{ID: 1, Author: "Alex Chen", Role: "user", Body: "你好，今天早上使用代理服務時，偶爾會出現連線逾時。\n\n已經嘗試重新連線及更換本機網路，但仍有同樣的情況。想請你們協助確認目前的節點狀態，謝謝！", CreatedAt: now.Add(-2 * time.Hour)}, {ID: 2, Author: "Jamie", Role: "support", Body: "你好 Alex，謝謝你提供這些資訊。\n\n我們正在確認相關節點的連線狀態。為了更快定位問題，方便補充受影響的節點地區，以及大約發生的時間嗎？節點狀態可至 https://status.example.com/nodes 查看。\n\n請直接在這張客服單回覆，我們會持續協助你。", CreatedAt: now.Add(-time.Hour)}}
 	p.Staff = []model.User{{ID: 2, Name: "Jamie", Role: "support", Departments: []string{"billing"}}, {ID: 3, Name: "Morgan", Role: "support", Departments: []string{"technical"}}, {ID: 4, Name: "Taylor", Role: "support", Departments: []string{"billing"}}, {ID: 5, Name: "Casey", Role: "support", Departments: []string{"other"}}}
 	return p
 }

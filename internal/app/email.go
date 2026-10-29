@@ -5,7 +5,6 @@ import (
 
 	"supportcenter/internal/model"
 	"supportcenter/internal/notify"
-	"supportcenter/web"
 )
 
 func (a *App) emailSettings(w http.ResponseWriter, r *http.Request) {
@@ -60,8 +59,7 @@ func (a *App) testEmail(w http.ResponseWriter, r *http.Request) {
 		a.problem(w, r, http.StatusUnprocessableEntity, "尚未設定 SMTP。")
 		return
 	}
-	origin, brand := a.site(r)
-	msg, err := notify.TestEmail(r.Context(), u.Email, web.BrandByKey(brand).Name, origin)
+	msg, err := notify.TestEmail(r.Context(), u.Email, a.Site.Title(), a.Origin)
 	if err != nil {
 		a.fail(w, r, err)
 		return

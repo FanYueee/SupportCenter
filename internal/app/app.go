@@ -31,22 +31,21 @@ type App struct {
 	Auth        *Auth
 	Files       *os.Root
 	Origin      string
-	// BrandHosts maps extra hostnames, such as support.vproxy.cloud, to the brand
-	// they show. They share accounts and data with Origin.
-	BrandHosts map[string]string
-	Log        *slog.Logger
-	AvatarHTTP *http.Client
-	avatars    avatarCache
-	PortalAPI  *PortalAPIConfig
-	Discord    notify.Discord // the settings page's test message
-	Mailer     notify.Sender  // nil without SMTP; the settings page's test email
-	MailFrom   string
+	Site        web.Site
+	Log         *slog.Logger
+	AvatarHTTP  *http.Client
+	avatars     avatarCache
+	PortalAPI   *PortalAPIConfig
+	Discord     notify.Discord // the settings page's test message
+	Mailer      notify.Sender  // nil without SMTP; the settings page's test email
+	MailFrom    string
 }
 
 func (a *App) Handler() http.Handler {
 	mux := http.NewServeMux()
 	a.registerPortalAPI(mux)
 	mux.Handle("GET /assets/", AssetHandler())
+	mux.HandleFunc("GET /branding/{file}", func(w http.ResponseWriter, r *http.Request) { serveBranding(w, r, a.Site) })
 	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
 		if _, err := a.session(r); err == nil {
 			http.Redirect(w, r, "/tickets", 303)
@@ -175,20 +174,9 @@ func (a *App) Handler() http.Handler {
 		mux.ServeHTTP(w, r)
 	})
 	branded := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, brand := a.site(r)
-		limited.ServeHTTP(w, r.WithContext(web.WithBrand(r.Context(), brand)))
+		limited.ServeHTTP(w, r.WithContext(web.WithSite(r.Context(), a.Site)))
 	})
 	return i18n.Middleware(SecurityHeaders(branded, authOrigin))
-}
-
-// site resolves the origin and brand for the request's host. Only configured
-// hostnames get their own origin; any other host falls back to the primary one.
-func (a *App) site(r *http.Request) (origin, brand string) {
-	host := strings.ToLower(r.Host)
-	if brand, ok := a.BrandHosts[host]; ok {
-		return "https://" + host, brand
-	}
-	return a.Origin, web.DefaultBrand
 }
 
 // AssetHandler serves embedded assets. Pages link them with ?v=<content hash>,
@@ -782,21 +770,4 @@ func (a *App) replyError(w http.ResponseWriter, r *http.Request, message string,
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(status)
 	w.Write(buf.Bytes())
-}
-
-// BrandHostsFromEnvironment parses BRAND_HOSTS, e.g. "support.vproxy.cloud=vproxy".
-func BrandHostsFromEnvironment(value, primaryHost string) (map[string]string, error) {
-	hosts := map[string]string{}
-	for _, entry := range strings.Split(value, ",") {
-		entry = strings.TrimSpace(entry)
-		if entry == "" {
-			continue
-		}
-		host, brand, ok := strings.Cut(entry, "=")
-		if !ok || !portalHost.MatchString(host) || strings.Contains(host, "..") || host == primaryHost || !web.KnownBrand(brand) {
-			return nil, errors.New("BRAND_HOSTS must list hostname=brand pairs with a known brand")
-		}
-		hosts[host] = brand
-	}
-	return hosts, nil
 }

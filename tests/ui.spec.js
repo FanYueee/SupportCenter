@@ -1,13 +1,32 @@
 const { test, expect } = require('@playwright/test');
 const fs = require('node:fs');
-test('footer links to AtomRoute without a link underline', async ({ page }) => {
+test('footer links to the site owner without a link underline', async ({ page }) => {
   for (const path of ['/login', '/tickets', '/account', '/admin/users']) {
     await page.goto(path);
     const footer = page.locator('.site-footer a');
-    await expect(footer).toHaveAttribute('href', 'https://www.atomroute.com/zh');
-    await expect(footer).toContainText(/© \d{4} AtomRoute/);
+    await expect(footer).toHaveAttribute('href', 'https://example.com');
+    await expect(footer).toHaveText(/^© \d{4} Example Cloud Ltd\.$/);
     await expect(footer).toHaveCSS('text-decoration-line', 'none');
   }
+});
+
+test('header fits a site without a logo or without any settings', async ({ page }) => {
+  for (const width of [1440, 760, 390, 320]) {
+    await page.setViewportSize({ width, height: 800 });
+    await page.goto('/tickets?site=text');
+    const brand = page.getByRole('link', { name: 'Example Cloud 支援中心' });
+    await expect(brand.locator('.brand-icon')).toHaveAttribute('src', /icon\.svg/);
+    await expect(brand.locator('.brand-name')).toBeVisible();
+    await expect(page.locator('.brand-image')).toHaveCount(0);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.goto('/tickets?site=none');
+    await expect(page.getByRole('link', { name: '支援中心', exact: true })).toBeVisible();
+    await expect(page.locator('.brand-product')).toBeVisible();
+    await expect(page.locator('.brand-name, .brand-divider, .site-footer')).toHaveCount(0);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  }
+  await page.goto('/login?site=none');
+  await expect(page.getByRole('heading', { name: '登入支援中心' })).toBeVisible();
 });
 
 test('account settings and admin users stay readable on mobile', async ({ page }) => {
@@ -204,9 +223,10 @@ for (const scheme of ['light', 'dark']) {
       };
       await page.goto('/tickets');
       await expect(page.getByRole('heading', { name: /我的客服單/  })).toBeVisible();
-      await expect(page.getByRole('link', { name: 'AtomRoute 支援中心' })).toBeVisible();
-      const logoURL = await page.locator('.brand-image img').evaluate(el => el.currentSrc);
-      expect(logoURL).toContain(viewport.width <= 760 ? 'atomroute-icon.png' : 'atomroute-logo.png');
+      await expect(page.getByRole('link', { name: 'Example Cloud 支援中心' })).toBeVisible();
+      const logo = page.locator('.brand-image img');
+      expect(await logo.evaluate(el => el.currentSrc)).toContain(viewport.width <= 760 ? '/branding/icon.png' : '/branding/logo.png');
+      expect(await logo.evaluate(el => [el.clientWidth, el.clientHeight])).toEqual(viewport.width <= 760 ? [34, 34] : [140, 48]);
       await expect(page.getByRole('combobox', { name: '外觀' })).toHaveCount(0);
       await expect(page.locator('tbody tr')).toHaveCount(4);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -288,10 +308,10 @@ test('ticket image opens in an accessible in-page viewer', async ({ page }) => {
   await page.locator('.messages').evaluate(container => {
     const link = document.createElement('a');
     link.className = 'image-preview-link';
-    link.href = '/assets/atomroute-icon.png';
+    link.href = '/branding/icon.png';
     link.dataset.imagePreview = '';
     link.dataset.imageName = 'ticket-image.png';
-    link.dataset.originalUrl = '/assets/atomroute-logo.png';
+    link.dataset.originalUrl = '/branding/logo.png';
     link.textContent = '預覽圖片';
     container.append(link);
   });
@@ -299,9 +319,9 @@ test('ticket image opens in an accessible in-page viewer', async ({ page }) => {
   const dialog = page.getByRole('dialog', { name: '圖片預覽' });
   await expect(dialog).toBeVisible();
   await expect(dialog.locator('[data-preview-name]')).toHaveText('ticket-image.png');
-  await expect(dialog.locator('[data-preview-image]')).toHaveAttribute('src', /atomroute-icon\.png/);
-  await expect(dialog.getByRole('link', { name: '另開圖片' })).toHaveAttribute('href', /atomroute-icon\.png/);
-  await expect(dialog.getByRole('link', { name: '下載原圖' })).toHaveAttribute('href', /atomroute-logo\.png/);
+  await expect(dialog.locator('[data-preview-image]')).toHaveAttribute('src', /icon\.png/);
+  await expect(dialog.getByRole('link', { name: '另開圖片' })).toHaveAttribute('href', /icon\.png/);
+  await expect(dialog.getByRole('link', { name: '下載原圖' })).toHaveAttribute('href', /logo\.png/);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   const offsetFromCenter = () => dialog.evaluate(element => {
     const bounds = element.getBoundingClientRect();
@@ -322,7 +342,7 @@ test('login page loads only the small appearance script', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/login');
   await expect(page.getByRole('link', { name: '登入', exact: true })).toHaveAttribute('href', '/login');
-  await expect(page.locator('.login-copy')).not.toContainText('AtomRoute 帳號');
+  await expect(page.getByRole('heading', { name: '登入 Example Cloud 支援中心' })).toBeVisible();
   await expect(page.locator('.login-action svg')).toBeVisible();
   await expect(page.getByRole('link', { name: '註冊', exact: true })).toHaveAttribute('href', '/signup');
   // The decorative globe never covers the sign-in actions.
@@ -541,7 +561,8 @@ test('selected images are losslessly optimized and previewed as WebP', async ({ 
   page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); });
   await page.goto('/tickets/new');
   const input = page.locator('input[name="attachments"]');
-  await input.setInputFiles('web/assets/atomroute-logo.png');
+  const original = await (await page.request.get('/branding/logo.png')).body();
+  await input.setInputFiles({ name: 'logo.png', mimeType: 'image/png', buffer: original });
   await expect(page.locator('.image-preview img')).toBeVisible({ timeout: 30000 });
   await expect(input).not.toHaveAttribute('data-processing', 'true');
   const details = await input.evaluate(async element => {
@@ -555,7 +576,7 @@ test('selected images are losslessly optimized and previewed as WebP', async ({ 
     };
   });
   expect(details.signature).toBe('RIFFWEBP');
-  expect(details.uploadSize).toBeLessThanOrEqual(require('node:fs').statSync('web/assets/atomroute-logo.png').size);
+  expect(details.uploadSize).toBeLessThanOrEqual(original.length);
   expect(['image/png', 'image/webp']).toContain(details.uploadType);
   expect(errors).toEqual([]);
 });

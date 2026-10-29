@@ -10,3 +10,4 @@ artifacts/
 backup/
 .env.*
 !.env.example
+branding/

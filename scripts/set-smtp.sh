@@ -22,7 +22,9 @@ smtp_port="$(ask 'SMTP port (587 = STARTTLS, 465 = TLS)' '587')"
 default_mode=starttls
 [[ "$smtp_port" == 465 ]] && default_mode=implicit
 smtp_mode="$(ask 'Encryption: starttls or implicit' "$default_mode")"
-smtp_from="$(ask 'Sender address' 'noreply-support@vproxy.cloud')"
+# Offer the sender already in .env, if any.
+current_from="$(sed -n "s/^SMTP_FROM='\{0,1\}\([^']*\)'\{0,1\}$/\1/p" "$env_file" | tail -n 1)"
+smtp_from="$(ask 'Sender address' "$current_from")"
 smtp_user="$(ask 'SMTP username' "$smtp_from")"
 read -r -s -p 'SMTP password: ' smtp_password </dev/tty
 printf '\n' >/dev/tty

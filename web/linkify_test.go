@@ -19,8 +19,8 @@ func links(text string) []string {
 
 func TestLinkPartsFindsWebAddresses(t *testing.T) {
 	for text, want := range map[string]string{
-		"請直接至 https://portal.vproxy.cloud 註冊登入":         "https://portal.vproxy.cloud",
-		"網址https://portal.vproxy.cloud註冊":               "https://portal.vproxy.cloud",
+		"請直接至 https://portal.example.com 註冊登入":          "https://portal.example.com",
+		"網址https://portal.example.com註冊":                "https://portal.example.com",
 		"請看 https://example.com/a?b=1&c=2。":             "https://example.com/a?b=1&c=2",
 		"(see https://example.com/x).":                  "https://example.com/x",
 		"https://en.wikipedia.org/wiki/Proxy_(network)": "https://en.wikipedia.org/wiki/Proxy_(network)",

@@ -11,7 +11,6 @@ import (
 	"testing"
 
 	"supportcenter/internal/ai"
-	"supportcenter/internal/database"
 	"supportcenter/internal/model"
 	"supportcenter/internal/notify"
 )
@@ -56,7 +55,7 @@ func pendingReplies(t *testing.T, a *App, ticketID int64) []string {
 }
 
 func mailWorker(a *App, sender notify.Sender) *notify.Worker {
-	return &notify.Worker{Store: a.Store, Sender: sender, Origin: a.Origin, Origins: map[string]string{"vproxy": "https://support.vproxy.test"}, Log: a.Log}
+	return &notify.Worker{Store: a.Store, Sender: sender, Origin: a.Origin, Site: a.Site, Log: a.Log}
 }
 
 // sendDue makes every queued email due and runs the worker until the queue is empty.
@@ -117,8 +116,9 @@ func TestReplyEmailsReachRequesterAndParticipants(t *testing.T) {
 	a.Store.MailEnabled = true
 	verify(t, a, alice, bob)
 	mail := &fakeMailSender{}
+	a.Site.Name = "Example Cloud"
 	worker := mailWorker(a, mail)
-	id, err := a.Store.CreateWithParticipants(database.WithRequestInfo(ctx, database.RequestInfo{Brand: "vproxy"}), alice, model.Ticket{Subject: "連線逾時", Category: "technical", Priority: "normal"}, "問題", nil, []string{bob.Email})
+	id, err := a.Store.CreateWithParticipants(ctx, alice, model.Ticket{Subject: "連線逾時", Category: "technical", Priority: "normal"}, "問題", nil, []string{bob.Email})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -156,8 +156,8 @@ func TestReplyEmailsReachRequesterAndParticipants(t *testing.T) {
 		t.Fatalf("expected one email, got %+v", mail.sent)
 	}
 	m := mail.sent[0]
-	link := fmt.Sprintf("https://support.vproxy.test/tickets/%d", id)
-	if m.to != alice.Email || m.from != "vProxy Cloud 支援中心" || !strings.Contains(m.subject, fmt.Sprintf("#%04d", id)) || !strings.Contains(m.subject, "連線逾時") ||
+	link := fmt.Sprintf("%s/tickets/%d", a.Origin, id)
+	if m.to != alice.Email || m.from != "Example Cloud 支援中心" || !strings.Contains(m.subject, fmt.Sprintf("#%04d", id)) || !strings.Contains(m.subject, "連線逾時") ||
 		!strings.Contains(m.body, "請試試 <b>重新連線</b>") || !strings.Contains(m.body, link) || strings.Contains(m.body, "內部備註") {
 		t.Fatalf("reply email: %+v", m)
 	}
@@ -208,7 +208,7 @@ func TestAIRepliesEmailTheRequester(t *testing.T) {
 	}
 	mail := &fakeMailSender{}
 	sendDue(t, a, mailWorker(a, mail))
-	if len(mail.sent) != 1 || !strings.Contains(mail.sent[0].body, "AI 助理") || !strings.Contains(mail.sent[0].body, "請重新啟動路由器。") || mail.sent[0].from != "AtomRoute 支援中心" {
+	if len(mail.sent) != 1 || !strings.Contains(mail.sent[0].body, "AI 助理") || !strings.Contains(mail.sent[0].body, "請重新啟動路由器。") || mail.sent[0].from != "支援中心" {
 		t.Fatalf("AI reply email: %+v", mail.sent)
 	}
 }
@@ -314,11 +314,11 @@ func TestEmailSettingsAndTestMessage(t *testing.T) {
 		t.Fatalf("switches not saved: %+v", s)
 	}
 	mail := &fakeMailSender{}
-	a.Mailer, a.MailEnabled, a.MailFrom = mail, true, "noreply-support@vproxy.test"
+	a.Mailer, a.MailEnabled, a.MailFrom = mail, true, "noreply@support.example.test"
 	if res := request(h, "POST", "/admin/email/test", "admin", url.Values{"csrf": {"csrf-admin"}}); res.Header().Get("Location") != "/admin/email?test=ok" || len(mail.sent) != 1 || mail.sent[0].to != "admin@example.test" {
 		t.Fatalf("test email: %s %+v", res.Header().Get("Location"), mail.sent)
 	}
-	if page := request(h, "GET", "/admin/email?test=ok", "admin", nil).Body.String(); !strings.Contains(page, "noreply-support@vproxy.test") || !strings.Contains(page, "測試信已寄出") {
+	if page := request(h, "GET", "/admin/email?test=ok", "admin", nil).Body.String(); !strings.Contains(page, "noreply@support.example.test") || !strings.Contains(page, "測試信已寄出") {
 		t.Fatal("success or sender not shown")
 	}
 	mail.err = errors.New("dial tcp: connection refused")
@@ -338,25 +338,5 @@ func TestEmailSettingsAndTestMessage(t *testing.T) {
 	request(h, "POST", "/account/email", "alice", url.Values{"csrf": {"csrf-alice"}})
 	if page := request(h, "GET", "/account", "alice", nil).Body.String(); strings.Contains(page, `name="email_notify" checked`) {
 		t.Fatal("email preference not switched off")
-	}
-}
-
-func TestNewTicketsRememberTheSiteTheyCameFrom(t *testing.T) {
-	a, _, _, _, _ := testApp(t)
-	a.BrandHosts = map[string]string{"support.vproxy.test": "vproxy"}
-	h := a.Handler()
-	for host, want := range map[string]string{"support.vproxy.test": "vproxy", "support.example.test": "atomroute"} {
-		form := url.Values{"csrf": {"csrf-alice"}, "submission": {token()}, "subject": {"from " + host}, "category": {"other"}, "priority": {"normal"}, "body": {"問題"}}
-		r := httptest.NewRequest("POST", "https://"+host+"/tickets", strings.NewReader(form.Encode()))
-		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-		r.Header.Set("Origin", "https://"+host)
-		r.AddCookie(cookie("__Host-support-session", "alice", 86400))
-		w := httptest.NewRecorder()
-		h.ServeHTTP(w, r)
-		var brand string
-		a.Store.Pool.QueryRow(context.Background(), `SELECT brand FROM tickets WHERE subject=$1`, "from "+host).Scan(&brand)
-		if w.Code != http.StatusSeeOther || brand != want {
-			t.Fatalf("%s: %d brand %q", host, w.Code, brand)
-		}
 	}
 }

@@ -75,7 +75,7 @@ func (a *App) testDiscord(w http.ResponseWriter, r *http.Request) {
 		a.problem(w, r, http.StatusUnprocessableEntity, "請先設定 Webhook 網址。")
 		return
 	}
-	_, sendErr := a.Discord.Post(r.Context(), id, token, notify.DiscordTestMessage(a.Origin))
+	_, sendErr := a.Discord.Post(r.Context(), id, token, notify.DiscordTestMessage(a.Origin, a.Site.Title()))
 	if err = a.Store.RecordDiscordResult(r.Context(), notify.ErrorCode(sendErr)); err != nil {
 		a.fail(w, r, err)
 		return

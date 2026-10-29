@@ -295,7 +295,7 @@ func (s *Store) CreateWithParticipants(ctx context.Context, u model.User, t mode
 	if mode != "human" && mode != "ai" {
 		return 0, ErrInvalid
 	}
-	err = tx.QueryRow(ctx, `INSERT INTO tickets(user_id,subject,category,priority,client_ip,user_agent,assistance_mode,status,brand) VALUES($1,$2,$3,$4,$5,$6,$7,CASE WHEN $7='ai' THEN 'open' ELSE 'new' END,COALESCE(NULLIF($8,''),'atomroute')) RETURNING id`, u.ID, t.Subject, t.Category, t.Priority, info.IP, info.UserAgent, mode, ticketBrand(ctx)).Scan(&id)
+	err = tx.QueryRow(ctx, `INSERT INTO tickets(user_id,subject,category,priority,client_ip,user_agent,assistance_mode,status) VALUES($1,$2,$3,$4,$5,$6,$7,CASE WHEN $7='ai' THEN 'open' ELSE 'new' END) RETURNING id`, u.ID, t.Subject, t.Category, t.Priority, info.IP, info.UserAgent, mode).Scan(&id)
 	if err != nil {
 		return 0, err
 	}

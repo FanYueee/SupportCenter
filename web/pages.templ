@@ -218,8 +218,8 @@ templ Document(p model.Page) {
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
 			<meta name="color-scheme" content="light dark"/>
 			<meta name="htmx-config" content='{"selfRequestsOnly":true,"allowScriptTags":false,"allowEval":false,"historyCacheSize":0,"includeIndicatorStyles":false}'/>
-			<title>{ pageTitle(ctx,p) } · { i18n.T(ctx,"AtomRoute 支援中心") }</title>
-			<link rel="icon" type="image/png" href={ assetURL(brandOf(ctx).Icon) }/>
+			<title>{ pageTitle(ctx,p) } · { siteTitle(ctx) }</title>
+			<link rel="icon" type={ iconType(ctx) } href={ iconURL(ctx) }/>
 			<script src={ assetURL("theme.js") }></script>
 			<link rel="stylesheet" href={ assetURL("app.css") }/>
 			if p.Active != "login" {
@@ -246,14 +246,7 @@ templ Document(p model.Page) {
 			}
 			<header class="site-header">
 				<div class="header-inner">
-					<a class="brand" href="/tickets" aria-label={ i18n.T(ctx,"AtomRoute 支援中心") }>
-						<picture class={ "brand-image", "brand-" + brandOf(ctx).Key }>
-							<source media="(max-width: 760px)" srcset={ assetURL(brandOf(ctx).Icon) }/>
-							<img src={ assetURL(brandOf(ctx).Logo) } alt={ brandOf(ctx).LogoAlt } width={ brandOf(ctx).LogoWidth } height={ brandOf(ctx).LogoHeight }/>
-						</picture>
-						<span class="brand-name" aria-hidden="true">{ brandOf(ctx).Name }</span>
-						<span class="brand-divider">/</span><span class="brand-product">{ i18n.T(ctx,"支援中心") }</span>
-					</a>
+					@SiteBrand()
 					if p.Active != "login" {
 						<nav class="main-nav" aria-label={ i18n.T(ctx,"主選單") }>
 							<a class={ "nav-item", templ.KV("selected", !p.Admin && p.Active!="account" && p.Active!="notifications") } href="/tickets">{ i18n.T(ctx,"我的客服單") }</a>
@@ -733,7 +726,7 @@ templ Users(p model.Page) {
 						if seen, portal := user.LastSeen(); seen != nil {
 							<time datetime={ seen.Format(time.RFC3339) } data-local-time="full" data-timezone-inline>{ seen.UTC().Format("2006/01/02 15:04") } UTC</time>
 							if portal {
-								<span class="user-via" title={ i18n.T(ctx,"透過 vProxy Portal 使用") }>Portal</span>
+								<span class="user-via" title={ i18n.T(ctx,"透過 Portal 使用") }>Portal</span>
 							}
 						} else {
 							<span class="field-hint">{ i18n.T(ctx,"尚無紀錄") }</span>
@@ -1308,16 +1301,43 @@ templ Detail(p model.Page) {
 	</div>
 }
 
+// SiteBrand is the header's link home: the operator's logo, or the icon and name.
+templ SiteBrand() {
+	<a class={ "brand", templ.KV("brand-text", siteOf(ctx).Logo == nil), templ.KV("brand-plain", siteOf(ctx).Name == "") } href="/tickets" aria-label={ siteTitle(ctx) }>
+		if logo := siteOf(ctx).Logo; logo != nil {
+			<picture class="brand-image">
+				<source media="(max-width: 760px)" srcset={ iconURL(ctx) } width="34" height="34"/>
+				<img src={ logo.URL() } alt={ siteOf(ctx).Name } width={ logo.headerWidth() } height={ logo.headerHeight() }/>
+			</picture>
+		} else {
+			<img class="brand-icon" src={ iconURL(ctx) } width="34" height="34" alt=""/>
+		}
+		if siteOf(ctx).Name != "" {
+			<span class="brand-name" aria-hidden="true">{ siteOf(ctx).Name }</span>
+			<span class="brand-divider">/</span>
+		}
+		<span class="brand-product">{ i18n.T(ctx,"支援中心") }</span>
+	</a>
+}
+
 templ SiteFooter() {
-	<footer class="site-footer"><a href={ templ.SafeURL(brandOf(ctx).Website) } aria-label={ i18n.T(ctx,brandOf(ctx).SiteLabel) }>© { strconv.Itoa(time.Now().Year()) } { brandOf(ctx).Owner }</a></footer>
+	if holder := siteOf(ctx).holder(); holder != "" {
+		<footer class="site-footer">
+			if siteOf(ctx).Website != "" {
+				<a href={ templ.SafeURL(siteOf(ctx).Website) } aria-label={ websiteLabel(ctx) }>© { strconv.Itoa(time.Now().Year()) } { holder }</a>
+			} else {
+				<span>© { strconv.Itoa(time.Now().Year()) } { holder }</span>
+			}
+		</footer>
+	}
 }
 
 templ Login(p model.Page) {
 	<main id="workspace" class="login-page login-split">
 		<section class="login-panel">
 			<div class="login-copy">
-				<img class="login-logo" src={ assetURL(brandOf(ctx).Icon) } width="44" height="44" alt=""/>
-				<h1>{ i18n.T(ctx,brandOf(ctx).SignIn) }</h1>
+				<img class="login-logo" src={ iconURL(ctx) } width="44" height="44" alt=""/>
+				<h1>{ signInHeading(ctx) }</h1>
 				<p class="login-lead">{ i18n.T(ctx,"登入後即可建立及追蹤客服單。") }</p>
 				<a class="button primary login-action" href="/login">
 					@Icon("login")
@@ -1580,8 +1600,8 @@ templ ErrorPage(status int, message string) {
 			<meta charset="utf-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
 			<meta name="color-scheme" content="light dark"/>
-			<title>{ i18n.T(ctx,"操作未完成 · AtomRoute 支援中心") }</title>
-			<link rel="icon" type="image/png" href={ assetURL(brandOf(ctx).Icon) }/>
+			<title>{ i18n.T(ctx,"操作未完成") } · { siteTitle(ctx) }</title>
+			<link rel="icon" type={ iconType(ctx) } href={ iconURL(ctx) }/>
 			<script src={ assetURL("theme.js") }></script>
 			<link rel="stylesheet" href={ assetURL("app.css") }/>
 		</head>
@@ -1610,7 +1630,7 @@ templ AcceptanceLogin(csrf string, message string) {
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
 			<meta name="color-scheme" content="light dark"/>
 			<title>{ i18n.T(ctx,"功能驗收登入") }</title>
-			<link rel="icon" type="image/png" href={ assetURL(brandOf(ctx).Icon) }/>
+			<link rel="icon" type={ iconType(ctx) } href={ iconURL(ctx) }/>
 			<script src={ assetURL("theme.js") }></script>
 			<link rel="stylesheet" href={ assetURL("app.css") }/>
 		</head>

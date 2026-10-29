@@ -298,20 +298,25 @@ input[type="checkbox"] {
   gap: 12px;
   white-space: nowrap;
 }
-.brand-image {
+/* The logo's width and height attributes already fit it to the header. */
+.brand-image,
+.brand-image img,
+.brand-icon {
   display: block;
   flex: none;
-  width: 205px;
 }
-.brand-image img {
-  display: block;
-  width: 100%;
-  height: auto;
+.brand-icon {
+  width: 34px;
+  height: 34px;
 }
-/* Logos share one height; the vProxy wordmark is narrower. */
-.brand-image.brand-vproxy { width: 141px; }
 .brand-name {
   display: none;
+}
+.brand-text .brand-name {
+  display: inline;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.4px;
 }
 .brand-divider {
   font-size: 18px;
@@ -1646,9 +1651,9 @@ dd {
     flex: 1;
     min-width: 0;
   }
-  .brand-image,
-  .brand-image.brand-vproxy {
+  .brand-image img {
     width: 34px;
+    height: 34px;
   }
   .brand-name {
     display: inline;
@@ -2112,6 +2117,8 @@ dd {
 }
 @media (max-width: 480px) {
   .brand-divider, .brand-product { display: none; }
+  /* Without a site name, 支援中心 is the only label left. */
+  .brand-plain .brand-product { display: inline; }
 }
 @media (max-width: 360px) {
   .account-card .language-options { grid-template-columns: 1fr; }

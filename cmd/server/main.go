@@ -41,7 +41,7 @@ func run() error {
 	if err != nil || u.Scheme != "https" || u.Host == "" || u.Path != "" || u.RawQuery != "" || u.Fragment != "" || u.User != nil {
 		return errors.New("APP_URL must be an HTTPS origin without a path")
 	}
-	brandHosts, err := app.BrandHostsFromEnvironment(os.Getenv("BRAND_HOSTS"), u.Host)
+	site, err := app.SiteFromEnvironment()
 	if err != nil {
 		return err
 	}
@@ -100,22 +100,17 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	a := &app.App{Store: store, Auth: auth, Files: files, Origin: origin, BrandHosts: brandHosts, Log: slog.Default(), AIEnabled: aiEnabled, AIModel: aiModel, MailEnabled: mailConfig.Enabled(), PortalAPI: portalAPI}
+	a := &app.App{Store: store, Auth: auth, Files: files, Origin: origin, Site: site, Log: slog.Default(), AIEnabled: aiEnabled, AIModel: aiModel, MailEnabled: mailConfig.Enabled(), PortalAPI: portalAPI}
 	if aiEnabled {
 		go (&ai.Worker{Store: store, Key: aiKey, Model: aiModel, Log: slog.Default()}).Run(ctx)
 	}
 	if mailConfig.Enabled() {
 		store.MailEnabled = true
 		a.Mailer, a.MailFrom = notify.SMTP{Config: mailConfig}, mailConfig.From
-		// Customer emails link back to the site their ticket was opened on.
-		origins := map[string]string{}
-		for host, brand := range brandHosts {
-			origins[brand] = "https://" + host
-		}
-		go (&notify.Worker{Store: store, Sender: notify.SMTP{Config: mailConfig}, Origin: origin, Origins: origins, Log: slog.Default()}).Run(ctx)
+		go (&notify.Worker{Store: store, Sender: notify.SMTP{Config: mailConfig}, Origin: origin, Site: site, Log: slog.Default()}).Run(ctx)
 	}
 	// Discord settings live in the database, so the worker always runs and idles without a webhook.
-	go (&notify.DiscordWorker{Store: store, Origin: origin, Log: slog.Default()}).Run(ctx)
+	go (&notify.DiscordWorker{Store: store, Origin: origin, Site: site, Log: slog.Default()}).Run(ctx)
 	go a.Cleanup(ctx)
 	go a.AutoClose(ctx)
 	address := os.Getenv("LISTEN_ADDR")

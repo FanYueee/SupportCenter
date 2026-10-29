@@ -368,12 +368,12 @@ func makeParticipantEmails(count int) []string {
 func TestMessageLinksAreClickable(t *testing.T) {
 	a, h, alice, _, _ := testApp(t)
 	ctx := context.Background()
-	id, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "links", Category: "other", Priority: "normal"}, "您好，請直接至 https://portal.vproxy.cloud 註冊登入，<script>x</script> 再看 javascript:alert(1)。", nil)
+	id, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "links", Category: "other", Priority: "normal"}, "您好，請直接至 https://portal.example.com 註冊登入，<script>x</script> 再看 javascript:alert(1)。", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	page := request(h, "GET", fmt.Sprintf("/tickets/%d", id), "alice", nil).Body.String()
-	want := `<div class="message-body">您好，請直接至 <a href="https://portal.vproxy.cloud" target="_blank" rel="noopener noreferrer nofollow ugc">https://portal.vproxy.cloud</a> 註冊登入，&lt;script&gt;x&lt;/script&gt; 再看 javascript:alert(1)。</div>`
+	want := `<div class="message-body">您好，請直接至 <a href="https://portal.example.com" target="_blank" rel="noopener noreferrer nofollow ugc">https://portal.example.com</a> 註冊登入，&lt;script&gt;x&lt;/script&gt; 再看 javascript:alert(1)。</div>`
 	if !strings.Contains(page, want) {
 		start := strings.Index(page, `<div class="message-body">`)
 		t.Fatalf("message body not linked as expected:\n%s", page[start:start+400])

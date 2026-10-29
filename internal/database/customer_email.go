@@ -2,7 +2,6 @@ package database
 
 import (
 	"context"
-	"regexp"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
@@ -16,17 +15,6 @@ const (
 	maxInviteEmailsPerAddress = 3
 	replyEmailDelay           = "2 minutes"
 )
-
-var brandKey = regexp.MustCompile(`^[a-z0-9-]{1,32}$`)
-
-// ticketBrand is the site a new ticket is opened on; the column default covers
-// requests without one, such as background jobs and tests.
-func ticketBrand(ctx context.Context) string {
-	if brand := requestInfo(ctx).Brand; brandKey.MatchString(brand) {
-		return brand
-	}
-	return ""
-}
 
 func (s *Store) EmailSettings(ctx context.Context) (e model.EmailSettings, err error) {
 	err = s.Pool.QueryRow(ctx, `SELECT on_reply,include_reply,on_invite,last_error,last_sent_at,last_error_at FROM email_settings WHERE id=1`).

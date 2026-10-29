@@ -4,9 +4,6 @@ AI 助理處理中	AI assistant is working
 AI 回覆	AI reply
 AI 指令	AI prompts
 AI 會讀取主旨及問題描述並回覆；公開訊息會傳送至 OpenAI。附件不會傳送。可隨時轉真人客服。	AI reads the subject and description to reply. Public messages are sent to OpenAI; attachments are not. You can switch to a person at any time.
-AtomRoute 官方網站	AtomRoute website
-vProxy Cloud 官方網站	vProxy Cloud website
-AtomRoute 支援中心	AtomRoute Support Center
 IP 未記錄	IP not recorded
 SMTP 尚未設定，技術通知暫存 7 天。	SMTP is not configured. Technical notifications are queued for 7 days.
 ZIP 解壓後過大	ZIP expands beyond the allowed size
@@ -130,7 +127,6 @@ ZIP 解壓後過大	ZIP expands beyond the allowed size
 搜尋客服單主旨或編號	Search ticket subject or number
 搜尋條件無效。	Invalid search criteria.
 操作未完成	Action not completed
-操作未完成 · AtomRoute 支援中心	Action not completed · AtomRoute Support Center
 操作紀錄	Change history
 支援中心	Support Center
 支援團隊	Support team
@@ -343,8 +339,6 @@ AI 已回覆 · 待您確認	AI replied · Awaiting your confirmation
 公告已被更新，請重新載入後再操作。	This announcement has changed. Reload before continuing.
 最多保留 20 則公告，請先刪除不再使用的公告。	You can keep up to 20 announcements. Delete an unused announcement first.
 請填寫公告標題與內容，並選擇有效的顏色。	Enter an announcement title and content, and select a valid color.
-登入 AtomRoute 支援中心	Sign in to AtomRoute Support Center
-登入 vProxy Cloud 支援中心	Sign in to vProxy Cloud Support Center
 登入後即可建立及追蹤客服單。	Sign in to create and track support tickets.
 還沒有帳號？	Don't have an account?
 註冊	Sign up
@@ -399,4 +393,6 @@ SMTP 伺服器暫時無法處理，稍後會自動重試。	The SMTP server is t
 無法連線到 SMTP 伺服器，請確認主機名稱和連接埠。	Could not reach the SMTP server. Check the host name and port.
 尚未設定 SMTP。	SMTP is not set up.
 註冊日期	Registered
-透過 vProxy Portal 使用	Used through the vProxy Portal
+透過 Portal 使用	Used through the Portal
+登入 {site}	Sign in to {site}
+{name} 官方網站	{name} website

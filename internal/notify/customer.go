@@ -21,7 +21,7 @@ const (
 
 type customerEmail struct {
 	ID, TicketID, RecipientID int64
-	Kind, To, Subject, Brand  string
+	Kind, To, Subject         string
 	Inviter                   string
 	IncludeReply, Wanted      bool
 	Attempts                  int
@@ -45,13 +45,13 @@ func (w *Worker) ProcessCustomer(ctx context.Context) (bool, error) {
 	 FROM picked WHERE e.id=picked.id
 	 RETURNING e.id,e.ticket_id,e.kind,e.recipient_email,e.recipient_user_id,e.actor_user_id,e.attempts,e.last_reply_at
 	)
-	 SELECT c.id,c.ticket_id,c.kind,c.recipient_email,COALESCE(c.recipient_user_id,0),c.attempts,t.subject,t.brand,COALESCE(inviter.email,''),s.include_reply,
+	 SELECT c.id,c.ticket_id,c.kind,c.recipient_email,COALESCE(c.recipient_user_id,0),c.attempts,t.subject,COALESCE(inviter.email,''),s.include_reply,
 	 CASE WHEN c.kind='invite' THEN s.on_invite AND EXISTS(SELECT 1 FROM ticket_invites i WHERE i.ticket_id=t.id AND i.email_key=c.recipient_email)
 	 ELSE s.on_reply AND EXISTS(SELECT 1 FROM users u WHERE u.id=c.recipient_user_id AND u.email_notify AND u.email_verified AND lower(u.email)=c.recipient_email
 	  AND (t.user_id=u.id OR EXISTS(SELECT 1 FROM ticket_invites i WHERE i.ticket_id=t.id AND (i.user_id=u.id OR (i.user_id IS NULL AND i.email_key=lower(u.email))))))
 	  AND NOT EXISTS(SELECT 1 FROM ticket_messages m WHERE m.ticket_id=t.id AND m.user_id=c.recipient_user_id AND m.created_at>c.last_reply_at) END
 	 FROM claimed c JOIN tickets t ON t.id=c.ticket_id JOIN email_settings s ON s.id=1 LEFT JOIN users inviter ON inviter.id=c.actor_user_id`, customerAttempts,
-	).Scan(&item.ID, &item.TicketID, &item.Kind, &item.To, &item.RecipientID, &item.Attempts, &item.Subject, &item.Brand, &item.Inviter, &item.IncludeReply, &item.Wanted)
+	).Scan(&item.ID, &item.TicketID, &item.Kind, &item.To, &item.RecipientID, &item.Attempts, &item.Subject, &item.Inviter, &item.IncludeReply, &item.Wanted)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return false, nil
 	}
@@ -89,17 +89,16 @@ func (w *Worker) ProcessCustomer(ctx context.Context) (bool, error) {
 }
 
 func (w *Worker) customerMessage(ctx context.Context, item customerEmail) (Message, error) {
-	brand, origin := w.site(item.Brand)
 	number := fmt.Sprintf("#%04d", item.TicketID)
-	view := web.EmailView{Brand: brand, Link: fmt.Sprintf("%s/tickets/%d", origin, item.TicketID), SettingsURL: origin + "/account"}
+	view := web.EmailView{Site: w.Site.Title(), Link: fmt.Sprintf("%s/tickets/%d", w.Origin, item.TicketID), SettingsURL: w.Origin + "/account"}
 	var subject string
 	if item.Kind == "invite" {
 		// Only the inviter's verified address and the number: no ticket text,
 		// so invitations cannot carry someone else's message to a stranger.
-		subject = fmt.Sprintf("[%s] 您受邀參與客服單 %s", view.Site(), number)
+		subject = fmt.Sprintf("[%s] 您受邀參與客服單 %s", view.Site, number)
 		view.Heading = "您受邀參與客服單 " + number
 		view.Intro = []string{
-			fmt.Sprintf("%s 邀請您參與 %s 的客服單 %s。", item.Inviter, view.Site(), number),
+			fmt.Sprintf("%s 邀請您參與 %s 的客服單 %s。", item.Inviter, view.Site, number),
 			fmt.Sprintf("使用這個 Email（%s）登入或註冊後，即可查看及回覆。", item.To),
 		}
 		view.Note = "如果您不認識邀請人，可以忽略這封信。"
@@ -117,7 +116,7 @@ func (w *Worker) customerMessage(ctx context.Context, item customerEmail) (Messa
 		if source == "ai" {
 			author = "AI 助理"
 		}
-		subject = fmt.Sprintf("[%s] 客服單 %s 有新回覆：%s", view.Site(), number, item.Subject)
+		subject = fmt.Sprintf("[%s] 客服單 %s 有新回覆：%s", view.Site, number, item.Subject)
 		view.Heading = "客服單 " + number + " 有新回覆"
 		view.Intro = []string{fmt.Sprintf("您的客服單「%s」有新的回覆。", item.Subject)}
 		if item.IncludeReply {
@@ -138,13 +137,13 @@ func (w *Worker) customerMessage(ctx context.Context, item customerEmail) (Messa
 	if err != nil {
 		return Message{}, err
 	}
-	return Message{To: item.To, FromName: view.Site(), Subject: subject, Text: web.EmailText(view), HTML: html}, nil
+	return Message{To: item.To, FromName: view.Site, Subject: subject, Text: web.EmailText(view), HTML: html}, nil
 }
 
 // TestEmail is what the settings page sends to check the SMTP setup.
-func TestEmail(ctx context.Context, to, brand, origin string) (Message, error) {
+func TestEmail(ctx context.Context, to, site, origin string) (Message, error) {
 	view := web.EmailView{
-		Brand:   brand,
+		Site:    site,
 		Heading: "測試信",
 		Intro:   []string{"支援中心可以正常寄信。客戶會在客服回覆或受邀參與客服單時收到通知。"},
 		Action:  "開啟 Email 通知設定",
@@ -154,7 +153,7 @@ func TestEmail(ctx context.Context, to, brand, origin string) (Message, error) {
 	if err != nil {
 		return Message{}, err
 	}
-	return Message{To: to, FromName: view.Site(), Subject: "[" + view.Site() + "] 測試信", Text: web.EmailText(view), HTML: html}, nil
+	return Message{To: to, FromName: site, Subject: "[" + site + "] 測試信", Text: web.EmailText(view), HTML: html}, nil
 }
 
 // MailErrorCode sorts a send failure into a code the settings page explains,

@@ -9,7 +9,7 @@ import (
 // EmailView is one customer email. The same content renders as HTML and as
 // plain text; every field is shown as text, never as markup.
 type EmailView struct {
-	Brand       string // e.g. "vProxy Cloud"
+	Site        string // the sender's name, e.g. "Example 支援中心"
 	Heading     string
 	Intro       []string
 	QuoteAuthor string
@@ -19,8 +19,6 @@ type EmailView struct {
 	Link        string
 	SettingsURL string
 }
-
-func (v EmailView) Site() string { return v.Brand + " 支援中心" }
 
 // EmailHTML renders the HTML part of the email.
 func EmailHTML(ctx context.Context, v EmailView) (string, error) {
@@ -47,7 +45,7 @@ func EmailText(v EmailView) string {
 		b.WriteString(v.Note + "\n\n")
 	}
 	b.WriteString(v.Action + "：" + v.Link + "\n\n")
-	b.WriteString("—\n" + v.Site() + "\n這是系統自動寄出的通知，請勿直接回覆。\n")
+	b.WriteString("—\n" + v.Site + "\n這是系統自動寄出的通知，請勿直接回覆。\n")
 	if v.SettingsURL != "" {
 		b.WriteString("不想收到客服單通知，可在個人設定關閉：" + v.SettingsURL + "\n")
 	}

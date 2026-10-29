@@ -12,7 +12,7 @@ templ customerEmail(v EmailView) {
 		</head>
 		<body style="margin:0;padding:0;background:#f4f4f4;color:#242424;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans TC',sans-serif;">
 			<div style="max-width:560px;margin:0 auto;padding:32px 16px;">
-				<p style="margin:0 0 20px;font-size:14px;font-weight:600;color:#6b6b6b;">{ v.Site() }</p>
+				<p style="margin:0 0 20px;font-size:14px;font-weight:600;color:#6b6b6b;">{ v.Site }</p>
 				<div style="background:#ffffff;border:1px solid #dddddd;padding:28px 24px;">
 					<h1 style="margin:0 0 16px;font-size:20px;line-height:1.45;font-weight:600;">{ v.Heading }</h1>
 					for _, line := range v.Intro {

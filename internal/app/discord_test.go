@@ -163,13 +163,14 @@ func TestDiscordQueuesNewTicketsAndCustomerReplies(t *testing.T) {
 }
 
 func discordWorker(a *App, d *discordServer) *notify.DiscordWorker {
-	return &notify.DiscordWorker{Store: a.Store, Discord: d.client(), Origin: a.Origin, Log: a.Log}
+	return &notify.DiscordWorker{Store: a.Store, Discord: d.client(), Origin: a.Origin, Site: a.Site, Log: a.Log}
 }
 
 func TestDiscordWorkerDeliversEscapedBatches(t *testing.T) {
 	a, h, alice, _, _ := testApp(t)
 	ctx := context.Background()
 	d := newDiscordServer(t)
+	a.Site.Name = "Example Cloud"
 	worker := discordWorker(a, d)
 	saveDiscord(t, h, url.Values{"webhook_url": {discordTestURL}, "on_ticket": {"on"}, "on_reply": {"on"}, "include_preview": {"on"}})
 	first, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "**Down** _now_", Category: "technical", Priority: "urgent"}, "@everyone **bold** [click](https://evil.example)\n> quoted", nil)
@@ -214,6 +215,10 @@ func TestDiscordWorkerDeliversEscapedBatches(t *testing.T) {
 	}
 	if author := e["author"].(map[string]any)["name"]; author != "新客服單" {
 		t.Fatal("event label", author)
+	}
+	// A channel shared by several sites can tell them apart.
+	if footer := e["footer"].(map[string]any)["text"]; footer != "Example Cloud 支援中心" {
+		t.Fatal("site label", footer)
 	}
 	var unsent int
 	var lastSent *time.Time
@@ -311,6 +316,9 @@ func TestDiscordTestMessage(t *testing.T) {
 	saveDiscord(t, h, url.Values{"webhook_url": {discordTestURL}})
 	if res := send(); res.Code != http.StatusSeeOther || res.Header().Get("Location") != "/admin/discord?test=ok" || len(d.messages) != 1 {
 		t.Fatal("test message failed", res.Code, res.Header().Get("Location"))
+	}
+	if title := embeds(d.messages[0])[0]["title"]; title != "支援中心已連線" {
+		t.Fatal("test message title", title)
 	}
 	if page := request(h, "GET", "/admin/discord?test=ok", "admin", nil).Body.String(); !strings.Contains(page, "測試訊息已送出") {
 		t.Fatal("success not shown")

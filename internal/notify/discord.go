@@ -17,6 +17,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"supportcenter/internal/database"
 	"supportcenter/internal/model"
+	"supportcenter/web"
 )
 
 // Discord posts to webhooks on discord.com. BaseURL is only changed by tests.
@@ -117,6 +118,7 @@ type DiscordWorker struct {
 	Store   *database.Store
 	Discord Discord
 	Origin  string
+	Site    web.Site // named in each message, so a shared channel shows where it came from
 	Log     *slog.Logger
 	resume  time.Time
 }
@@ -254,11 +256,16 @@ type discordEmbed struct {
 	Description string         `json:"description,omitempty"`
 	Color       int            `json:"color"`
 	Fields      []discordField `json:"fields,omitempty"`
+	Footer      *discordFooter `json:"footer,omitempty"`
 	Timestamp   string         `json:"timestamp,omitempty"`
 }
 
 type discordAuthor struct {
 	Name string `json:"name"`
+}
+
+type discordFooter struct {
+	Text string `json:"text"`
 }
 
 type discordField struct {
@@ -271,6 +278,9 @@ func (e discordEmbed) size() int {
 	n := len([]rune(e.Title)) + len([]rune(e.Description))
 	if e.Author != nil {
 		n += len([]rune(e.Author.Name))
+	}
+	if e.Footer != nil {
+		n += len([]rune(e.Footer.Text))
 	}
 	for _, f := range e.Fields {
 		n += len([]rune(f.Name)) + len([]rune(f.Value))
@@ -291,6 +301,7 @@ func (w *DiscordWorker) embed(item discordItem, preview bool) discordEmbed {
 		Title:     clip(fmt.Sprintf("#%04d %s", item.TicketID, escapeDiscord(oneLine(item.Subject))), 200),
 		URL:       fmt.Sprintf("%s/admin/tickets/%d", w.Origin, item.TicketID),
 		Color:     color,
+		Footer:    &discordFooter{Text: clip(w.Site.Title(), 100)},
 		Timestamp: item.CreatedAt.UTC().Format(time.RFC3339),
 		Fields: []discordField{
 			{Name: "客戶", Value: clip(escapeDiscord(oneLine(item.Author)), 80), Inline: true},
@@ -314,10 +325,10 @@ func (w *DiscordWorker) embed(item discordItem, preview bool) discordEmbed {
 }
 
 // DiscordTestMessage is what the settings page sends to check a webhook.
-func DiscordTestMessage(origin string) any {
+func DiscordTestMessage(origin, site string) any {
 	return discordMessage{AllowedMentions: noMentions, Embeds: []discordEmbed{{
 		Author:      &discordAuthor{Name: "測試訊息"},
-		Title:       "支援中心已連線",
+		Title:       clip(site+"已連線", 200),
 		URL:         origin + "/admin/discord",
 		Description: "新客服單與客戶回覆會傳送到這個頻道。",
 		Color:       0x2563EB,

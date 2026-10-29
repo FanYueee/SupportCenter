@@ -22,7 +22,7 @@ import (
 
 const portalTestHost = "portal.example.test"
 
-// portalRequest signs a request the way the vProxy Portal does.
+// portalRequest signs a request the way the Portal does.
 func portalRequest(t *testing.T, h http.Handler, key []byte, method, path string, actor portalActor) *httptest.ResponseRecorder {
 	return portalJSONRequest(t, h, key, method, path, actor, nil)
 }

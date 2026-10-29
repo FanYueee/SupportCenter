@@ -1,13 +1,12 @@
 # Email 通知
 
-設定 SMTP 後，支援中心會寄三種信。寄件地址為 `SMTP_FROM`（例如 `noreply-support@vproxy.cloud`），寄件人名稱依客服單建立時的網域顯示「AtomRoute 支援中心」或「vProxy Cloud 支援中心」，信中的連結也回到同一個網域。每封信都有純文字與 HTML 版本，並標示 `Auto-Submitted: auto-generated` 以避免自動回覆。
+設定 SMTP 後，支援中心會寄三種信。寄件地址為 `SMTP_FROM`（例如 `noreply@example.com`），寄件人名稱為「`SITE_NAME` 支援中心」（未設定時為「支援中心」），信中的連結回到 `APP_URL`。每封信都有純文字與 HTML 版本，並標示 `Auto-Submitted: auto-generated` 以避免自動回覆。
 
 ## 設定 SMTP
 
-在 VPS 執行（密碼不會顯示，也不會留在指令歷史）：
+在 VPS 的部署目錄執行（密碼不會顯示，也不會留在指令歷史）：
 
 ```sh
-cd /opt/supportcenter
 bash scripts/set-smtp.sh
 docker compose up -d --no-build app
 ```

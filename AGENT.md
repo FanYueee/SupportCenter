@@ -1,8 +1,8 @@
-# vProxy / AtomRoute Support Center
+# Support Center
 
 ## Goal
 
-Build a lightweight, fast, secure ticket support center for vProxy / AtomRoute.
+Build a lightweight, fast, secure ticket support center.
 
 This project only handles support tickets.  
 Do not build a knowledge base, live chat, or unnecessary complex SPA features.

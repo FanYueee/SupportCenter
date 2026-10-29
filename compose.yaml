@@ -1,6 +1,7 @@
 services:
   app:
     build: .
+    image: supportcenter-app:latest
     restart: unless-stopped
     init: true
     read_only: true
@@ -11,7 +12,11 @@ services:
     ports: ["127.0.0.1:${SUPPORT_BIND_PORT:-8080}:8080"]
     environment:
       APP_URL: https://${SUPPORT_DOMAIN:?Set SUPPORT_DOMAIN}
-      BRAND_HOSTS: ${BRAND_HOSTS:-}
+      SITE_NAME: ${SITE_NAME:-}
+      SITE_OWNER: ${SITE_OWNER:-}
+      SITE_WEBSITE: ${SITE_WEBSITE:-}
+      SITE_LOGO: ${SITE_LOGO:-}
+      SITE_ICON: ${SITE_ICON:-}
       DATABASE_URL: postgres://support:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@db:5432/support?sslmode=disable
       AUTH0_DOMAIN: ${AUTH0_DOMAIN:?Set AUTH0_DOMAIN}
       AUTH0_CLIENT_ID: ${AUTH0_CLIENT_ID:?Set AUTH0_CLIENT_ID}
@@ -32,6 +37,7 @@ services:
       LISTEN_ADDR: :8080
     volumes:
       - attachments:/data/attachments
+      - ./branding:/branding:ro
     depends_on:
       db:
         condition: service_healthy

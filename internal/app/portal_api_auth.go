@@ -22,7 +22,6 @@ import (
 
 	"supportcenter/internal/database"
 	"supportcenter/internal/model"
-	"supportcenter/web"
 )
 
 const portalMaxBody = 32 << 20
@@ -137,6 +136,7 @@ func (a *App) portalProtected(staff bool, next http.HandlerFunc) http.HandlerFun
 			portalError(w, 401, "unauthorized")
 			return
 		}
+		// The prefix and issuer are fixed protocol names the Portal also signs with.
 		message := strings.Join([]string{"vproxy-support-v1", issuer, r.Method, r.URL.RequestURI(), stamp, nonce, actorRaw, r.Header.Get("Content-Type"), digest}, "\n")
 		mac := hmac.New(sha256.New, config.Key)
 		mac.Write([]byte(message))
@@ -197,7 +197,7 @@ func (a *App) portalProtected(staff bool, next http.HandlerFunc) http.HandlerFun
 		}
 		r = r.WithContext(context.WithValue(ctx, portalIdentityKey{}, identity))
 		r.Body = io.NopCloser(bytes.NewReader(body))
-		r = r.WithContext(database.WithRequestInfo(r.Context(), database.RequestInfo{UserAgent: "vProxy Portal", Brand: web.BrandKey(r.Context())}))
+		r = r.WithContext(database.WithRequestInfo(r.Context(), database.RequestInfo{UserAgent: "Portal API"}))
 		next(w, r)
 	}
 }
