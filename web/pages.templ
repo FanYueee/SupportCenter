@@ -1284,7 +1284,7 @@ templ Login(p model.Page) {
 		<section class="login-panel">
 			<div class="login-copy">
 				<img class="login-logo" src={ assetURL(brandOf(ctx).Icon) } width="44" height="44" alt=""/>
-				<h1>{ i18n.T(ctx,"登入 AtomRoute 支援中心") }</h1>
+				<h1>{ i18n.T(ctx,brandOf(ctx).SignIn) }</h1>
 				<p class="login-lead">{ i18n.T(ctx,"登入後即可建立及追蹤客服單。") }</p>
 				<a class="button primary login-action" href="/login">
 					@Icon("login")

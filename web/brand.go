@@ -7,6 +7,7 @@ import "context"
 type Brand struct {
 	Key        string
 	Name       string
+	SignIn     string // sign-in heading, translated through internal/i18n
 	LogoAlt    string
 	Logo       string
 	Icon       string
@@ -17,8 +18,8 @@ type Brand struct {
 const DefaultBrand = "atomroute"
 
 var brands = map[string]Brand{
-	"atomroute": {Key: "atomroute", Name: "AtomRoute", LogoAlt: "AtomRoute Global Network", Logo: "atomroute-logo.png", Icon: "atomroute-icon.png", LogoWidth: "640", LogoHeight: "149"},
-	"vproxy":    {Key: "vproxy", Name: "vProxy Cloud", LogoAlt: "vProxy Cloud", Logo: "vproxy-logo.png", Icon: "vproxy-icon.png", LogoWidth: "440", LogoHeight: "150"},
+	"atomroute": {Key: "atomroute", Name: "AtomRoute", SignIn: "登入 AtomRoute 支援中心", LogoAlt: "AtomRoute Global Network", Logo: "atomroute-logo.png", Icon: "atomroute-icon.png", LogoWidth: "640", LogoHeight: "149"},
+	"vproxy":    {Key: "vproxy", Name: "vProxy Cloud", SignIn: "登入 vProxy Cloud 支援中心", LogoAlt: "vProxy Cloud", Logo: "vproxy-logo.png", Icon: "vproxy-icon.png", LogoWidth: "440", LogoHeight: "150"},
 }
 
 func KnownBrand(key string) bool { _, ok := brands[key]; return ok }

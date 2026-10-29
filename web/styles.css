@@ -1381,6 +1381,9 @@ dd {
   font-size: clamp(28px, 2.6vw, 34px);
   line-height: 1.2;
   letter-spacing: -0.02em;
+  /* Wrap only between words, so "支援中心" never splits across lines. */
+  word-break: keep-all;
+  overflow-wrap: anywhere;
 }
 .login-lead {
   margin: 0 0 32px;

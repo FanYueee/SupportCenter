@@ -66,6 +66,11 @@ func TestBrandHostSharesSignInWithItsOwnOrigin(t *testing.T) {
 			t.Fatalf("%s: expected only %s", host, logo)
 		}
 	}
+	for host, heading := range map[string]string{"support.vproxy.test": "<h1>登入 vProxy Cloud 支援中心</h1>", "support.example.test": "<h1>登入 AtomRoute 支援中心</h1>"} {
+		if body := send("GET", host, "/", "", nil).Body.String(); !strings.Contains(body, heading) {
+			t.Fatalf("%s: sign-in heading should be %s", host, heading)
+		}
+	}
 	// Each hostname accepts form posts only from its own origin.
 	form := url.Values{"csrf": {"csrf-alice"}, "language": {"en"}}
 	if res := send("POST", "support.vproxy.test", "/language", "https://support.vproxy.test", form); res.Code != http.StatusSeeOther {
