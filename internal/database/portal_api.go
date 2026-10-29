@@ -40,6 +40,10 @@ func (s *Store) PortalUser(ctx context.Context, name, email string) (model.User,
 	if err != nil {
 		return model.User{}, err
 	}
+	// Recorded at most every five minutes, so busy Portal sessions do not write on every call.
+	if _, err = tx.Exec(ctx, `UPDATE users SET portal_seen_at=now() WHERE id=$1 AND (portal_seen_at IS NULL OR portal_seen_at<now()-interval '5 minutes')`, user.ID); err != nil {
+		return model.User{}, err
+	}
 	if _, err = tx.Exec(ctx, `UPDATE ticket_invites SET user_id=$1 WHERE user_id IS NULL AND email_key=$2`, user.ID, key); err != nil {
 		return model.User{}, err
 	}

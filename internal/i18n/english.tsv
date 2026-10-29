@@ -398,3 +398,5 @@ SMTP 伺服器暫時無法處理，稍後會自動重試。	The SMTP server is t
 無法和 SMTP 伺服器建立安全連線，請確認主機名稱、連接埠和加密方式。	Could not open a secure connection to the SMTP server. Check the host name, port and encryption mode.
 無法連線到 SMTP 伺服器，請確認主機名稱和連接埠。	Could not reach the SMTP server. Check the host name and port.
 尚未設定 SMTP。	SMTP is not set up.
+註冊日期	Registered
+透過 vProxy Portal 使用	Used through the vProxy Portal

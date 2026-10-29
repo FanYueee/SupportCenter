@@ -122,7 +122,7 @@ func (s *Store) Activities(ctx context.Context, userID int64, page int) ([]model
 }
 
 func (s *Store) Users(ctx context.Context, query string, page int) ([]model.UserSummary, bool, error) {
-	rows, err := s.Pool.Query(ctx, `SELECT u.id,u.name,u.email,u.role,
+	rows, err := s.Pool.Query(ctx, `SELECT u.id,u.name,u.email,u.role,u.created_at,u.portal_seen_at,
 	 (SELECT e.created_at FROM account_events e WHERE e.user_id=u.id AND e.kind='login' ORDER BY e.created_at DESC,e.id DESC LIMIT 1)
 	 FROM users u WHERE u.auth0_id NOT LIKE 'system:%' AND ($1='' OR u.name ILIKE '%'||$1||'%' OR u.email ILIKE '%'||$1||'%') ORDER BY u.id DESC LIMIT 21 OFFSET $2`, query, (page-1)*20)
 	if err != nil {
@@ -132,7 +132,7 @@ func (s *Store) Users(ctx context.Context, query string, page int) ([]model.User
 	list := []model.UserSummary{}
 	for rows.Next() {
 		var item model.UserSummary
-		if err = rows.Scan(&item.User.ID, &item.User.Name, &item.User.Email, &item.User.Role, &item.LastLogin); err != nil {
+		if err = rows.Scan(&item.User.ID, &item.User.Name, &item.User.Email, &item.User.Role, &item.CreatedAt, &item.LastPortal, &item.LastLogin); err != nil {
 			return nil, false, err
 		}
 		list = append(list, item)

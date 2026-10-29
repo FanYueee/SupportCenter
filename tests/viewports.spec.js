@@ -134,6 +134,8 @@ test.describe.configure({ mode: 'parallel' });
 for (const scheme of ['light', 'dark']) {
   for (const vp of viewports) {
     test(`${scheme} ${vp.name} ${vp.width}x${vp.height}`, async ({ browser }) => {
+      // Every page is loaded, inspected and captured full-length in one test.
+      test.setTimeout(90_000);
       const context = await browser.newContext({
         locale: 'zh-TW',
         viewport: { width: vp.width, height: vp.height },

@@ -76,7 +76,9 @@ function localizeTimes() {
     const zone = offset === 0 ? 'UTC' : `UTC${offset > 0 ? '+' : '-'}${Math.floor(Math.abs(offset) / 60)}${Math.abs(offset) % 60 ? ':' + pad(Math.abs(offset) % 60) : ''}`;
     const short = `${pad(date.getMonth() + 1)}/${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
     const full = `${date.getFullYear()}/${short}`;
-    time.textContent = (time.dataset.localTime === 'full' ? full : short) + (time.hasAttribute('data-timezone-inline') ? ` ${zone}` : '');
+    const mode = time.dataset.localTime;
+    if (mode === 'date') time.textContent = `${date.getFullYear()}/${pad(date.getMonth() + 1)}/${pad(date.getDate())}`;
+    else time.textContent = (mode === 'full' ? full : short) + (time.hasAttribute('data-timezone-inline') ? ` ${zone}` : '');
     time.title = `${full} ${zone}`;
   }
   for (const label of document.querySelectorAll('[data-timezone-label]')) label.textContent = tr('本地時間', 'Local time');

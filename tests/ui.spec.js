@@ -22,7 +22,7 @@ test('account settings and admin users stay readable on mobile', async ({ page }
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.goto('/admin/users');
   await expect(page.getByRole('heading', { name: '使用者' })).toBeVisible();
-  await expect(page.locator('.users-table tbody tr')).toHaveCount(2);
+  await expect(page.locator('.users-table tbody tr')).toHaveCount(4);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.goto('/admin/account');
   await expect(page.getByRole('heading', { name: '簽名檔' })).toBeVisible();
@@ -729,6 +729,25 @@ test('browser language and flagged account setting cover the ticket flow', async
   await page.goto('http://127.0.0.1:8081/account');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await context.close();
+});
+
+test('user list shows email, role, registration and last sign-in on every screen', async ({ page }) => {
+  for (const width of [320, 390, 800, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto('/admin/users');
+    const rows = page.locator('.users-table tbody tr');
+    expect(await rows.count()).toBeGreaterThanOrEqual(4);
+    for (const row of await rows.all()) {
+      for (const cell of ['.user-name', '.user-email', '.user-role', '.user-date >> nth=0', '.user-date >> nth=1']) {
+        const box = await row.locator(cell).boundingBox();
+        expect(box, `${width}px ${cell}`).not.toBeNull();
+        expect(box.x + box.width).toBeLessThanOrEqual(width + 1);
+      }
+    }
+    await expect(page.locator('.users-table')).toContainText('2026/10/20');
+    await expect(page.locator('.user-via')).toHaveText('Portal');
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  }
 });
 
 test('English interface text is translated across customer and admin pages', async ({ browser }) => {

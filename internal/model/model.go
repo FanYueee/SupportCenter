@@ -97,9 +97,19 @@ type Activity struct {
 	CreatedAt                   time.Time
 }
 type UserSummary struct {
-	User      User
-	LastLogin *time.Time
+	User                  User
+	CreatedAt             time.Time
+	LastLogin, LastPortal *time.Time
 }
+
+// LastSeen is the latest sign-in here or use of the Portal, and whether it was the Portal.
+func (u UserSummary) LastSeen() (*time.Time, bool) {
+	if u.LastPortal != nil && (u.LastLogin == nil || u.LastPortal.After(*u.LastLogin)) {
+		return u.LastPortal, true
+	}
+	return u.LastLogin, false
+}
+
 type Department struct {
 	Category, Name string
 }

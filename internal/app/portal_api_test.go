@@ -249,3 +249,46 @@ func TestPortalParticipantsShowOnlyEmail(t *testing.T) {
 		t.Fatal("participant account name leaked")
 	}
 }
+
+func TestUserListShowsRegistrationAndPortalUse(t *testing.T) {
+	a, h, key, _, _ := portalTestApp(t)
+	ctx := context.Background()
+	actor := portalActor{Email: "portal.person@example.test", Name: "Portal Person", Hostname: portalTestHost}
+	if code := portalRequest(t, h, key, "GET", "/api/portal/v1/tickets", actor).Code; code != 200 {
+		t.Fatal("portal request", code)
+	}
+	seen := func() (at time.Time) {
+		a.Store.Pool.QueryRow(ctx, `SELECT portal_seen_at FROM users WHERE auth0_id='portal:portal.person@example.test'`).Scan(&at)
+		return
+	}
+	first := seen()
+	if first.IsZero() {
+		t.Fatal("Portal use was not recorded")
+	}
+	// Busy Portal sessions do not write on every call.
+	portalRequest(t, h, key, "GET", "/api/portal/v1/tickets", actor)
+	if !seen().Equal(first) {
+		t.Fatal("Portal use rewritten within five minutes")
+	}
+	a.Store.Pool.Exec(ctx, `UPDATE users SET portal_seen_at=now()-interval '10 minutes' WHERE auth0_id='portal:portal.person@example.test'`)
+	portalRequest(t, h, key, "GET", "/api/portal/v1/tickets", actor)
+	if !seen().After(first.Add(-time.Minute)) {
+		t.Fatal("later Portal use not recorded")
+	}
+	users, _, err := a.Store.Users(ctx, "", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, u := range users {
+		if u.CreatedAt.IsZero() {
+			t.Fatalf("%s has no registration date", u.User.Email)
+		}
+		if last, portal := u.LastSeen(); u.User.Email == actor.Email && (last == nil || !portal) {
+			t.Fatal("Portal user shows no recent use")
+		}
+	}
+	page := request(h, "GET", "/admin/users", "admin", nil).Body.String()
+	if !strings.Contains(page, `data-label="註冊日期"`) || !strings.Contains(page, ">Portal</span>") || !strings.Contains(page, `data-local-time="date"`) {
+		t.Fatal("user list misses the registration date or Portal use")
+	}
+}

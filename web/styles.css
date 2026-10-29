@@ -2077,6 +2077,10 @@ dd {
 .users-table th, .users-table td { border-top: 1px solid var(--line); padding: 12px 8px; text-align: left; overflow-wrap: anywhere; }
 .users-table th { font-weight: 500; color: var(--muted); }
 .users-table td:first-child { font-weight: 500; }
+.users-table th:first-child { width: 22%; }
+.users-table .user-role, .users-table .user-date, .users-table th { white-space: nowrap; }
+.users-table .user-email { overflow-wrap: break-word; }
+.user-via { margin-left: 6px; padding: 1px 6px; border: 1px solid var(--line); color: var(--muted); font-size: 12px; }
 .users-empty { padding: 30px 8px; color: var(--muted); text-align: center; }
 @media (max-width: 760px) {
   .account-grid { grid-template-columns: 1fr; }
@@ -2084,7 +2088,16 @@ dd {
   .history-list li { display: block; }
   .history-list time { display: block; margin-top: 2px; }
   .users-panel { padding: 0 14px 14px; }
-  .users-table { min-width: 560px; }
+  /* Phones list each person as a card, so no column hides off to the side. */
+  .users-table, .users-table tbody { display: block; }
+  .users-table thead { display: none; }
+  .users-table tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; padding: 12px 8px; border-top: 1px solid var(--line); }
+  /* Overrides the phone rule that hides later columns of ticket tables. */
+  .users-table tbody td { display: block; width: auto; border: 0; padding: 0; text-align: left; }
+  .users-table .user-role { grid-column: 2; grid-row: 1; color: var(--muted); }
+  .users-table .user-email, .users-table .user-date { grid-column: 1 / -1; color: var(--muted); }
+  .users-table .user-date { display: flex; flex-wrap: wrap; gap: 0 10px; white-space: normal; }
+  .users-table .user-date::before { content: attr(data-label); min-width: 4.5em; }
 }
 @media (max-width: 480px) {
   .brand-divider, .brand-product { display: none; }

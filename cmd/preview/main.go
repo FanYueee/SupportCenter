@@ -49,7 +49,14 @@ func main() {
 		if r.URL.Path == "/admin/users" {
 			p.Active, p.Title = "users", "使用者"
 			last := time.Now().UTC()
-			p.Users = []model.UserSummary{{User: model.User{ID: 2, Name: "Jamie", Email: "jamie@example.com", Role: "admin"}, LastLogin: &last}, {User: p.User, LastLogin: &last}}
+			portal := last.Add(-2 * time.Hour)
+			joined := time.Date(2026, 10, 20, 3, 0, 0, 0, time.UTC)
+			p.Users = []model.UserSummary{
+				{User: model.User{ID: 2, Name: "Jamie", Email: "jamie@example.com", Role: "admin"}, CreatedAt: joined, LastLogin: &last},
+				{User: p.User, CreatedAt: joined, LastLogin: &last},
+				{User: model.User{ID: 5, Name: "Taylor Lee", Email: "taylor.lee.from.portal@example.com", Role: "user"}, CreatedAt: joined.Add(48 * time.Hour), LastPortal: &portal},
+				{User: model.User{ID: 6, Name: "Casey", Email: "casey@example.com", Role: "support"}, CreatedAt: joined.Add(72 * time.Hour)},
+			}
 		}
 		if r.URL.Path == "/admin/automation" {
 			p.Active, p.Title = "automation", "自動回覆"
