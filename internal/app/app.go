@@ -19,6 +19,7 @@ import (
 	"supportcenter/internal/database"
 	"supportcenter/internal/i18n"
 	"supportcenter/internal/model"
+	"supportcenter/internal/notify"
 	"supportcenter/web"
 )
 
@@ -37,6 +38,7 @@ type App struct {
 	AvatarHTTP *http.Client
 	avatars    avatarCache
 	PortalAPI  *PortalAPIConfig
+	Discord    notify.Discord // the settings page's test message
 }
 
 func (a *App) Handler() http.Handler {
@@ -103,6 +105,9 @@ func (a *App) Handler() http.Handler {
 	mux.HandleFunc("POST /admin/departments/{id}", a.protected(true, a.saveDepartments))
 	mux.HandleFunc("GET /admin/automation", a.protected(true, a.automation))
 	mux.HandleFunc("POST /admin/automation", a.protected(true, a.saveAutomation))
+	mux.HandleFunc("GET /admin/discord", a.protected(true, a.discordSettings))
+	mux.HandleFunc("POST /admin/discord", a.protected(true, a.saveDiscordSettings))
+	mux.HandleFunc("POST /admin/discord/test", a.protected(true, a.testDiscord))
 	mux.HandleFunc("GET /admin/ai", a.protected(true, a.aiSettings))
 	mux.HandleFunc("POST /admin/ai", a.protected(true, a.saveAISettings))
 	mux.HandleFunc("GET /admin/tickets", a.protected(true, a.list))
@@ -677,8 +682,9 @@ func (a *App) Cleanup(ctx context.Context) {
 			_, e2 := a.Store.Pool.Exec(cleanupCtx, `DELETE FROM login_flows WHERE expires_at<=now()`)
 			_, e3 := a.Store.Pool.Exec(cleanupCtx, `UPDATE email_notifications SET state='cancelled',lease_until=NULL WHERE state='pending' AND created_at<now()-interval '7 days'`)
 			_, e4 := a.Store.Pool.Exec(cleanupCtx, `DELETE FROM email_notifications WHERE state IN ('sent','cancelled','failed') AND created_at<now()-interval '30 days'`)
+			_, e5 := a.Store.Pool.Exec(cleanupCtx, `DELETE FROM discord_notifications WHERE state IN ('sent','cancelled','failed') AND created_at<now()-interval '7 days'`)
 			cancel()
-			if e1 != nil || e2 != nil || e3 != nil || e4 != nil {
+			if e1 != nil || e2 != nil || e3 != nil || e4 != nil || e5 != nil {
 				a.Log.Error("expired record cleanup failed")
 			}
 		}

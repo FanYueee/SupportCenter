@@ -76,6 +76,18 @@ func main() {
 			p.AIModel = ai.DefaultModel
 			p.AIPrompts = model.AIPrompts{General: "請先確認客戶的需求，再給出簡短步驟。", Billing: "帳務問題請先核對訂單編號，無法查證時交由真人客服。", Technical: "技術問題請先請客戶提供發生時間與錯誤訊息。"}
 		}
+		if r.URL.Path == "/admin/discord" {
+			p.Active, p.Title = "discord", "Discord 通知"
+			sent := time.Now().UTC().Add(-3 * time.Minute)
+			p.Discord = model.DiscordSettings{WebhookID: "1234567890123456789", OnTicket: true, OnReply: true, IncludePreview: true, LastSentAt: &sent}
+			switch r.URL.Query().Get("state") {
+			case "empty":
+				p.Discord = model.DiscordSettings{OnTicket: true, OnReply: true, IncludePreview: true}
+			case "error":
+				failed := time.Now().UTC()
+				p.Discord.LastError, p.Discord.LastErrorAt, p.DiscordTest = "not_found", &failed, "failed"
+			}
+		}
 		if r.URL.Path == "/admin/departments" {
 			p.Active, p.Title = "departments", "客服分組"
 		}

@@ -349,3 +349,28 @@ AI 已回覆 · 待您確認	AI replied · Awaiting your confirmation
 使用 AtomRoute 帳號繼續	Continue with AtomRoute account
 還沒有帳號？	Don't have an account?
 註冊	Sign up
+Discord 通知	Discord notifications
+測試訊息已送出，請到 Discord 頻道確認。	Test message sent. Check your Discord channel.
+已設定	Set up
+更換 Webhook 網址	Replace webhook URL
+Webhook 網址	Webhook URL
+在 Discord 頻道的「編輯頻道 → 整合 → Webhook」建立並複製網址。	In Discord, create and copy the URL under Edit Channel → Integrations → Webhooks.
+為了安全，已儲存的網址不會再顯示；留空即保留目前的網址。	For security, the saved URL is not shown again. Leave this blank to keep it.
+移除 Webhook，停止傳送	Remove the webhook and stop sending
+通知事件	Events
+新客服單	New tickets
+客戶回覆	Customer replies
+開單者與參與者的公開回覆；不含客服回覆、內部備註和自動訊息。	Public replies from the requester and participants. Staff replies, internal notes and automatic messages are not sent.
+附上訊息摘要	Include a message preview
+附上訊息的前 200 字。關閉後只傳送單號、主旨、客戶名稱、部門和優先級。	Adds the first 200 characters of the message. When off, only the ticket number, subject, customer name, team and priority are sent.
+最近傳送成功	Last delivered
+尚未傳送	Nothing sent yet
+最近錯誤	Last error
+傳送測試訊息	Send test message
+Discord 找不到這個 Webhook，可能已被刪除或網址有誤。	Discord could not find this webhook. It may have been deleted, or the URL is wrong.
+Discord 拒絕了這則訊息。	Discord rejected the message.
+Discord 暫時無法使用，稍後會自動重試。	Discord is unavailable. Sending will be retried automatically.
+Discord 限制了傳送頻率，請稍後再試。	Discord is rate limiting this webhook. Try again shortly.
+無法連線到 Discord，稍後會自動重試。	Could not reach Discord. Sending will be retried automatically.
+Webhook 網址無效，請貼上 Discord 頻道的 Webhook 網址。	Invalid webhook URL. Paste the webhook URL from your Discord channel.
+請先設定 Webhook 網址。	Set up a webhook URL first.

@@ -71,6 +71,18 @@ type ServiceNotice struct {
 type AIPrompts struct {
 	General, Billing, Technical string
 }
+
+// DiscordSettings never carries the webhook token, so a page cannot leak it.
+// LastError is a short code (see web.discordError), not Discord's response.
+type DiscordSettings struct {
+	WebhookID                         string
+	OnTicket, OnReply, IncludePreview bool
+	LastError                         string
+	LastSentAt, LastErrorAt           *time.Time
+}
+
+func (d DiscordSettings) Configured() bool { return d.WebhookID != "" }
+
 type Activity struct {
 	Kind, Detail, IP, UserAgent string
 	TicketID                    int64
@@ -253,6 +265,8 @@ type Page struct {
 	DraftParticipants                                                                                         string
 	Automation                                                                                                AutomationSettings
 	AIPrompts                                                                                                 AIPrompts
+	Discord                                                                                                   DiscordSettings
+	DiscordTest                                                                                               string
 	ActivityPage, LoginPage                                                                                   int
 	HasMoreActivities, HasMoreLogins, Saved                                                                   bool
 	Page, MessagePage                                                                                         int

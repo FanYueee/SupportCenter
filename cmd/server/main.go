@@ -107,6 +107,8 @@ func run() error {
 	if mailConfig.Enabled() {
 		go (&notify.Worker{Store: store, Sender: notify.SMTP{Config: mailConfig}, Origin: origin, Log: slog.Default()}).Run(ctx)
 	}
+	// Discord settings live in the database, so the worker always runs and idles without a webhook.
+	go (&notify.DiscordWorker{Store: store, Origin: origin, Log: slog.Default()}).Run(ctx)
 	go a.Cleanup(ctx)
 	go a.AutoClose(ctx)
 	address := os.Getenv("LISTEN_ADDR")

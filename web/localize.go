@@ -159,3 +159,18 @@ func systemMessage(ctx context.Context, body string) string {
 	}
 	return body
 }
+
+// discordError explains a stored Discord delivery code; see notify.DiscordError.
+func discordError(code string) string {
+	switch code {
+	case "not_found":
+		return "Discord 找不到這個 Webhook，可能已被刪除或網址有誤。"
+	case "rejected":
+		return "Discord 拒絕了這則訊息。"
+	case "unavailable":
+		return "Discord 暫時無法使用，稍後會自動重試。"
+	case "rate_limited":
+		return "Discord 限制了傳送頻率，請稍後再試。"
+	}
+	return "無法連線到 Discord，稍後會自動重試。"
+}

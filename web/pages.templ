@@ -261,7 +261,7 @@ templ Document(p model.Page) {
 								<a class={ "nav-item", templ.KV("selected", p.Admin && (p.Active=="list" || p.Active=="detail")) } href="/admin/tickets">{ i18n.T(ctx,"客服工作台") }</a>
 							}
 							if p.User.Role == "admin" {
-				<a class={ "nav-item", templ.KV("selected", p.Active=="users" || p.Active=="automation" || p.Active=="ai" || p.Active=="departments" || p.Active=="announcements") } href="/admin/ai">{ i18n.T(ctx,"管理設定") }</a>
+				<a class={ "nav-item", templ.KV("selected", p.Active=="users" || p.Active=="automation" || p.Active=="ai" || p.Active=="discord" || p.Active=="departments" || p.Active=="announcements") } href="/admin/ai">{ i18n.T(ctx,"管理設定") }</a>
 							}
 						</nav>
 					}
@@ -332,6 +332,8 @@ templ Workspace(p model.Page) {
 				@Automation(p)
 			case "ai":
 				@AISettings(p)
+			case "discord":
+				@DiscordSettings(p)
 			case "departments":
 				@Departments(p)
 			case "announcements":
@@ -483,6 +485,7 @@ templ SettingsNav(p model.Page) {
 		<a class={ "settings-tab", templ.KV("active",p.Active=="announcements") } aria-current={ choose(p.Active=="announcements","page","false") } href="/admin/announcements">{ i18n.T(ctx,"公告") }</a>
 		<a class={ "settings-tab", templ.KV("active",p.Active=="ai") } aria-current={ choose(p.Active=="ai","page","false") } href="/admin/ai">{ i18n.T(ctx,"AI 指令") }</a>
 		<a class={ "settings-tab", templ.KV("active",p.Active=="automation") } aria-current={ choose(p.Active=="automation","page","false") } href="/admin/automation">{ i18n.T(ctx,"自動訊息") }</a>
+		<a class={ "settings-tab", templ.KV("active",p.Active=="discord") } aria-current={ choose(p.Active=="discord","page","false") } href="/admin/discord">{ i18n.T(ctx,"Discord 通知") }</a>
 		<a class={ "settings-tab", templ.KV("active",p.Active=="users") } aria-current={ choose(p.Active=="users","page","false") } href="/admin/users">{ i18n.T(ctx,"使用者") }</a>
 		<a class={ "settings-tab", templ.KV("active",p.Active=="departments") } aria-current={ choose(p.Active=="departments","page","false") } href="/admin/departments">{ i18n.T(ctx,"客服分組") }</a>
 	</nav>
@@ -1415,6 +1418,70 @@ templ AISettings(p model.Page) {
 		</section>
 		<button class="button primary" type="submit">{ i18n.T(ctx,"儲存指令") }</button>
 	</form>
+}
+
+templ DiscordSettings(p model.Page) {
+	<div class="page-heading"><h1>{ i18n.T(ctx,"Discord 通知") }</h1></div>
+	@SettingsNav(p)
+	if p.Saved {
+		<div class="notice success" role="status">{ i18n.T(ctx,"已儲存") }</div>
+	}
+	if p.DiscordTest == "ok" {
+		<div class="notice success" role="status">{ i18n.T(ctx,"測試訊息已送出，請到 Discord 頻道確認。") }</div>
+	} else if p.DiscordTest == "failed" {
+		<div class="notice error" role="alert">{ i18n.T(ctx,discordError(p.Discord.LastError)) }</div>
+	}
+	<form class="discord-settings-form" method="post" action="/admin/discord">
+		<input type="hidden" name="csrf" value={ p.CSRF }/>
+		<section class="account-card">
+			<h2>Webhook</h2>
+			<p class="discord-webhook-state">
+				if p.Discord.Configured() {
+					<strong class="discord-state-on">{ i18n.T(ctx,"已設定") }</strong><span class="discord-webhook-id">ID { p.Discord.WebhookID }</span>
+				} else {
+					<strong>{ i18n.T(ctx,"未設定") }</strong>
+				}
+			</p>
+			<label class="field">{ i18n.T(ctx,choose(p.Discord.Configured(),"更換 Webhook 網址","Webhook 網址")) }<input type="url" name="webhook_url" maxlength="300" autocomplete="off" spellcheck="false" placeholder="https://discord.com/api/webhooks/…"/></label>
+			<p class="field-hint">{ i18n.T(ctx,"在 Discord 頻道的「編輯頻道 → 整合 → Webhook」建立並複製網址。") }</p>
+			if p.Discord.Configured() {
+				<p class="field-hint">{ i18n.T(ctx,"為了安全，已儲存的網址不會再顯示；留空即保留目前的網址。") }</p>
+				<label class="automation-toggle"><input type="checkbox" name="remove_webhook"/>{ i18n.T(ctx,"移除 Webhook，停止傳送") }</label>
+			}
+		</section>
+		<section class="account-card">
+			<h2>{ i18n.T(ctx,"通知事件") }</h2>
+			<label class="automation-toggle"><input type="checkbox" name="on_ticket" checked?={ p.Discord.OnTicket }/>{ i18n.T(ctx,"新客服單") }</label>
+			<label class="automation-toggle"><input type="checkbox" name="on_reply" checked?={ p.Discord.OnReply }/>{ i18n.T(ctx,"客戶回覆") }</label>
+			<p class="field-hint">{ i18n.T(ctx,"開單者與參與者的公開回覆；不含客服回覆、內部備註和自動訊息。") }</p>
+			<label class="automation-toggle"><input type="checkbox" name="include_preview" checked?={ p.Discord.IncludePreview }/>{ i18n.T(ctx,"附上訊息摘要") }</label>
+			<p class="field-hint">{ i18n.T(ctx,"附上訊息的前 200 字。關閉後只傳送單號、主旨、客戶名稱、部門和優先級。") }</p>
+		</section>
+		<button class="button primary" type="submit">{ i18n.T(ctx,"儲存設定") }</button>
+	</form>
+	if p.Discord.Configured() {
+		<section class="account-card discord-status">
+			<div class="ai-model-line">
+				<h2>{ i18n.T(ctx,"最近傳送成功") }</h2>
+				if p.Discord.LastSentAt != nil {
+					<span><time datetime={ p.Discord.LastSentAt.Format(time.RFC3339) } data-local-time="full" data-timezone-inline>{ p.Discord.LastSentAt.UTC().Format("2006/01/02 15:04") } UTC</time></span>
+				} else {
+					<span>{ i18n.T(ctx,"尚未傳送") }</span>
+				}
+			</div>
+			if p.Discord.LastError != "" && p.Discord.LastErrorAt != nil {
+				<div class="ai-model-line">
+					<h2>{ i18n.T(ctx,"最近錯誤") }</h2>
+					<span><time datetime={ p.Discord.LastErrorAt.Format(time.RFC3339) } data-local-time="full" data-timezone-inline>{ p.Discord.LastErrorAt.UTC().Format("2006/01/02 15:04") } UTC</time></span>
+				</div>
+				<p class="field-hint error">{ i18n.T(ctx,discordError(p.Discord.LastError)) }</p>
+			}
+			<form method="post" action="/admin/discord/test">
+				<input type="hidden" name="csrf" value={ p.CSRF }/>
+				<button class="button secondary" type="submit">{ i18n.T(ctx,"傳送測試訊息") }</button>
+			</form>
+		</section>
+	}
 }
 
 templ ErrorPage(status int, message string) {

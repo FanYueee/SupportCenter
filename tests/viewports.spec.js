@@ -51,6 +51,8 @@ const pages = [
   '/admin/departments',
   '/admin/announcements',
   '/admin/ai',
+  '/admin/discord',
+  '/admin/discord?state=error',
 ];
 
 // Checks run inside the page; each returns human-readable problems.

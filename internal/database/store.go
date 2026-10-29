@@ -309,6 +309,9 @@ func (s *Store) CreateWithParticipants(ctx context.Context, u model.User, t mode
 	if err = insertAutomaticReply(ctx, tx, id); err != nil {
 		return 0, err
 	}
+	if err = queueDiscord(ctx, tx, id, mid, "ticket"); err != nil {
+		return 0, err
+	}
 	if mode == "ai" {
 		if _, err = tx.Exec(ctx, `INSERT INTO ai_jobs(ticket_id,trigger_message_id) VALUES($1,$2)`, id, mid); err != nil {
 			return 0, err
@@ -405,6 +408,11 @@ func (s *Store) reply(ctx context.Context, u model.User, id int64, admin bool, b
 		}
 		if !staff && mode == "ai" {
 			if _, err = tx.Exec(ctx, `INSERT INTO ai_jobs(ticket_id,trigger_message_id) VALUES($1,$2)`, id, mid); err != nil {
+				return err
+			}
+		}
+		if !staff {
+			if err = queueDiscord(ctx, tx, id, mid, "reply"); err != nil {
 				return err
 			}
 		}
