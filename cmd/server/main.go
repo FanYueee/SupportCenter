@@ -37,6 +37,10 @@ func run() error {
 	if err != nil || u.Scheme != "https" || u.Host == "" || u.Path != "" || u.RawQuery != "" || u.Fragment != "" || u.User != nil {
 		return errors.New("APP_URL must be an HTTPS origin without a path")
 	}
+	brandHosts, err := app.BrandHostsFromEnvironment(os.Getenv("BRAND_HOSTS"), u.Host)
+	if err != nil {
+		return err
+	}
 	initCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	store, err := database.Open(initCtx, os.Getenv("DATABASE_URL"))
@@ -85,7 +89,7 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	a := &app.App{Store: store, Auth: auth, Files: files, Origin: origin, Log: slog.Default(), AIEnabled: aiEnabled, MailEnabled: mailConfig.Enabled(), PortalAPI: portalAPI}
+	a := &app.App{Store: store, Auth: auth, Files: files, Origin: origin, BrandHosts: brandHosts, Log: slog.Default(), AIEnabled: aiEnabled, MailEnabled: mailConfig.Enabled(), PortalAPI: portalAPI}
 	if aiEnabled {
 		go (&ai.Worker{Store: store, Key: aiKey, Log: slog.Default()}).Run(ctx)
 	}

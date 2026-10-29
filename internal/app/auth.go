@@ -64,7 +64,8 @@ func (a *App) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.SetCookie(w, cookie("__Host-support-login", state, 600))
-	options := []oauth2.AuthCodeOption{oidc.Nonce(nonce), oauth2.S256ChallengeOption(verifier)}
+	origin, _ := a.site(r)
+	options := []oauth2.AuthCodeOption{oidc.Nonce(nonce), oauth2.S256ChallengeOption(verifier), oauth2.SetAuthURLParam("redirect_uri", origin+"/auth/callback")}
 	// /signup runs the same flow but opens the Auth0 Universal Login sign-up screen.
 	if r.URL.Path == "/signup" {
 		options = append(options, oauth2.SetAuthURLParam("screen_hint", "signup"))
@@ -90,7 +91,8 @@ func (a *App) callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx := oidc.ClientContext(r.Context(), a.Auth.Client)
-	tok, err := a.Auth.OAuth.Exchange(ctx, r.URL.Query().Get("code"), oauth2.VerifierOption(verifier))
+	origin, _ := a.site(r)
+	tok, err := a.Auth.OAuth.Exchange(ctx, r.URL.Query().Get("code"), oauth2.VerifierOption(verifier), oauth2.SetAuthURLParam("redirect_uri", origin+"/auth/callback"))
 	if err != nil {
 		a.problem(w, r, 400, "無法完成登入，請重新嘗試。")
 		return
@@ -179,7 +181,8 @@ func (a *App) logout(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/", 303)
 		return
 	}
-	target := a.Auth.Issuer + "v2/logout?" + url.Values{"client_id": {a.Auth.OAuth.ClientID}, "returnTo": {a.Origin}}.Encode()
+	origin, _ := a.site(r)
+	target := a.Auth.Issuer + "v2/logout?" + url.Values{"client_id": {a.Auth.OAuth.ClientID}, "returnTo": {origin}}.Encode()
 	http.Redirect(w, r, target, 303)
 }
 func (a *App) session(r *http.Request) (Session, error) {
@@ -216,7 +219,7 @@ func (a *App) protected(staff bool, next http.HandlerFunc) http.HandlerFunc {
 		}
 		r = r.WithContext(database.WithRequestInfo(context.WithValue(r.Context(), sessionKey{}, s), ClientRequestInfo(r)))
 		if r.Method != "GET" && r.Method != "HEAD" {
-			if origin := r.Header.Get("Origin"); origin != "" && origin != a.Origin {
+			if origin, _ := a.site(r); r.Header.Get("Origin") != "" && r.Header.Get("Origin") != origin {
 				a.problem(w, r, 403, "請重新整理頁面後再操作。")
 				return
 			}

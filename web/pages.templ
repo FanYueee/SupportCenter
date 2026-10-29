@@ -219,7 +219,7 @@ templ Document(p model.Page) {
 			<meta name="color-scheme" content="light dark"/>
 			<meta name="htmx-config" content='{"selfRequestsOnly":true,"allowScriptTags":false,"allowEval":false,"historyCacheSize":0,"includeIndicatorStyles":false}'/>
 			<title>{ pageTitle(ctx,p) } · { i18n.T(ctx,"AtomRoute 支援中心") }</title>
-			<link rel="icon" type="image/png" href={ assetURL("atomroute-icon.png") }/>
+			<link rel="icon" type="image/png" href={ assetURL(brandOf(ctx).Icon) }/>
 			<script src={ assetURL("theme.js") }></script>
 			<link rel="stylesheet" href={ assetURL("app.css") }/>
 			if p.Active != "login" {
@@ -247,11 +247,11 @@ templ Document(p model.Page) {
 			<header class="site-header">
 				<div class="header-inner">
 					<a class="brand" href="/tickets" aria-label={ i18n.T(ctx,"AtomRoute 支援中心") }>
-						<picture class="brand-image">
-							<source media="(max-width: 760px)" srcset={ assetURL("atomroute-icon.png") }/>
-							<img src={ assetURL("atomroute-logo.png") } alt="AtomRoute Global Network" width="1200" height="280"/>
+						<picture class={ "brand-image", "brand-" + brandOf(ctx).Key }>
+							<source media="(max-width: 760px)" srcset={ assetURL(brandOf(ctx).Icon) }/>
+							<img src={ assetURL(brandOf(ctx).Logo) } alt={ brandOf(ctx).LogoAlt } width={ brandOf(ctx).LogoWidth } height={ brandOf(ctx).LogoHeight }/>
 						</picture>
-						<span class="brand-name" aria-hidden="true">AtomRoute</span>
+						<span class="brand-name" aria-hidden="true">{ brandOf(ctx).Name }</span>
 						<span class="brand-divider">/</span><span class="brand-product">{ i18n.T(ctx,"支援中心") }</span>
 					</a>
 					if p.Active != "login" {
@@ -1287,7 +1287,7 @@ templ Login(p model.Page) {
 	<main id="workspace" class="login-page login-split">
 		<section class="login-panel">
 			<div class="login-copy">
-				<img class="login-logo" src={ assetURL("atomroute-icon.png") } width="44" height="44" alt=""/>
+				<img class="login-logo" src={ assetURL(brandOf(ctx).Icon) } width="44" height="44" alt=""/>
 				<h1>{ i18n.T(ctx,"登入 AtomRoute 支援中心") }</h1>
 				<p class="login-lead">{ i18n.T(ctx,"登入後即可建立及追蹤客服單。") }</p>
 				<a class="button primary login-action" href="/login">
@@ -1425,7 +1425,7 @@ templ ErrorPage(status int, message string) {
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
 			<meta name="color-scheme" content="light dark"/>
 			<title>{ i18n.T(ctx,"操作未完成 · AtomRoute 支援中心") }</title>
-			<link rel="icon" type="image/png" href={ assetURL("atomroute-icon.png") }/>
+			<link rel="icon" type="image/png" href={ assetURL(brandOf(ctx).Icon) }/>
 			<script src={ assetURL("theme.js") }></script>
 			<link rel="stylesheet" href={ assetURL("app.css") }/>
 		</head>
@@ -1454,7 +1454,7 @@ templ AcceptanceLogin(csrf string, message string) {
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
 			<meta name="color-scheme" content="light dark"/>
 			<title>{ i18n.T(ctx,"功能驗收登入") }</title>
-			<link rel="icon" type="image/png" href={ assetURL("atomroute-icon.png") }/>
+			<link rel="icon" type="image/png" href={ assetURL(brandOf(ctx).Icon) }/>
 			<script src={ assetURL("theme.js") }></script>
 			<link rel="stylesheet" href={ assetURL("app.css") }/>
 		</head>

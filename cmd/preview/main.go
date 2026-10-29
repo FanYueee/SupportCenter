@@ -250,7 +250,15 @@ func main() {
 		web.ErrorPage(405, i18n.T(r.Context(), "這是唯讀預覽，操作不會儲存。")).Render(r.Context(), w)
 	})
 	log.Println("Read-only UI preview: http://127.0.0.1:8081")
-	log.Fatal(http.ListenAndServe("127.0.0.1:8081", i18n.Middleware(app.SecurityHeaders(mux))))
+	// ?brand=vproxy previews another hostname's logos.
+	branded := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		brand := web.DefaultBrand
+		if b := r.URL.Query().Get("brand"); web.KnownBrand(b) {
+			brand = b
+		}
+		mux.ServeHTTP(w, r.WithContext(web.WithBrand(r.Context(), brand)))
+	})
+	log.Fatal(http.ListenAndServe("127.0.0.1:8081", i18n.Middleware(app.SecurityHeaders(branded))))
 }
 
 func announcementFixture() []model.Announcement {

@@ -289,6 +289,8 @@ input[type="checkbox"] {
   width: 100%;
   height: auto;
 }
+/* Logos share one height; the vProxy wordmark is narrower. */
+.brand-image.brand-vproxy { width: 141px; }
 .brand-name {
   display: none;
 }
@@ -1607,7 +1609,8 @@ dd {
     flex: 1;
     min-width: 0;
   }
-  .brand-image {
+  .brand-image,
+  .brand-image.brand-vproxy {
     width: 34px;
   }
   .brand-name {

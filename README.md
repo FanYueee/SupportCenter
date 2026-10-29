@@ -119,7 +119,9 @@ ssh -L 8081:127.0.0.1:8081 your-user@your-vps
    | Allowed Logout URLs | `https://support.atomroute.com` |
    | Application Login URI（若使用） | `https://support.atomroute.com/login` |
 
-   登入頁的「註冊帳號」連到 `/signup`，以相同的 PKCE 流程開啟 Auth0 Universal Login 的註冊畫面（`screen_hint=signup`）；需在 Auth0 的資料庫連線保持允許註冊（未勾選 Disable Sign Ups）。
+   其他品牌網域以 `.env` 的 `BRAND_HOSTS` 設定，例如 `BRAND_HOSTS=support.vproxy.cloud=vproxy`：與主網域共用登入、帳號及資料，只依網域切換 Logo、圖示與網站小圖示。每個網域都要在 Auth0 加入 `https://網域/auth/callback`（Allowed Callback URLs）與 `https://網域`（Allowed Logout URLs）；session cookie 以網域區分，換網域需再登入一次（Auth0 SSO 會自動帶過）。未列在 `BRAND_HOSTS` 的 Host 一律使用 `APP_URL` 的設定。
+
+   登入頁的「註冊」連到 `/signup`，以相同的 PKCE 流程開啟 Auth0 Universal Login 的註冊畫面（`screen_hint=signup`）；需在 Auth0 的資料庫連線保持允許註冊（未勾選 Disable Sign Ups）。
 
    `AUTH0_DOMAIN` 只填 hostname，不含 `https://` 或尾端 `/`。Client secret 只存於 VPS。登入身分以 Auth0 `sub` 對應，不能靠 email 自動取得客服權限。
 
