@@ -57,7 +57,7 @@ func (w *Worker) endpoint() string {
 
 func (w *Worker) claim(ctx context.Context) (j job, found bool, err error) {
 	err = w.Store.Pool.QueryRow(ctx, `UPDATE ai_jobs SET state='processing',attempts=attempts+1,lease_until=now()+interval '2 minutes'
- WHERE id=(SELECT id FROM ai_jobs WHERE available_at<=now() AND (state='pending' OR (state='processing' AND lease_until<now())) ORDER BY available_at,id FOR UPDATE SKIP LOCKED LIMIT 1)
+ WHERE id=(SELECT id FROM ai_jobs WHERE available_at<=now() AND attempts<5 AND (state='pending' OR (state='processing' AND lease_until<now())) ORDER BY available_at,id FOR UPDATE SKIP LOCKED LIMIT 1)
  RETURNING id,ticket_id,trigger_message_id,attempts,created_at`).Scan(&j.id, &j.ticketID, &j.triggerID, &j.attempts, &j.created)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return job{}, false, nil

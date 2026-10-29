@@ -1,0 +1,58 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.acceptance
+    restart: unless-stopped
+    init: true
+    read_only: true
+    tmpfs: ["/tmp:size=128m,mode=1777"]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    ports: ["127.0.0.1:${ACCEPTANCE_BIND_PORT:-8082}:8080"]
+    environment:
+      APP_URL: ${APP_URL:?Set APP_URL}
+      ACCEPTANCE_PASSWORD: ${ACCEPTANCE_PASSWORD:?Set ACCEPTANCE_PASSWORD}
+      DATABASE_URL: postgres://acceptance:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@db:5432/support_acceptance?sslmode=disable
+      ATTACHMENT_DIR: /data/attachments
+      LISTEN_ADDR: :8080
+    volumes: [attachments:/data/attachments]
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, wget, -q, --spider, http://127.0.0.1:8080/healthz]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: acceptance
+      POSTGRES_DB: support_acceptance
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+    volumes: [postgres_data:/var/lib/postgresql/data]
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U acceptance -d support_acceptance]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+  verify:
+    image: golang:1.27.1-alpine
+    profiles: [verify]
+    working_dir: /src
+    volumes: [.:/src:ro, go_modules:/go/pkg/mod]
+    environment:
+      TEST_DATABASE_URL: postgres://acceptance:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@db:5432/support_acceptance?sslmode=disable
+      CGO_ENABLED: '1'
+      GOCACHE: /tmp/go-build
+    depends_on:
+      db:
+        condition: service_healthy
+    command: [sh, -c, "apk add --no-cache gcc musl-dev libwebp-tools >/dev/null && go test -race -count=1 -timeout=180s ./..."]
+volumes:
+  attachments:
+  postgres_data:
+  go_modules:

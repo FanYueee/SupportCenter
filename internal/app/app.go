@@ -110,14 +110,43 @@ func (a *App) Handler() http.Handler {
 	if a.Auth != nil {
 		authOrigin = a.Auth.Issuer
 	}
-	// Bound concurrent form parsing and attachment writes on a single VPS.
+	// Bound concurrent form parsing and attachment writes on a single VPS. The
+	// per-client cap keeps one source's slow uploads from holding every slot;
+	// signed Portal API calls all arrive from the portal server and skip it.
 	slots := make(chan struct{}, 4)
+	var clientsMu sync.Mutex
+	clients := map[string]int{}
 	limited := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
-			select {
-			case slots <- struct{}{}:
-				defer func() { <-slots }()
-			default:
+			ip := ""
+			if !strings.HasPrefix(r.URL.Path, "/api/portal/") {
+				ip = ClientRequestInfo(r).IP
+			}
+			clientsMu.Lock()
+			allowed := ip == "" || clients[ip] < 2
+			if allowed {
+				select {
+				case slots <- struct{}{}:
+					if ip != "" {
+						clients[ip]++
+					}
+				default:
+					allowed = false
+				}
+			}
+			clientsMu.Unlock()
+			if allowed {
+				defer func() {
+					if ip != "" {
+						clientsMu.Lock()
+						if clients[ip]--; clients[ip] == 0 {
+							delete(clients, ip)
+						}
+						clientsMu.Unlock()
+					}
+					<-slots
+				}()
+			} else {
 				w.Header().Set("Retry-After", "5")
 				if strings.HasPrefix(r.URL.Path, "/api/portal/") {
 					portalError(w, http.StatusServiceUnavailable, "busy")
@@ -572,19 +601,26 @@ func (a *App) afterMutation(w http.ResponseWriter, r *http.Request, id int64, ad
 	}
 }
 
-// A bounded global login rate limit prevents unauthenticated database growth.
+// Bounded login rate limits prevent unauthenticated database growth; the
+// per-client limit keeps one source from exhausting the global allowance.
 func (a *App) loginLimiter(next http.HandlerFunc) http.HandlerFunc {
 	var mu sync.Mutex
 	var start time.Time
 	count := 0
+	clients := map[string]int{}
 	return func(w http.ResponseWriter, r *http.Request) {
+		ip := ClientRequestInfo(r).IP
 		mu.Lock()
 		if time.Since(start) > time.Minute {
 			start = time.Now()
 			count = 0
+			clear(clients)
 		}
-		count++
-		allowed := count <= 120
+		allowed := count < 600 && clients[ip] < 5
+		if allowed {
+			count++
+			clients[ip]++
+		}
 		mu.Unlock()
 		if !allowed {
 			w.Header().Set("Retry-After", "60")

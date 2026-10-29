@@ -27,6 +27,12 @@ import (
 
 const maxFile = 10 << 20
 
+// Decoded pixels cost about 4 bytes each; 40 MP keeps one preview near 160 MiB.
+const maxPixels = 40_000_000
+
+// Decoding a large image can take hundreds of MiB, so preview encoding runs one at a time.
+var previewSlot = make(chan struct{}, 1)
+
 var storageKey = regexp.MustCompile(`^[a-f0-9]{64}$`)
 
 func previewKey(key string) string { return key + ".webp" }
@@ -76,6 +82,12 @@ func webpPreview(ctx context.Context, data []byte, name string, width, height in
 	args = append(args, input, "-o", output)
 	deadline, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
+	select {
+	case previewSlot <- struct{}{}:
+		defer func() { <-previewSlot }()
+	case <-deadline.Done():
+		return nil, errors.New("無法產生圖片預覽")
+	}
 	if err = exec.CommandContext(deadline, "cwebp", args...).Run(); err != nil {
 		return nil, errors.New("無法產生圖片預覽")
 	}
@@ -99,14 +111,14 @@ func fileType(data []byte, name string) (string, error) {
 			break
 		}
 		cfg, _, err := image.DecodeConfig(bytes.NewReader(data))
-		if err != nil || cfg.Width <= 0 || cfg.Height <= 0 || int64(cfg.Width)*int64(cfg.Height) > 100000000 {
+		if err != nil || cfg.Width <= 0 || cfg.Height <= 0 || int64(cfg.Width)*int64(cfg.Height) > maxPixels {
 			break
 		}
 		return expected, nil
 	case ".webp":
 		if detected == "image/webp" {
 			cfg, e := webp.DecodeConfig(bytes.NewReader(data))
-			if e == nil && cfg.Width > 0 && cfg.Height > 0 && int64(cfg.Width)*int64(cfg.Height) <= 100000000 {
+			if e == nil && cfg.Width > 0 && cfg.Height > 0 && int64(cfg.Width)*int64(cfg.Height) <= maxPixels {
 				return "image/webp", nil
 			}
 		}
