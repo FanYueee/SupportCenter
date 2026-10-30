@@ -15,11 +15,11 @@ import (
 func TestTicketCompletionBuckets(t *testing.T) {
 	a, h, alice, _, staff := testApp(t)
 	ctx := context.Background()
-	_, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "active-only", Category: "other", Priority: "normal"}, "question", nil)
+	_, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "active-only", Category: "other", Priority: "low"}, "question", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	doneID, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "done-only", Category: "other", Priority: "normal"}, "question", nil)
+	doneID, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "done-only", Category: "other", Priority: "low"}, "question", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -27,10 +27,10 @@ func TestTicketCompletionBuckets(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := a.Store.Update(ctx, staff, doneID, true, "solved", "normal", nil, done.Version); err != nil {
+	if err := a.Store.Update(ctx, staff, doneID, true, "solved", "low", nil, done.Version); err != nil {
 		t.Fatal(err)
 	}
-	closedID, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "closed-only", Category: "other", Priority: "normal"}, "question", nil)
+	closedID, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "closed-only", Category: "other", Priority: "low"}, "question", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -38,7 +38,7 @@ func TestTicketCompletionBuckets(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := a.Store.Update(ctx, staff, closedID, true, "closed", "normal", nil, closed.Version); err != nil {
+	if err := a.Store.Update(ctx, staff, closedID, true, "closed", "low", nil, closed.Version); err != nil {
 		t.Fatal(err)
 	}
 	for _, tc := range []struct{ path, want, absent string }{

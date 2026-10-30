@@ -20,7 +20,7 @@ func TestRetryAndConcurrentUpdates(t *testing.T) {
 	a, h, alice, _, staff := testApp(t)
 	ctx := context.Background()
 	key := token()
-	form := url.Values{"csrf": {"csrf-alice"}, "submission": {key}, "subject": {"retry-safe ticket"}, "category": {"technical"}, "priority": {"normal"}, "body": {"first message"}}
+	form := url.Values{"csrf": {"csrf-alice"}, "submission": {key}, "subject": {"retry-safe ticket"}, "category": {"technical"}, "priority": {"low"}, "body": {"first message"}}
 	var wg sync.WaitGroup
 	results := make(chan string, 2)
 	for i := 0; i < 2; i++ {
@@ -93,7 +93,7 @@ func TestRetryAndConcurrentUpdates(t *testing.T) {
 func TestUnchangedTicketSaveKeepsPositionAndVersion(t *testing.T) {
 	a, _, alice, _, staff := testApp(t)
 	ctx := context.Background()
-	id, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "unchanged", Category: "technical", Priority: "normal"}, "details", nil)
+	id, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "unchanged", Category: "technical", Priority: "low"}, "details", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -133,7 +133,7 @@ func TestMigrationVersions(t *testing.T) {
 		t.Fatal("migration rerun failed", err)
 	}
 	var count int
-	if err := a.Store.Pool.QueryRow(ctx, `SELECT count(*) FROM schema_migrations`).Scan(&count); err != nil || count != 30 {
+	if err := a.Store.Pool.QueryRow(ctx, `SELECT count(*) FROM schema_migrations`).Scan(&count); err != nil || count != 31 {
 		t.Fatal("migration ledger incorrect")
 	}
 	if _, err := a.Store.Pool.Exec(ctx, `UPDATE schema_migrations SET checksum='changed' WHERE name='001_init.sql'`); err != nil {
@@ -145,7 +145,7 @@ func TestMigrationVersions(t *testing.T) {
 }
 func TestDraftAndExpiredSession(t *testing.T) {
 	a, h, alice, _, _ := testApp(t)
-	id, err := a.Store.Create(context.Background(), alice, model.Ticket{Subject: "draft", Category: "other", Priority: "normal"}, "initial", nil)
+	id, err := a.Store.Create(context.Background(), alice, model.Ticket{Subject: "draft", Category: "other", Priority: "low"}, "initial", nil)
 	if err != nil {
 		t.Fatal(err)
 	}

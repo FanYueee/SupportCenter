@@ -1,6 +1,7 @@
 package model
 
 import (
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -100,6 +101,7 @@ type UserSummary struct {
 	User                  User
 	CreatedAt             time.Time
 	LastLogin, LastPortal *time.Time
+	PrioritySupport       PrioritySupport
 }
 
 // LastSeen is the latest sign-in here or use of the Portal, and whether it was the Portal.
@@ -295,6 +297,10 @@ type Page struct {
 	Page, MessagePage                                                                                         int
 	HasNext, HasMoreMessages, Admin, Preview, AIEnabled, MailEnabled                                          bool
 	AIModel                                                                                                   string
+	// PrioritySupport is the viewer's own, already resolved to the level in force.
+	PrioritySupport PrioritySupport
+	// Location is the site's timezone, in which priority support end dates are entered.
+	Location *time.Location
 }
 
 func Status(s string) string {
@@ -335,18 +341,44 @@ func VisibleStatus(s string, staff bool) string {
 	}
 	return s
 }
+
+// Priorities lists ticket priorities from lowest to highest.
+var Priorities = []string{"low", "medium", "high", "urgent"}
+
 func Priority(s string) string {
 	switch s {
 	case "low":
 		return "低"
-	case "normal":
-		return "標準"
+	case "medium":
+		return "中"
 	case "high":
 		return "高"
 	case "urgent":
 		return "緊急"
 	}
 	return s
+}
+
+// PrioritySupport is the highest priority an account may choose for its own
+// tickets. It lapses back to low at Until; without Until it does not end.
+type PrioritySupport struct {
+	Level string
+	Until *time.Time
+}
+
+// Current is the level in force at now.
+func (p PrioritySupport) Current(now time.Time) string {
+	if slices.Index(Priorities, p.Level) < 1 || p.Until != nil && !now.Before(*p.Until) {
+		return "low"
+	}
+	return p.Level
+}
+
+// Allows reports whether a ticket may be filed at priority under level; an
+// unknown level counts as low.
+func Allows(level, priority string) bool {
+	rank := slices.Index(Priorities, priority)
+	return rank >= 0 && rank <= max(slices.Index(Priorities, level), 0)
 }
 func Category(s string) string {
 	switch s {

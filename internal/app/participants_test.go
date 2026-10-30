@@ -20,7 +20,7 @@ func TestCreateWithEmailParticipantsAndPendingRegistration(t *testing.T) {
 	if _, err := a.Store.Pool.Exec(ctx, `UPDATE users SET name='Bob Example',email_verified=true WHERE id=$1`, bob.ID); err != nil {
 		t.Fatal(err)
 	}
-	form := url.Values{"csrf": {"csrf-alice"}, "submission": {token()}, "subject": {"participants at creation"}, "category": {"other"}, "priority": {"normal"}, "body": {"private question"}, "participants": {" BOB@Example.Test, future@example.test, bob@example.test "}}
+	form := url.Values{"csrf": {"csrf-alice"}, "submission": {token()}, "subject": {"participants at creation"}, "category": {"other"}, "priority": {"low"}, "body": {"private question"}, "participants": {" BOB@Example.Test, future@example.test, bob@example.test "}}
 	created := request(h, "POST", "/tickets", "alice", form)
 	if created.Code != 303 {
 		t.Fatalf("create with participants: %d %s", created.Code, created.Body.String())
@@ -78,7 +78,7 @@ func TestInvalidOrFailedCreationDoesNotLeavePartialInvitations(t *testing.T) {
 	a, h, alice, _, _ := testApp(t)
 	ctx := context.Background()
 	for _, participants := range []string{"invalid-email", alice.Email, strings.Repeat("a", 5121), strings.Join(makeParticipantEmails(21), ",")} {
-		form := url.Values{"csrf": {"csrf-alice"}, "subject": {"invalid participants"}, "category": {"other"}, "priority": {"normal"}, "body": {"question"}, "participants": {participants}}
+		form := url.Values{"csrf": {"csrf-alice"}, "subject": {"invalid participants"}, "category": {"other"}, "priority": {"low"}, "body": {"question"}, "participants": {participants}}
 		if page := request(h, "POST", "/tickets", "alice", form); page.Code != 422 || !strings.Contains(page.Body.String(), `name="participants"`) {
 			t.Fatalf("invalid participants accepted or form discarded: %d", page.Code)
 		}
@@ -87,7 +87,7 @@ func TestInvalidOrFailedCreationDoesNotLeavePartialInvitations(t *testing.T) {
  CREATE TRIGGER reject_invitation BEFORE INSERT ON ticket_invites FOR EACH ROW EXECUTE FUNCTION reject_invitation()`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := a.Store.CreateWithParticipants(ctx, alice, model.Ticket{Subject: "atomic creation", Category: "other", Priority: "normal"}, "question", nil, []string{"a@example.test", "blocked@example.test"}); err == nil {
+	if _, err := a.Store.CreateWithParticipants(ctx, alice, model.Ticket{Subject: "atomic creation", Category: "other", Priority: "low"}, "question", nil, []string{"a@example.test", "blocked@example.test"}); err == nil {
 		t.Fatal("invitation failure was ignored")
 	}
 	var tickets, invites, events int
@@ -102,7 +102,7 @@ func TestDirectParticipationIsBoundToInvitedAccount(t *testing.T) {
 	if _, err := a.Store.Pool.Exec(ctx, `UPDATE users SET email_verified=true WHERE id=$1`, bob.ID); err != nil {
 		t.Fatal(err)
 	}
-	id, err := a.Store.CreateWithParticipants(ctx, alice, model.Ticket{Subject: "direct membership", Category: "other", Priority: "normal"}, "question", nil, []string{bob.Email, "unknown@example.test"})
+	id, err := a.Store.CreateWithParticipants(ctx, alice, model.Ticket{Subject: "direct membership", Category: "other", Priority: "low"}, "question", nil, []string{bob.Email, "unknown@example.test"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -151,7 +151,7 @@ func TestDirectParticipationIsBoundToInvitedAccount(t *testing.T) {
 	if err = a.Store.SaveAutomation(ctx, settings); err != nil {
 		t.Fatal(err)
 	}
-	if err = a.Store.Update(ctx, staff, id, true, "solved", "normal", nil); err != nil {
+	if err = a.Store.Update(ctx, staff, id, true, "solved", "low", nil); err != nil {
 		t.Fatal(err)
 	}
 	if notices, _, err := a.Store.Notifications(ctx, bob.ID, 1); err != nil || len(notices) != 1 {
@@ -175,7 +175,7 @@ func TestInvitedStaffJoinImmediatelyAsCustomers(t *testing.T) {
 	if err := a.Store.Pool.QueryRow(ctx, `SELECT email_verified FROM users WHERE id=$1`, staff.ID).Scan(&verified); err != nil || verified {
 		t.Fatal("expected a manually provisioned staff account without verified email")
 	}
-	id, err := a.Store.CreateWithParticipants(ctx, alice, model.Ticket{Subject: "staff customer", Category: "other", Priority: "normal"}, "question", nil, []string{staff.Email})
+	id, err := a.Store.CreateWithParticipants(ctx, alice, model.Ticket{Subject: "staff customer", Category: "other", Priority: "low"}, "question", nil, []string{staff.Email})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -202,7 +202,7 @@ func TestInvitedStaffJoinImmediatelyAsCustomers(t *testing.T) {
 	if err = a.Store.SaveAutomation(ctx, settings); err != nil {
 		t.Fatal(err)
 	}
-	if err = a.Store.Update(ctx, staff, id, true, "solved", "normal", nil); err != nil {
+	if err = a.Store.Update(ctx, staff, id, true, "solved", "low", nil); err != nil {
 		t.Fatal(err)
 	}
 	if notices, _, err := a.Store.Notifications(ctx, staff.ID, 1); err != nil || len(notices) != 1 {
@@ -239,7 +239,7 @@ func TestParticipantExitRevokesAccessAndNotifications(t *testing.T) {
 		t.Fatal(err)
 	}
 	file.Close()
-	id, err := a.Store.CreateWithParticipants(ctx, alice, model.Ticket{Subject: "leave private discussion", Category: "other", Priority: "normal"}, "question", []model.Attachment{{Name: "private.txt", Key: key, MIME: "text/plain", Size: 7}}, []string{bob.Email})
+	id, err := a.Store.CreateWithParticipants(ctx, alice, model.Ticket{Subject: "leave private discussion", Category: "other", Priority: "low"}, "question", []model.Attachment{{Name: "private.txt", Key: key, MIME: "text/plain", Size: 7}}, []string{bob.Email})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -250,7 +250,7 @@ func TestParticipantExitRevokesAccessAndNotifications(t *testing.T) {
 	if _, err = a.Store.Pool.Exec(ctx, `UPDATE users SET email_verified=true WHERE id=$1`, bob.ID); err != nil {
 		t.Fatal(err)
 	}
-	if err = a.Store.Update(ctx, staff, id, true, "solved", "normal", nil); err != nil {
+	if err = a.Store.Update(ctx, staff, id, true, "solved", "low", nil); err != nil {
 		t.Fatal(err)
 	}
 	var attachmentID int64
@@ -304,7 +304,7 @@ func TestParticipantExitRevokesAccessAndNotifications(t *testing.T) {
 func TestInvitationDoesNotRevealRegistration(t *testing.T) {
 	a, h, alice, _, _ := testApp(t)
 	ctx := context.Background()
-	id, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "probe", Category: "other", Priority: "normal"}, "question", nil)
+	id, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "probe", Category: "other", Priority: "low"}, "question", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -371,7 +371,7 @@ func makeParticipantEmails(count int) []string {
 func TestMessageLinksAreClickable(t *testing.T) {
 	a, h, alice, _, _ := testApp(t)
 	ctx := context.Background()
-	id, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "links", Category: "other", Priority: "normal"}, "您好，請直接至 https://portal.example.com 註冊登入，<script>x</script> 再看 javascript:alert(1)。", nil)
+	id, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "links", Category: "other", Priority: "low"}, "您好，請直接至 https://portal.example.com 註冊登入，<script>x</script> 再看 javascript:alert(1)。", nil)
 	if err != nil {
 		t.Fatal(err)
 	}

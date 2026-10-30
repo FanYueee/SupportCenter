@@ -179,6 +179,9 @@ templ Icon(name string) {
 				<path d="M4 5h16v12H9l-5 4V5Zm4 4h8m-8 4h5"></path>
 			case "login":
 				<path d="M14 4h6v16h-6M3 12h12m-4-4 4 4-4 4"></path>
+			case "lock":
+				<rect x="5" y="11" width="14" height="9"></rect>
+				<path d="M8 11V8a4 4 0 0 1 8 0v3"></path>
 			case "logout":
 				<path d="M10 4H4v16h6m-1-8h12m-4-4 4 4-4 4"></path>
 			case "shield":
@@ -715,12 +718,46 @@ templ Users(p model.Page) {
 			<label class="field">{ i18n.T(ctx,"搜尋名稱或電子郵件") }<input name="q" value={ p.Query } maxlength="100"/></label>
 			<button class="button secondary">{ i18n.T(ctx,"搜尋") }</button>
 		</form>
-		<div class="users-table-wrap"><table class="users-table"><thead><tr><th>{ i18n.T(ctx,"名稱") }</th><th>{ i18n.T(ctx,"電子郵件") }</th><th>{ i18n.T(ctx,"角色") }</th><th>{ i18n.T(ctx,"註冊日期") }</th><th>{ i18n.T(ctx,"最近登入") }</th></tr></thead><tbody>
+		<div class="users-table-wrap"><table class="users-table"><thead><tr><th>{ i18n.T(ctx,"名稱") }</th><th>{ i18n.T(ctx,"電子郵件") }</th><th>{ i18n.T(ctx,"角色") }</th><th>{ i18n.T(ctx,"優先支援") }</th><th>{ i18n.T(ctx,"註冊日期") }</th><th>{ i18n.T(ctx,"最近登入") }</th></tr></thead><tbody>
 			for _, user := range p.Users {
 				<tr>
 					<td class="user-name">{ user.User.Name }</td>
 					<td class="user-email">{ user.User.Email }</td>
 					<td class="user-role">{ i18n.T(ctx,model.RoleLabel(user.User.Role)) }</td>
+					<td class="user-priority" data-label={ i18n.T(ctx,"優先支援") }>
+						if user.User.Role != "user" {
+							<span class="field-hint">{ i18n.T(ctx,"客服不受限") }</span>
+						} else {
+							<details class="priority-support">
+								<summary>
+									@Priority(user.PrioritySupport.Current(time.Now()))
+									if status := prioritySupportStatus(ctx,user.PrioritySupport,p.Location); status != "" {
+										<span class="priority-support-until">{ status }</span>
+									}
+									<span class="priority-support-edit">{ i18n.T(ctx,"調整") }</span>
+								</summary>
+								<form method="post" action={ templ.SafeURL("/admin/users/"+strconv.FormatInt(user.User.ID,10)+"/priority-support") } class="priority-support-form">
+									<input type="hidden" name="csrf" value={ p.CSRF }/>
+									<input type="hidden" name="q" value={ p.Query }/>
+									<input type="hidden" name="page" value={ strconv.Itoa(p.Page) }/>
+									<input type="hidden" name="shown_until" value={ prioritySupportDate(user.PrioritySupport,p.Location) }/>
+									<label class="field">
+										{ i18n.T(ctx,"可使用到") }
+										<select name="level">
+											for _, s := range model.Priorities {
+												<option value={ s } selected?={ user.PrioritySupport.Level==s }>{ i18n.T(ctx,model.Priority(s)) }</option>
+											}
+										</select>
+									</label>
+									<label class="field">
+										{ i18n.T(ctx,"到期日（選填）") }
+										<input type="date" name="until" value={ prioritySupportDate(user.PrioritySupport,p.Location) } min="2000-01-01" max="2200-12-31"/>
+									</label>
+									<button class="button secondary" type="submit">{ i18n.T(ctx,"儲存") }</button>
+								</form>
+							</details>
+						}
+					</td>
 					<td class="user-date" data-label={ i18n.T(ctx,"註冊日期") }><time datetime={ user.CreatedAt.Format(time.RFC3339) } data-local-time="date">{ user.CreatedAt.UTC().Format("2006/01/02") }</time></td>
 					<td class="user-date" data-label={ i18n.T(ctx,"最近登入") }>
 						if seen, portal := user.LastSeen(); seen != nil {
@@ -800,7 +837,7 @@ templ List(p model.Page) {
 		</div>
 		if p.Admin {
 			<nav class="priority-tabs" aria-label={ i18n.T(ctx,"客服單優先級篩選") }>
-				for _, item:=range []struct{Value,Label string}{{"","全部優先級"},{"urgent","緊急"},{"normal","標準"}} {
+				for _, item:=range []struct{Value,Label string}{{"","全部優先級"},{"urgent","緊急"},{"high","高"},{"medium","中"},{"low","低"}} {
 					<a class={ "priority-tab", templ.KV("active",p.PriorityFilter==item.Value) } href={ templ.SafeURL(priorityURL(p,item.Value)) } hx-get={ priorityURL(p,item.Value) } hx-target="#workspace" hx-swap="outerHTML" hx-push-url="true">{ i18n.T(ctx,item.Label) }</a>
 				}
 			</nav>
@@ -944,10 +981,24 @@ templ NewTicket(p model.Page) {
 				</label>
 				<label class="field">
 					{ i18n.T(ctx,"優先級") }
-					<select name="priority" class="priority-choice">
-						<option value="normal" selected?={ p.Ticket.Priority=="normal" }>{ i18n.T(ctx,"標準") }</option>
-						<option value="urgent" selected?={ p.Ticket.Priority=="urgent" }>{ i18n.T(ctx,"緊急") }</option>
+					<select name="priority" class="priority-choice" aria-describedby="priority-support-hint">
+						for _, s := range model.Priorities {
+							if model.Allows(p.PrioritySupport.Level,s) {
+								<option value={ s } selected?={ p.Ticket.Priority==s }>{ i18n.T(ctx,model.Priority(s)) }</option>
+							} else {
+								<option value={ s } disabled>{ i18n.T(ctx,model.Priority(s)) } · { i18n.T(ctx,"需升級") }</option>
+							}
+						}
 					</select>
+					if hint := prioritySupportHint(ctx,p.PrioritySupport); hint != "" {
+						<span class="field-hint priority-support-hint" id="priority-support-hint">
+							@Icon("lock")
+							<span>{ hint }</span>
+						</span>
+					}
+					if p.PrioritySupport.Until != nil {
+						<span class="field-hint">{ i18n.T(ctx,"優先支援有效至") } <time datetime={ p.PrioritySupport.Until.Format(time.RFC3339) } data-local-time="full" data-timezone-inline>{ p.PrioritySupport.Until.UTC().Format("2006/01/02 15:04") } UTC</time></span>
+					}
 				</label>
 			</div>
 			<label class="field">
@@ -1224,7 +1275,7 @@ templ Detail(p model.Page) {
 						<label class="field">
 							{ i18n.T(ctx,"優先級") }
 							<select name="priority">
-								for _, s := range []string{"normal","urgent"} {
+								for _, s := range model.Priorities {
 									<option value={ s } selected?={ p.Ticket.Priority==s }>
 										{ i18n.T(ctx,model.Priority(s)) }
 									</option>

@@ -415,29 +415,29 @@ test('priority remains readable in the mobile list and ticket details', async ({
     await page.emulateMedia({ colorScheme: scheme });
     await page.goto('/tickets');
     const colors = new Set();
-    for (const [priority, label] of [['normal', '標準'], ['urgent', '緊急']]) {
+    for (const [priority, label] of [['low', '低'], ['medium', '中'], ['high', '高'], ['urgent', '緊急']]) {
       const item = page.locator(`.ticket-mobile-meta .priority-${priority}`).first();
       await expect(item).toBeVisible();
       await expect(item).toHaveText(label);
       colors.add(await item.evaluate(el => getComputedStyle(el).color));
     }
-    expect(colors.size).toBe(2);
+    expect(colors.size).toBe(4);
     await expect(page.locator('.ticket-mobile-meta time').first()).toBeVisible();
     const titleSize = await page.locator('.ticket-title strong').first().evaluate(el => parseFloat(getComputedStyle(el).fontSize));
     expect(titleSize).toBeGreaterThanOrEqual(15);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.goto('/tickets/1048');
-    await expect(page.locator('.metadata-panel .priority-normal')).toBeVisible();
+    await expect(page.locator('.metadata-panel .priority-low')).toBeVisible();
     const detailSize = await page.locator('.message-body').first().evaluate(el => parseFloat(getComputedStyle(el).fontSize));
     expect(detailSize).toBeGreaterThanOrEqual(15);
   }
   await page.setViewportSize({ width: 1440, height: 1050 });
   await page.goto('/tickets');
   await expect(page.locator('.ticket-mobile-meta').first()).toBeHidden();
-  await expect(page.locator('tbody td:nth-child(4) .priority-normal').first()).toBeVisible();
+  await expect(page.locator('tbody td:nth-child(4) .priority-low').first()).toBeVisible();
 });
 
-test('new support ticket offers yellow standard and red urgent priority', async ({ page }) => {
+test('new support ticket locks priorities above the account priority support', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   for (const scheme of ['light', 'dark']) {
     await page.emulateMedia({ colorScheme: scheme });
@@ -446,16 +446,32 @@ test('new support ticket offers yellow standard and red urgent priority', async 
     await expect(category.locator('option')).toHaveText(['一般支援', '帳務支援', '技術支援']);
     await expect(category).toHaveValue('other');
     const select = page.getByRole('combobox', { name: '優先級' });
-    await expect(select.locator('option')).toHaveText(['標準', '緊急']);
-    await expect(select).toHaveValue('normal');
-    const standard = await select.evaluate(el => ({ color: getComputedStyle(el).color, border: getComputedStyle(el).borderTopColor, background: getComputedStyle(el).backgroundColor }));
-    expect(standard.color).toBe(standard.border);
-    await select.selectOption('urgent');
-    const urgent = await select.evaluate(el => ({ color: getComputedStyle(el).color, border: getComputedStyle(el).borderTopColor, background: getComputedStyle(el).backgroundColor }));
-    expect(urgent.color).toBe(urgent.border);
-    expect(urgent.color).not.toBe(standard.color);
-    expect(urgent.background).not.toBe(standard.background);
+    await expect(select.locator('option')).toHaveText(['低', '中 · 需升級', '高 · 需升級', '緊急 · 需升級']);
+    await expect(select).toHaveValue('low');
+    await expect(select.locator('option:disabled')).toHaveCount(3);
+    const hint = page.locator('#priority-support-hint');
+    await expect(hint).toHaveText('中、高、緊急需升級優先支援才能使用。');
+    await expect(hint.locator('svg')).toBeVisible();
+    await expect(select).toHaveAccessibleDescription('中、高、緊急需升級優先支援才能使用。');
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: `artifacts/new-ticket-locked-${scheme}.png`, fullPage: true });
+
+    await page.goto('/tickets/new?support=urgent');
+    await expect(select.locator('option')).toHaveText(['低', '中', '高', '緊急']);
+    await expect(select.locator('option:disabled')).toHaveCount(0);
+    await expect(page.locator('#priority-support-hint')).toHaveCount(0);
+    await expect(page.locator('.field-hint', { hasText: '優先支援有效至' })).toBeVisible();
+    const colors = new Set();
+    for (const priority of ['low', 'medium', 'high', 'urgent']) {
+      await select.selectOption(priority);
+      const look = await select.evaluate(el => ({ color: getComputedStyle(el).color, border: getComputedStyle(el).borderTopColor, background: getComputedStyle(el).backgroundColor }));
+      expect(look.color).toBe(look.border);
+      colors.add(look.color + look.background);
+    }
+    expect(colors.size).toBe(4);
+    await page.goto('/tickets/new?support=medium');
+    await expect(select.locator('option:disabled')).toHaveCount(2);
+    await expect(page.locator('#priority-support-hint')).toHaveText('高、緊急需升級優先支援才能使用。');
   }
 });
 
@@ -472,8 +488,8 @@ test('ticket details show category icons and colored priority backgrounds', asyn
     await expect(metadata.locator('dt')).toContainText(['客服單編號', '問題類別', '優先級', '負責客服', '建立時間', '最近更新']);
     await expect(metadata.locator('dt').filter({ hasText: '建立時間' }).locator('+ dd time')).toHaveAttribute('datetime', /2026-09-26T09:42:00/);
     await page.goto('/tickets/1047');
-    const standard = page.locator('.metadata-panel .priority-normal');
-    await expect(standard).toHaveText('標準');
+    const standard = page.locator('.metadata-panel .priority-medium');
+    await expect(standard).toHaveText('中');
     await expect(standard).toHaveCSS('gap', 'normal');
     expect(await standard.evaluate(el => getComputedStyle(el, '::before').content)).toBe('none');
     const standardBackground = await standard.evaluate(el => getComputedStyle(el).backgroundColor);
@@ -768,6 +784,32 @@ test('user list shows email, role, registration and last sign-in on every screen
     await expect(page.locator('.users-table')).toContainText('2026/10/20');
     await expect(page.locator('.user-via')).toHaveText('Portal');
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  }
+});
+
+test('admins see and change priority support on the user list', async ({ page }) => {
+  for (const width of [320, 390, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto('/admin/users');
+    const taylor = page.locator('.users-table tbody tr', { hasText: 'Taylor Lee' });
+    const support = taylor.locator('.user-priority');
+    await expect(support.locator('summary')).toContainText('高');
+    await expect(support.locator('summary')).toContainText('至 2027/01/31');
+    await expect(page.locator('.users-table tbody tr', { hasText: 'Jamie' }).locator('.user-priority')).toHaveText('客服不受限');
+    await support.getByText('調整').click();
+    const form = support.locator('form');
+    await expect(form.getByRole('combobox', { name: '可使用到' })).toHaveValue('high');
+    await expect(form.getByLabel('到期日（選填）')).toHaveValue('2027-01-31');
+    await expect(form.getByRole('button', { name: '儲存' })).toBeVisible();
+    for (const field of await form.locator('input:not([type=hidden]), select').all()) {
+      expect(parseFloat(await field.evaluate(el => getComputedStyle(el).fontSize))).toBeGreaterThanOrEqual(16);
+    }
+    for (const element of [support, form.getByRole('button', { name: '儲存' })]) {
+      const box = await element.boundingBox();
+      expect(box.x + box.width, `${width}px`).toBeLessThanOrEqual(width + 1);
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: `artifacts/users-priority-${width}.png`, fullPage: true });
   }
 });
 

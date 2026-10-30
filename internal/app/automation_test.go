@@ -49,7 +49,7 @@ func TestAutomationAdminAndCreate(t *testing.T) {
 	if err = a.Store.SaveAutomation(context.Background(), settings); err != nil {
 		t.Fatal(err)
 	}
-	id, err := a.Store.Create(context.Background(), alice, model.Ticket{Subject: "automation", Category: "other", Priority: "normal"}, "question", nil)
+	id, err := a.Store.Create(context.Background(), alice, model.Ticket{Subject: "automation", Category: "other", Priority: "low"}, "question", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -106,7 +106,7 @@ func TestTemporaryLeaveOverridesScheduledReplies(t *testing.T) {
 	if got := request(h, "POST", "/admin/automation", "admin", invalid); got.Code != 422 {
 		t.Fatalf("invalid leave accepted: %d", got.Code)
 	}
-	id, err := a.Store.Create(context.Background(), alice, model.Ticket{Subject: "leave auto reply", Category: "other", Priority: "normal"}, "question", nil)
+	id, err := a.Store.Create(context.Background(), alice, model.Ticket{Subject: "leave auto reply", Category: "other", Priority: "low"}, "question", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -121,7 +121,7 @@ func TestTemporaryLeaveOverridesScheduledReplies(t *testing.T) {
 	if got := request(h, "POST", "/admin/automation", "admin", form); got.Code != 303 {
 		t.Fatalf("disable leave: %d", got.Code)
 	}
-	id, err = a.Store.Create(context.Background(), alice, model.Ticket{Subject: "normal auto reply", Category: "other", Priority: "normal"}, "question", nil)
+	id, err = a.Store.Create(context.Background(), alice, model.Ticket{Subject: "normal auto reply", Category: "other", Priority: "low"}, "question", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -133,7 +133,7 @@ func TestTemporaryLeaveOverridesScheduledReplies(t *testing.T) {
 
 func TestAIHandoffOwnerOnly(t *testing.T) {
 	a, h, alice, _, _ := testApp(t)
-	id, err := a.Store.Create(context.Background(), alice, model.Ticket{Subject: "AI handoff", Category: "technical", Priority: "normal", AssistanceMode: "ai"}, "question", nil)
+	id, err := a.Store.Create(context.Background(), alice, model.Ticket{Subject: "AI handoff", Category: "technical", Priority: "low", AssistanceMode: "ai"}, "question", nil)
 	if err != nil {
 		t.Fatal(err)
 	}

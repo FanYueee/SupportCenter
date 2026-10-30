@@ -30,6 +30,21 @@ func portalRequest(t *testing.T, h http.Handler, key []byte, method, path string
 // portalJSONRequest signs a request with a JSON body; a nil body sends none.
 func portalJSONRequest(t *testing.T, h http.Handler, key []byte, method, path string, actor portalActor, input any) *httptest.ResponseRecorder {
 	t.Helper()
+	var body []byte
+	contentType := ""
+	if input != nil {
+		var err error
+		if body, err = json.Marshal(input); err != nil {
+			t.Fatal(err)
+		}
+		contentType = "application/json"
+	}
+	return portalSignedRequest(t, h, key, "vproxy-portal", method, path, actor, contentType, body)
+}
+
+// portalSignedRequest signs any body under issuer.
+func portalSignedRequest(t *testing.T, h http.Handler, key []byte, issuer, method, path string, actor portalActor, contentType string, body []byte) *httptest.ResponseRecorder {
+	t.Helper()
 	raw, err := json.Marshal(actor)
 	if err != nil {
 		t.Fatal(err)
@@ -38,23 +53,15 @@ func portalJSONRequest(t *testing.T, h http.Handler, key []byte, method, path st
 	nonce := make([]byte, 16)
 	rand.Read(nonce)
 	stamp := strconv.FormatInt(time.Now().Unix(), 10)
-	var body []byte
-	contentType := ""
-	if input != nil {
-		if body, err = json.Marshal(input); err != nil {
-			t.Fatal(err)
-		}
-		contentType = "application/json"
-	}
 	digest := sha256.Sum256(body)
 	r := httptest.NewRequest(method, "https://support.example.test"+path, bytes.NewReader(body))
 	if contentType != "" {
 		r.Header.Set("Content-Type", contentType)
 	}
-	message := strings.Join([]string{"vproxy-support-v1", "vproxy-portal", method, r.URL.RequestURI(), stamp, hex.EncodeToString(nonce), actorRaw, contentType, hex.EncodeToString(digest[:])}, "\n")
+	message := strings.Join([]string{"vproxy-support-v1", issuer, method, r.URL.RequestURI(), stamp, hex.EncodeToString(nonce), actorRaw, contentType, hex.EncodeToString(digest[:])}, "\n")
 	mac := hmac.New(sha256.New, key)
 	mac.Write([]byte(message))
-	r.Header.Set("X-Portal-Issuer", "vproxy-portal")
+	r.Header.Set("X-Portal-Issuer", issuer)
 	r.Header.Set("X-Portal-Timestamp", stamp)
 	r.Header.Set("X-Portal-Nonce", hex.EncodeToString(nonce))
 	r.Header.Set("X-Portal-Actor", actorRaw)
@@ -157,7 +164,7 @@ func TestPortalUserIsCreatedOnceUnderConcurrency(t *testing.T) {
 func TestPortalBindsPendingInvitesByEmail(t *testing.T) {
 	a, h, key, alice, _ := portalTestApp(t)
 	ctx := context.Background()
-	id, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "shared", Category: "other", Priority: "normal"}, "問題", nil)
+	id, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "shared", Category: "other", Priority: "low"}, "問題", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -222,7 +229,7 @@ func TestPortalParticipantsShowOnlyEmail(t *testing.T) {
 	if _, err := a.Store.User(ctx, "dave", "Dave Registered", "dave@example.test", true); err != nil {
 		t.Fatal(err)
 	}
-	id, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "shared", Category: "other", Priority: "normal"}, "問題", nil)
+	id, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "shared", Category: "other", Priority: "low"}, "問題", nil)
 	if err != nil {
 		t.Fatal(err)
 	}

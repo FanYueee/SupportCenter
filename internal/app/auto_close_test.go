@@ -38,11 +38,11 @@ func TestAutoCloseSettingsAndNotifications(t *testing.T) {
 	if err != nil || settings.AutoCloseDays != 2 {
 		t.Fatalf("persisted setting: %+v %v", settings, err)
 	}
-	id, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "<b>auto-close notification</b>", Category: "other", Priority: "normal"}, "question", nil)
+	id, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "<b>auto-close notification</b>", Category: "other", Priority: "low"}, "question", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = a.Store.Update(ctx, staff, id, true, "solved", "normal", nil); err != nil {
+	if err = a.Store.Update(ctx, staff, id, true, "solved", "low", nil); err != nil {
 		t.Fatal(err)
 	}
 	ticket, err := a.Store.Ticket(ctx, alice, id, false)
@@ -120,7 +120,7 @@ func TestAutoCloseSettingsAndNotifications(t *testing.T) {
 	if err != nil || closed.Status != "closed" || closed.AutoClosedAt == nil || closed.SolvedAt != nil || closed.AutoCloseAt != nil || closed.Version != ticket.Version+1 {
 		t.Fatalf("closed ticket: %+v %v", closed, err)
 	}
-	if err = a.Store.Update(ctx, staff, id, true, "open", "normal", nil, ticket.Version); !errors.Is(err, database.ErrConflict) {
+	if err = a.Store.Update(ctx, staff, id, true, "open", "low", nil, ticket.Version); !errors.Is(err, database.ErrConflict) {
 		t.Fatalf("stale form overwrote closure: %v", err)
 	}
 	if n, err := a.Store.CloseSolvedTickets(ctx); err != nil || n != 0 {
@@ -160,7 +160,7 @@ func TestAutoCloseCancellationAndInvitationAccess(t *testing.T) {
 	if err := a.Store.SaveAutomation(ctx, settings); err != nil {
 		t.Fatal(err)
 	}
-	id, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "shared closure", Category: "other", Priority: "normal"}, "question", nil)
+	id, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "shared closure", Category: "other", Priority: "low"}, "question", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -170,7 +170,7 @@ func TestAutoCloseCancellationAndInvitationAccess(t *testing.T) {
 	if err = a.Store.Invite(ctx, alice, id, bob.Email); err != nil {
 		t.Fatal(err)
 	}
-	if err = a.Store.Update(ctx, staff, id, true, "solved", "normal", nil); err != nil {
+	if err = a.Store.Update(ctx, staff, id, true, "solved", "low", nil); err != nil {
 		t.Fatal(err)
 	}
 	notices, _, err := a.Store.Notifications(ctx, bob.ID, 1)
@@ -202,7 +202,7 @@ func TestAutoCloseCancellationAndInvitationAccess(t *testing.T) {
 	if n, err := a.Store.CloseSolvedTickets(ctx); err != nil || n != 0 {
 		t.Fatalf("reopened ticket closed: %d %v", n, err)
 	}
-	if err = a.Store.Update(ctx, staff, id, true, "solved", "normal", nil); err != nil {
+	if err = a.Store.Update(ctx, staff, id, true, "solved", "low", nil); err != nil {
 		t.Fatal(err)
 	}
 	ticket, _ := a.Store.Ticket(ctx, alice, id, false)
@@ -233,11 +233,11 @@ func TestAutoCloseRollsBackWithNotificationFailure(t *testing.T) {
 	if err := a.Store.SaveAutomation(ctx, settings); err != nil {
 		t.Fatal(err)
 	}
-	id, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "atomic closure", Category: "other", Priority: "normal"}, "question", nil)
+	id, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "atomic closure", Category: "other", Priority: "low"}, "question", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = a.Store.Update(ctx, staff, id, true, "solved", "normal", nil); err != nil {
+	if err = a.Store.Update(ctx, staff, id, true, "solved", "low", nil); err != nil {
 		t.Fatal(err)
 	}
 	if _, err = a.Store.Pool.Exec(ctx, `UPDATE tickets SET solved_at=now()-interval '2 days' WHERE id=$1`, id); err != nil {
@@ -261,11 +261,11 @@ func TestAutoCloseRollsBackWithNotificationFailure(t *testing.T) {
 func TestAutoCloseEnablingExistingResolvedTickets(t *testing.T) {
 	a, _, alice, _, staff := testApp(t)
 	ctx := context.Background()
-	id, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "existing resolved ticket", Category: "other", Priority: "normal"}, "question", nil)
+	id, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "existing resolved ticket", Category: "other", Priority: "low"}, "question", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = a.Store.Update(ctx, staff, id, true, "solved", "normal", nil); err != nil {
+	if err = a.Store.Update(ctx, staff, id, true, "solved", "low", nil); err != nil {
 		t.Fatal(err)
 	}
 	ticket, _ := a.Store.Ticket(ctx, alice, id, false)
@@ -291,7 +291,7 @@ func TestAutoCloseEnablingExistingResolvedTickets(t *testing.T) {
 			t.Fatalf("existing resolution notice missing/duplicated/outdated: %+v %v", items, err)
 		}
 	}
-	if err = a.Store.Update(ctx, staff, id, true, "closed", "normal", nil); err != nil {
+	if err = a.Store.Update(ctx, staff, id, true, "closed", "low", nil); err != nil {
 		t.Fatal(err)
 	}
 	ticket, _ = a.Store.Ticket(ctx, alice, id, false)

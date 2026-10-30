@@ -10,6 +10,7 @@ import (
 	"image/png"
 	"log"
 	"net/http"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -57,10 +58,12 @@ func main() {
 			last := time.Now().UTC()
 			portal := last.Add(-2 * time.Hour)
 			joined := time.Date(2026, 10, 20, 3, 0, 0, 0, time.UTC)
+			until := time.Date(2027, 1, 31, 16, 0, 0, 0, time.UTC)
+			p.Location, _ = time.LoadLocation("Asia/Taipei")
 			p.Users = []model.UserSummary{
 				{User: model.User{ID: 2, Name: "Jamie", Email: "jamie@example.com", Role: "admin"}, CreatedAt: joined, LastLogin: &last},
-				{User: p.User, CreatedAt: joined, LastLogin: &last},
-				{User: model.User{ID: 5, Name: "Taylor Lee", Email: "taylor.lee.from.portal@example.com", Role: "user"}, CreatedAt: joined.Add(48 * time.Hour), LastPortal: &portal},
+				{User: p.User, CreatedAt: joined, LastLogin: &last, PrioritySupport: model.PrioritySupport{Level: "low"}},
+				{User: model.User{ID: 5, Name: "Taylor Lee", Email: "taylor.lee.from.portal@example.com", Role: "user"}, CreatedAt: joined.Add(48 * time.Hour), LastPortal: &portal, PrioritySupport: model.PrioritySupport{Level: "high", Until: &until}},
 				{User: model.User{ID: 6, Name: "Casey", Email: "casey@example.com", Role: "support"}, CreatedAt: joined.Add(72 * time.Hour)},
 			}
 		}
@@ -211,6 +214,12 @@ func main() {
 			p.Active = "new"
 			p.Title = "建立客服單"
 			p.Ticket = model.Ticket{}
+			// ?support=high previews an account that bought priority support.
+			p.PrioritySupport = model.PrioritySupport{Level: "low"}
+			if level := r.URL.Query().Get("support"); slices.Contains(model.Priorities, level) && level != "low" {
+				until := time.Now().UTC().AddDate(0, 1, 0)
+				p.PrioritySupport = model.PrioritySupport{Level: level, Until: &until}
+			}
 		} else if r.URL.Path == "/login" {
 			p.Active = "login"
 			p.Title = "登入"
@@ -361,7 +370,7 @@ func fixture() model.Page {
 	subjects := []string{"代理連線出現逾時，想確認節點狀態", "希望了解流量方案的升級方式", "付款完成後，服務尚未開通", "新增 IP 白名單的設定方式", "申請本月帳單與付款收據", "如何更新帳號的聯絡資訊"}
 	statuses := []string{"open", "waiting", "new", "closed", "solved", "on_hold"}
 	categories := []string{"technical", "billing", "billing", "technical", "billing", "account"}
-	priorities := []string{"normal", "normal", "normal", "normal", "normal", "urgent"}
+	priorities := []string{"low", "medium", "high", "low", "low", "urgent"}
 	for i, s := range subjects {
 		ticket := model.Ticket{ID: int64(1048 - i), UserID: 1, Subject: s, Status: statuses[i], Category: categories[i], Priority: priorities[i], Owner: "Alex Chen", CreatedAt: now.Add(-time.Duration(48+i*24) * time.Hour), UpdatedAt: now.Add(-time.Duration(i*7) * time.Hour)}
 		if ticket.Status == "solved" {

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"supportcenter/internal/i18n"
 	"supportcenter/internal/model"
@@ -73,6 +74,49 @@ func activityBrowser(ctx context.Context, a model.Activity) string {
 		return i18n.T(ctx, parts[0]) + " · " + i18n.T(ctx, parts[1])
 	}
 	return i18n.T(ctx, label)
+}
+
+// prioritySupportHint names the priorities that need a priority support
+// upgrade, or nothing when every priority is open.
+func prioritySupportHint(ctx context.Context, support model.PrioritySupport) string {
+	locked := []string{}
+	for _, priority := range model.Priorities {
+		if !model.Allows(support.Level, priority) {
+			locked = append(locked, i18n.T(ctx, model.Priority(priority)))
+		}
+	}
+	if len(locked) == 0 {
+		return ""
+	}
+	separator := "、"
+	if i18n.Lang(ctx) == "en" {
+		separator = ", "
+	}
+	return strings.ReplaceAll(i18n.T(ctx, "{levels}需升級優先支援才能使用。"), "{levels}", strings.Join(locked, separator))
+}
+
+// prioritySupportDate is the last day of priority support in the site's
+// timezone, as a date field shows it; empty when it does not end.
+func prioritySupportDate(support model.PrioritySupport, location *time.Location) string {
+	if support.Until == nil || support.Level == "low" {
+		return ""
+	}
+	if location == nil {
+		location = time.UTC
+	}
+	return support.Until.In(location).Add(-time.Nanosecond).Format(time.DateOnly)
+}
+
+// prioritySupportStatus tells admins when an upgrade ends or ended.
+func prioritySupportStatus(ctx context.Context, support model.PrioritySupport, location *time.Location) string {
+	date := strings.ReplaceAll(prioritySupportDate(support, location), "-", "/")
+	switch {
+	case date == "":
+		return ""
+	case support.Current(time.Now()) == "low":
+		return strings.ReplaceAll(i18n.T(ctx, "{date} 已到期"), "{date}", date)
+	}
+	return strings.ReplaceAll(i18n.T(ctx, "至 {date}"), "{date}", date)
 }
 
 func daySummaryLocalized(ctx context.Context, day model.DaySchedule) string {

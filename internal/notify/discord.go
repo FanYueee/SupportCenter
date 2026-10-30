@@ -293,8 +293,11 @@ func (w *DiscordWorker) embed(item discordItem, preview bool) discordEmbed {
 	if item.Kind == "reply" {
 		event, color = "客戶回覆", 0x16A34A
 	}
-	if item.Priority == "urgent" {
+	switch item.Priority {
+	case "urgent":
 		color = 0xDC2626
+	case "high":
+		color = 0xEA580C
 	}
 	embed := discordEmbed{
 		Author:    &discordAuthor{Name: event},

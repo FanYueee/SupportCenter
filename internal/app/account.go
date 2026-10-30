@@ -72,6 +72,9 @@ func (a *App) users(w http.ResponseWriter, r *http.Request) {
 	}
 	var err error
 	p.Users, p.HasNext, err = a.Store.Users(r.Context(), p.Query, p.Page)
+	if err == nil {
+		p.Location, err = a.siteLocation(r.Context())
+	}
 	if err != nil {
 		a.fail(w, r, err)
 		return

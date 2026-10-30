@@ -71,7 +71,7 @@ func TestAccountSettingsAndAudit(t *testing.T) {
 	if got := request(h, "GET", "/account", "admin", nil); got.Code != 200 || !strings.Contains(got.Body.String(), "— Admin") || !strings.Contains(got.Body.String(), "更新簽名檔") {
 		t.Fatalf("admin signature setting missing: %d", got.Code)
 	}
-	id, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "account test", Category: "technical", Priority: "normal"}, "body", nil)
+	id, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "account test", Category: "technical", Priority: "low"}, "body", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -86,7 +86,7 @@ func TestAccountSettingsAndAudit(t *testing.T) {
 	if err != nil || len(messages) != 2 || messages[1].Body != "hello" {
 		t.Fatalf("customer legacy signature was appended: %+v %v", messages, err)
 	}
-	adminTicket, err := a.Store.Create(ctx, admin, model.Ticket{Subject: "admin signature", Category: "technical", Priority: "normal"}, "body", nil)
+	adminTicket, err := a.Store.Create(ctx, admin, model.Ticket{Subject: "admin signature", Category: "technical", Priority: "low"}, "body", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -118,7 +118,7 @@ func TestActivityRecordsClientIPAndBrowser(t *testing.T) {
 			t.Fatalf("POST %s: %d", path, w.Code)
 		}
 	}
-	post("/tickets", url.Values{"csrf": {"csrf-alice"}, "submission": {token()}, "subject": {"record metadata"}, "category": {"technical"}, "priority": {"normal"}, "body": {"hello"}})
+	post("/tickets", url.Values{"csrf": {"csrf-alice"}, "submission": {token()}, "subject": {"record metadata"}, "category": {"technical"}, "priority": {"low"}, "body": {"hello"}})
 	var id int64
 	if err := a.Store.Pool.QueryRow(context.Background(), `SELECT id FROM tickets WHERE subject='record metadata' AND user_id=$1`, alice.ID).Scan(&id); err != nil {
 		t.Fatal(err)

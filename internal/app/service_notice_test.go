@@ -20,7 +20,7 @@ func TestCurrentServiceNoticeDoesNotWriteMessages(t *testing.T) {
 	if err := a.Store.SaveAutomation(ctx, settings); err != nil {
 		t.Fatal(err)
 	}
-	id, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "current service notice", Category: "other", Priority: "normal", AssistanceMode: "ai"}, "question", nil)
+	id, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "current service notice", Category: "other", Priority: "low", AssistanceMode: "ai"}, "question", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -66,7 +66,7 @@ func TestCurrentServiceNoticeDoesNotWriteMessages(t *testing.T) {
 	if err = a.Store.SaveAutomation(ctx, settings); err != nil {
 		t.Fatal(err)
 	}
-	if err = a.Store.Update(ctx, staff, id, true, "solved", "normal", nil); err != nil {
+	if err = a.Store.Update(ctx, staff, id, true, "solved", "low", nil); err != nil {
 		t.Fatal(err)
 	}
 	if body := request(h, "GET", path, "alice", nil).Body.String(); strings.Contains(body, `class="service-notice"`) {
@@ -90,7 +90,7 @@ func TestLegacyServiceNoticesAreArchivedWithoutLosingOtherMessages(t *testing.T)
 	if err = a.Store.SaveAutomation(ctx, settings); err != nil {
 		t.Fatal(err)
 	}
-	id, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "legacy availability", Category: "other", Priority: "normal"}, settings.OffHoursBody, nil)
+	id, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "legacy availability", Category: "other", Priority: "low"}, settings.OffHoursBody, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

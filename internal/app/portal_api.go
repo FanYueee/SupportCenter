@@ -8,6 +8,7 @@ import (
 	"io"
 	"mime"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -24,6 +25,7 @@ func (a *App) registerPortalAPI(mux *http.ServeMux) {
 	add := func(pattern string, staff bool, handler http.HandlerFunc) {
 		mux.HandleFunc(pattern, a.portalProtected(staff, handler))
 	}
+	mux.HandleFunc("POST "+prefix+"/store/priority-support", a.portalSigned(portalStoreIssuer, false, a.portalSetPrioritySupport))
 	add("GET "+prefix+"/metadata", false, a.portalMetadata)
 	add("GET "+prefix+"/tickets", false, a.portalList)
 	add("POST "+prefix+"/tickets", false, a.portalCreate)
@@ -101,12 +103,13 @@ func (a *App) portalList(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	page, ok := portalPage(r, "page")
 	status, phase, priority, assigned, sort, search := q.Get("status"), q.Get("phase"), q.Get("priority"), q.Get("assigned"), q.Get("sort"), strings.TrimSpace(q.Get("q"))
+	priority = portalPriority(priority)
 	for key, values := range q {
 		if len(values) != 1 || !valid(key, "page", "status", "phase", "priority", "assigned", "sort", "q", "category") {
 			ok = false
 		}
 	}
-	if !ok || !valid(status, "", "new", "open", "waiting", "on_hold", "solved", "closed") || !valid(phase, "", "active", "done") || !valid(priority, "", "normal", "urgent") || !valid(assigned, "", "mine", "unassigned") || !valid(sort, "", "updated_desc", "updated_asc", "created_desc", "created_asc") || len([]rune(search)) > 100 || !utf8.ValidString(search) || strings.ContainsRune(search, 0) || !identity.Staff && (priority != "" || assigned != "" || status == "on_hold") {
+	if !ok || !valid(status, "", "new", "open", "waiting", "on_hold", "solved", "closed") || !valid(phase, "", "active", "done") || (priority != "" && !slices.Contains(model.Priorities, priority)) || !valid(assigned, "", "mine", "unassigned") || !valid(sort, "", "updated_desc", "updated_asc", "created_desc", "created_asc") || len([]rune(search)) > 100 || !utf8.ValidString(search) || strings.ContainsRune(search, 0) || !identity.Staff && (priority != "" || assigned != "" || status == "on_hold") {
 		portalError(w, 400, "invalid_query")
 		return
 	}
@@ -219,8 +222,18 @@ func (a *App) portalCreate(w http.ResponseWriter, r *http.Request) {
 	if mode == "" {
 		mode = "human"
 	}
-	if !utf8.ValidString(subject) || strings.ContainsRune(subject, 0) || len([]rune(subject)) < 1 || len([]rune(subject)) > 150 || !validBody(body) || !valid(category, "other", "billing", "technical") || !valid(priority, "normal", "urgent") || !valid(mode, "human", "ai") || (mode == "ai" && !a.AIEnabled) || !submissionKey.MatchString(r.PostFormValue("submission")) {
+	priority = portalPriority(priority)
+	if !utf8.ValidString(subject) || strings.ContainsRune(subject, 0) || len([]rune(subject)) < 1 || len([]rune(subject)) > 150 || !validBody(body) || !valid(category, "other", "billing", "technical") || !slices.Contains(model.Priorities, priority) || !valid(mode, "human", "ai") || (mode == "ai" && !a.AIEnabled) || !submissionKey.MatchString(r.PostFormValue("submission")) {
 		portalError(w, 422, "invalid")
+		return
+	}
+	support, err := a.prioritySupport(r.Context(), identity.User.ID, identity.CanStaff)
+	if err != nil {
+		a.portalFailure(w, err)
+		return
+	}
+	if !model.Allows(support.Level, priority) {
+		portalError(w, 403, "priority_locked")
 		return
 	}
 	participants, err := database.NormalizeInviteEmails(r.PostForm["participants"], identity.User.Email)
@@ -335,7 +348,7 @@ func (a *App) portalUpdate(w http.ResponseWriter, r *http.Request) {
 		status = *input.Status
 	}
 	if input.Priority != nil {
-		priority = *input.Priority
+		priority = portalPriority(*input.Priority)
 	}
 	if input.Category != nil {
 		category = *input.Category
@@ -343,7 +356,7 @@ func (a *App) portalUpdate(w http.ResponseWriter, r *http.Request) {
 	if input.Team != nil {
 		team = *input.Team
 	}
-	if !valid(status, "new", "open", "waiting", "on_hold", "solved", "closed") || !valid(priority, "normal", "urgent") || !valid(category, "other", "billing", "technical") || !identity.Staff && (input.Priority != nil || input.Category != nil || input.Team != nil) {
+	if !valid(status, "new", "open", "waiting", "on_hold", "solved", "closed") || !slices.Contains(model.Priorities, priority) || !valid(category, "other", "billing", "technical") || !identity.Staff && (input.Priority != nil || input.Category != nil || input.Team != nil) {
 		portalError(w, 422, "invalid")
 		return
 	}
@@ -478,7 +491,12 @@ func (a *App) portalAccount(w http.ResponseWriter, r *http.Request) {
 		a.portalFailure(w, err)
 		return
 	}
-	portalJSON(w, 200, map[string]any{"name": identity.User.Name, "activities": portalActivities(activities), "hasMore": more})
+	support, err := a.Store.PrioritySupport(r.Context(), identity.User.ID)
+	if err != nil {
+		a.portalFailure(w, err)
+		return
+	}
+	portalJSON(w, 200, map[string]any{"name": identity.User.Name, "activities": portalActivities(activities), "hasMore": more, "prioritySupport": portalPrioritySupport(support, identity.CanStaff)})
 }
 func (a *App) portalSettings(w http.ResponseWriter, r *http.Request) {
 	identity := portalCurrent(r)

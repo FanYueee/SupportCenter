@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"slices"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -123,7 +124,8 @@ func (s *Store) Activities(ctx context.Context, userID int64, page int) ([]model
 
 func (s *Store) Users(ctx context.Context, query string, page int) ([]model.UserSummary, bool, error) {
 	rows, err := s.Pool.Query(ctx, `SELECT u.id,u.name,u.email,u.role,u.created_at,u.portal_seen_at,
-	 (SELECT e.created_at FROM account_events e WHERE e.user_id=u.id AND e.kind='login' ORDER BY e.created_at DESC,e.id DESC LIMIT 1)
+	 (SELECT e.created_at FROM account_events e WHERE e.user_id=u.id AND e.kind='login' ORDER BY e.created_at DESC,e.id DESC LIMIT 1),
+	 u.priority_level,u.priority_until
 	 FROM users u WHERE u.auth0_id NOT LIKE 'system:%' AND ($1='' OR u.name ILIKE '%'||$1||'%' OR u.email ILIKE '%'||$1||'%') ORDER BY u.id DESC LIMIT 21 OFFSET $2`, query, (page-1)*20)
 	if err != nil {
 		return nil, false, err
@@ -132,7 +134,7 @@ func (s *Store) Users(ctx context.Context, query string, page int) ([]model.User
 	list := []model.UserSummary{}
 	for rows.Next() {
 		var item model.UserSummary
-		if err = rows.Scan(&item.User.ID, &item.User.Name, &item.User.Email, &item.User.Role, &item.CreatedAt, &item.LastPortal, &item.LastLogin); err != nil {
+		if err = rows.Scan(&item.User.ID, &item.User.Name, &item.User.Email, &item.User.Role, &item.CreatedAt, &item.LastPortal, &item.LastLogin, &item.PrioritySupport.Level, &item.PrioritySupport.Until); err != nil {
 			return nil, false, err
 		}
 		list = append(list, item)
@@ -145,4 +147,24 @@ func (s *Store) Users(ctx context.Context, query string, page int) ([]model.User
 		list = list[:20]
 	}
 	return list, more, nil
+}
+
+// PrioritySupport is the account's priority support as stored; use Current
+// for the level in force.
+func (s *Store) PrioritySupport(ctx context.Context, userID int64) (model.PrioritySupport, error) {
+	var p model.PrioritySupport
+	err := s.Pool.QueryRow(ctx, `SELECT priority_level,priority_until FROM users WHERE id=$1`, userID).Scan(&p.Level, &p.Until)
+	return p, notFound(err)
+}
+
+// SetPrioritySupport replaces an account's priority support level and when it ends.
+func (s *Store) SetPrioritySupport(ctx context.Context, userID int64, p model.PrioritySupport) error {
+	if !slices.Contains(model.Priorities, p.Level) {
+		return ErrInvalid
+	}
+	tag, err := s.Pool.Exec(ctx, `UPDATE users SET priority_level=$2,priority_until=$3 WHERE id=$1 AND auth0_id NOT LIKE 'system:%'`, userID, p.Level, p.Until)
+	if err == nil && tag.RowsAffected() == 0 {
+		err = ErrNotFound
+	}
+	return err
 }

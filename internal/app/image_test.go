@@ -46,7 +46,7 @@ func TestImageUploadWebPPreviewAndPrivacy(t *testing.T) {
 	}
 	defer a.removeFiles(files)
 	ctx := context.Background()
-	id, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "image", Category: "technical", Priority: "normal"}, "image", files)
+	id, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "image", Category: "technical", Priority: "low"}, "image", files)
 	if err != nil {
 		t.Fatal(err)
 	}

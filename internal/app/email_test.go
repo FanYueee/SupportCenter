@@ -82,7 +82,7 @@ func TestSSOSignInAdoptsThePortalAccountForTheSameEmail(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	id, err := a.Store.Create(ctx, portal, model.Ticket{Subject: "from the portal", Category: "other", Priority: "normal"}, "問題", nil)
+	id, err := a.Store.Create(ctx, portal, model.Ticket{Subject: "from the portal", Category: "other", Priority: "low"}, "問題", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -118,7 +118,7 @@ func TestReplyEmailsReachRequesterAndParticipants(t *testing.T) {
 	mail := &fakeMailSender{}
 	a.Site.Name = "Example Cloud"
 	worker := mailWorker(a, mail)
-	id, err := a.Store.CreateWithParticipants(ctx, alice, model.Ticket{Subject: "連線逾時", Category: "technical", Priority: "normal"}, "問題", nil, []string{bob.Email})
+	id, err := a.Store.CreateWithParticipants(ctx, alice, model.Ticket{Subject: "連線逾時", Category: "technical", Priority: "low"}, "問題", nil, []string{bob.Email})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -200,7 +200,7 @@ func TestAIRepliesEmailTheRequester(t *testing.T) {
 		fmt.Fprint(w, `{"choices":[{"finish_reason":"stop","message":{"content":"請重新啟動路由器。"}}]}`)
 	}))
 	defer provider.Close()
-	if _, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "AI", Category: "other", Priority: "normal", AssistanceMode: "ai"}, "問題", nil); err != nil {
+	if _, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "AI", Category: "other", Priority: "low", AssistanceMode: "ai"}, "問題", nil); err != nil {
 		t.Fatal(err)
 	}
 	if processed, err := (&ai.Worker{Store: a.Store, Key: "test-key", Endpoint: provider.URL, Client: provider.Client()}).ProcessOnce(ctx); err != nil || !processed {
@@ -219,7 +219,7 @@ func TestInviteEmailsLookTheSameAndAreLimited(t *testing.T) {
 	a.Store.MailEnabled = true
 	verify(t, a, alice, bob)
 	create := func(subject string) int64 {
-		id, err := a.Store.Create(ctx, alice, model.Ticket{Subject: subject, Category: "other", Priority: "normal"}, "問題", nil)
+		id, err := a.Store.Create(ctx, alice, model.Ticket{Subject: subject, Category: "other", Priority: "low"}, "問題", nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -267,7 +267,7 @@ func TestInviteEmailsLookTheSameAndAreLimited(t *testing.T) {
 	}
 	// One person sends at most 30 invitation emails a day.
 	for i := 0; i < 2; i++ {
-		if _, err := a.Store.CreateWithParticipants(ctx, alice, model.Ticket{Subject: "many", Category: "other", Priority: "normal"}, "問題", nil, makeParticipantEmails(20)[:20]); err != nil {
+		if _, err := a.Store.CreateWithParticipants(ctx, alice, model.Ticket{Subject: "many", Category: "other", Priority: "low"}, "問題", nil, makeParticipantEmails(20)[:20]); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -280,7 +280,7 @@ func TestInviteEmailsLookTheSameAndAreLimited(t *testing.T) {
 	if _, err := a.Store.Pool.Exec(ctx, `UPDATE users SET email_verified=false WHERE id=$1`, bob.ID); err != nil {
 		t.Fatal(err)
 	}
-	bobTicket, err := a.Store.Create(ctx, bob, model.Ticket{Subject: "bob", Category: "other", Priority: "normal"}, "問題", nil)
+	bobTicket, err := a.Store.Create(ctx, bob, model.Ticket{Subject: "bob", Category: "other", Priority: "low"}, "問題", nil)
 	if err != nil {
 		t.Fatal(err)
 	}

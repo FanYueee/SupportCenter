@@ -48,7 +48,7 @@ func TestDepartmentsCategoryTimelineAndTechnicalEmail(t *testing.T) {
 	if got := request(h, "GET", "/admin/departments", "admin", nil); got.Code != 200 || !strings.Contains(got.Body.String(), "技術部門") {
 		t.Fatalf("group settings unavailable: %d", got.Code)
 	}
-	id, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "technical routing", Category: "technical", Priority: "normal"}, "help", nil)
+	id, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "technical routing", Category: "technical", Priority: "low"}, "help", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -90,7 +90,7 @@ func TestDepartmentsCategoryTimelineAndTechnicalEmail(t *testing.T) {
 	if len(mail.sent) != 2 || mail.sent[0].to != staff.Email || !strings.Contains(mail.sent[0].body, path) {
 		t.Fatalf("unexpected notification: %+v", mail.sent)
 	}
-	update := url.Values{"csrf": {"csrf-admin"}, "version": {fmt.Sprint(ticket.Version)}, "status": {"open"}, "priority": {"normal"}, "category": {"billing"}, "assignees": {fmt.Sprint(staff.ID)}}
+	update := url.Values{"csrf": {"csrf-admin"}, "version": {fmt.Sprint(ticket.Version)}, "status": {"open"}, "priority": {"low"}, "category": {"billing"}, "assignees": {fmt.Sprint(staff.ID)}}
 	if got := request(h, "POST", path+"/update", "admin", update); got.Code != 303 {
 		t.Fatalf("category update: %d %s", got.Code, got.Body.String())
 	}

@@ -72,7 +72,7 @@ func TestAvatarAccessFollowsVisibleMessages(t *testing.T) {
 	a.AvatarHTTP = &http.Client{Transport: avatarTransport(func(r *http.Request) (*http.Response, error) {
 		return &http.Response{StatusCode: 404, Body: io.NopCloser(strings.NewReader(""))}, nil
 	})}
-	id, err := a.Store.Create(context.Background(), alice, model.Ticket{Subject: "Private", Category: "technical", Priority: "normal"}, "hello", nil)
+	id, err := a.Store.Create(context.Background(), alice, model.Ticket{Subject: "Private", Category: "technical", Priority: "low"}, "hello", nil)
 	if err != nil {
 		t.Fatal(err)
 	}

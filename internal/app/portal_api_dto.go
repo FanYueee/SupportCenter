@@ -81,8 +81,13 @@ func (a *App) portalMetadata(w http.ResponseWriter, r *http.Request) {
 		a.portalFailure(w, err)
 		return
 	}
+	support, err := a.Store.PrioritySupport(r.Context(), identity.User.ID)
+	if err != nil {
+		a.portalFailure(w, err)
+		return
+	}
 	portalJSON(w, 200, map[string]any{"version": 1, "departments": portalDepartments(), "statuses": portalStatuses(identity.CanStaff),
-		"priorities": []string{"normal", "urgent"}, "canStaff": identity.CanStaff, "canManageSettings": identity.CanManage,
+		"priorities": model.Priorities, "prioritySupport": portalPrioritySupport(support, identity.CanStaff), "canStaff": identity.CanStaff, "canManageSettings": identity.CanManage,
 		"aiEnabled": a.AIEnabled, "mailEnabled": a.MailEnabled, "announcements": portalAnnouncements(announcements), "serviceNotice": portalNotice(notice), "unreadNotifications": unread,
 		"attachments": map[string]any{"maxFiles": 3, "maxFileBytes": maxFile, "maxTotalBytes": 30 << 20, "extensions": []string{".jpg", ".jpeg", ".png", ".webp", ".txt", ".log", ".pdf", ".zip"}}})
 }

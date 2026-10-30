@@ -111,6 +111,17 @@ func portalCurrent(r *http.Request) portalIdentity {
 	return r.Context().Value(portalIdentityKey{}).(portalIdentity)
 }
 func (a *App) portalProtected(staff bool, next http.HandlerFunc) http.HandlerFunc {
+	return a.portalSigned("", staff, next)
+}
+
+// portalStoreIssuer signs the Portal store's own calls. Member and staff
+// requests carry the Portal's usual issuer, so a request the Portal relays for
+// a member can never reach a store endpoint, however its path was chosen.
+const portalStoreIssuer = "portal-store"
+
+// portalSigned verifies a request signed with issuer, or with the Portal's
+// usual issuer when that is empty.
+func (a *App) portalSigned(issuer string, staff bool, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		config := a.PortalAPI
 		// No browser credentials, ambient sessions or CORS-based authentication.
@@ -126,9 +137,13 @@ func (a *App) portalProtected(staff bool, next http.HandlerFunc) http.HandlerFun
 			}
 			values[i] = r.Header.Get(name)
 		}
+		want := issuer
+		if want == "" {
+			want = config.Issuer
+		}
 		issuer, stamp, nonce, actorRaw, digest, signature := values[0], values[1], values[2], values[3], values[4], values[5]
 		timestamp, err := strconv.ParseInt(stamp, 10, 64)
-		if err != nil || issuer != config.Issuer || !portalHex32.MatchString(nonce) || !portalHex64.MatchString(digest) || !portalHex64.MatchString(signature) || len(actorRaw) > 4096 || timestamp < time.Now().Unix()-60 || timestamp > time.Now().Unix()+60 {
+		if err != nil || issuer != want || !portalHex32.MatchString(nonce) || !portalHex64.MatchString(digest) || !portalHex64.MatchString(signature) || len(actorRaw) > 4096 || timestamp < time.Now().Unix()-60 || timestamp > time.Now().Unix()+60 {
 			portalError(w, 401, "unauthorized")
 			return
 		}

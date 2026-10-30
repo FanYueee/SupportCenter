@@ -161,7 +161,7 @@ func request(h http.Handler, method, path, session string, form url.Values) *htt
 func TestAuthorizationAndTicketFlow(t *testing.T) {
 	a, h, alice, bob, staff := testApp(t)
 	ctx := context.Background()
-	id, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "Alice private ticket", Category: "technical", Priority: "normal"}, "private message", nil)
+	id, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "Alice private ticket", Category: "technical", Priority: "low"}, "private message", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -220,7 +220,7 @@ func TestAuthorizationAndTicketFlow(t *testing.T) {
 		t.Fatal(w.Code)
 	}
 	ticket, _ = a.Store.Ticket(ctx, alice, id, false)
-	if ticket.Status != "closed" || ticket.Priority != "normal" {
+	if ticket.Status != "closed" || ticket.Priority != "low" {
 		t.Fatal("user changed protected priority")
 	}
 	w = request(h, "POST", path+"/reply", "alice", url.Values{"csrf": {"csrf-alice"}, "body": {"closed reply"}})
@@ -239,7 +239,7 @@ func TestAuthorizationAndTicketFlow(t *testing.T) {
 	}
 	// SQL injection is stored as text and cannot broaden ownership scope.
 	attack := `' OR 1=1; DROP TABLE tickets; --`
-	_, err = a.Store.Create(ctx, bob, model.Ticket{Subject: attack, Category: "other", Priority: "normal"}, attack, nil)
+	_, err = a.Store.Create(ctx, bob, model.Ticket{Subject: attack, Category: "other", Priority: "low"}, attack, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -265,12 +265,12 @@ func TestAuthorizationAndTicketFlow(t *testing.T) {
 
 func TestStaffCanAssignTicketToSelf(t *testing.T) {
 	a, h, alice, _, staff := testApp(t)
-	id, err := a.Store.Create(context.Background(), alice, model.Ticket{Subject: "assign me", Category: "technical", Priority: "normal"}, "details", nil)
+	id, err := a.Store.Create(context.Background(), alice, model.Ticket{Subject: "assign me", Category: "technical", Priority: "low"}, "details", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	path := fmt.Sprintf("/admin/tickets/%d/update", id)
-	response := request(h, "POST", path, "staff", url.Values{"csrf": {"csrf-staff"}, "status": {"open"}, "priority": {"normal"}, "assignee": {"self"}})
+	response := request(h, "POST", path, "staff", url.Values{"csrf": {"csrf-staff"}, "status": {"open"}, "priority": {"low"}, "assignee": {"self"}})
 	if response.Code != 303 {
 		t.Fatalf("self assignment returned %d", response.Code)
 	}
@@ -286,7 +286,7 @@ func TestTicketNumberSearchRespectsOwnershipAndCounts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	bobID, err := a.Store.Create(ctx, bob, model.Ticket{Subject: "billing problem", Category: "billing", Priority: "normal"}, "details", nil)
+	bobID, err := a.Store.Create(ctx, bob, model.Ticket{Subject: "billing problem", Category: "billing", Priority: "low"}, "details", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -330,7 +330,7 @@ func TestPrivateAttachmentAndRollback(t *testing.T) {
 	if err := a.Files.WriteFile(key, []byte("private attachment"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	id, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "attachment", Category: "technical", Priority: "normal"}, "hello", []model.Attachment{{Key: key, Name: "log.txt", MIME: "text/plain", Size: 18}})
+	id, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "attachment", Category: "technical", Priority: "low"}, "hello", []model.Attachment{{Key: key, Name: "log.txt", MIME: "text/plain", Size: 18}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -396,7 +396,7 @@ func TestPaginationAndHTMX(t *testing.T) {
 	a, h, alice, _, staff := testApp(t)
 	ctx := context.Background()
 	for i := 0; i < 22; i++ {
-		_, err := a.Store.Create(ctx, alice, model.Ticket{Subject: fmt.Sprintf("ticket %02d", i), Category: "other", Priority: "normal"}, "message", nil)
+		_, err := a.Store.Create(ctx, alice, model.Ticket{Subject: fmt.Sprintf("ticket %02d", i), Category: "other", Priority: "low"}, "message", nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -409,11 +409,11 @@ func TestPaginationAndHTMX(t *testing.T) {
 	if err != nil || len(items) != 2 || next {
 		t.Fatal("incorrect second page")
 	}
-	staffItems, staffCounts, staffNext, err := a.Store.List(ctx, staff, true, "", "normal", "", 1, "")
+	staffItems, staffCounts, staffNext, err := a.Store.List(ctx, staff, true, "", "low", "", 1, "")
 	if err != nil || len(staffItems) != 20 || staffCounts.All != 22 || !staffNext {
 		t.Fatal("priority-filtered first page incorrect")
 	}
-	staffItems, _, staffNext, err = a.Store.List(ctx, staff, true, "", "normal", "", 2, "")
+	staffItems, _, staffNext, err = a.Store.List(ctx, staff, true, "", "low", "", 2, "")
 	if err != nil || len(staffItems) != 2 || staffNext {
 		t.Fatal("priority-filtered second page incorrect")
 	}
@@ -455,7 +455,7 @@ func TestStaffPriorityFilter(t *testing.T) {
 		user     model.User
 		subject  string
 		priority string
-	}{{alice, "urgent Alice", "urgent"}, {alice, "low Alice", "normal"}, {bob, "urgent Bob", "urgent"}} {
+	}{{alice, "urgent Alice", "urgent"}, {alice, "low Alice", "low"}, {bob, "urgent Bob", "urgent"}} {
 		id, err := a.Store.Create(ctx, item.user, model.Ticket{Subject: item.subject, Category: "other", Priority: item.priority}, "message", nil)
 		if err != nil {
 			t.Fatal(err)
@@ -510,7 +510,7 @@ func TestCreateUploadThroughHTTP(t *testing.T) {
 	submit := func(fileCount int, csrf string) *httptest.ResponseRecorder {
 		var buf bytes.Buffer
 		writer := multipart.NewWriter(&buf)
-		for k, v := range map[string]string{"submission": token(), "csrf": csrf, "subject": "新客服單 <script>alert(1)</script>", "category": "technical", "priority": "normal", "body": "需要協助的問題"} {
+		for k, v := range map[string]string{"submission": token(), "csrf": csrf, "subject": "新客服單 <script>alert(1)</script>", "category": "technical", "priority": "low", "body": "需要協助的問題"} {
 			writer.WriteField(k, v)
 		}
 		for i := 0; i < fileCount; i++ {
@@ -558,17 +558,17 @@ func TestCreateUploadThroughHTTP(t *testing.T) {
 	if w.Code != 200 || !strings.Contains(w.Body.String(), "補充資訊") || strings.Contains(w.Body.String(), "<!doctype html>") {
 		t.Fatal("reply did not return updated fragment")
 	}
-	invalid := request(h, "POST", "/tickets", "alice", url.Values{"csrf": {"csrf-alice"}, "subject": {"保留輸入內容"}, "body": {"描述也要保留"}, "category": {"invalid"}, "priority": {"normal"}})
+	invalid := request(h, "POST", "/tickets", "alice", url.Values{"csrf": {"csrf-alice"}, "subject": {"保留輸入內容"}, "body": {"描述也要保留"}, "category": {"invalid"}, "priority": {"low"}})
 	if invalid.Code != 422 || !strings.Contains(invalid.Body.String(), "保留輸入內容") || !strings.Contains(invalid.Body.String(), "描述也要保留") {
 		t.Fatal("invalid form lost draft")
 	}
-	for _, priority := range []string{"low", "high"} {
+	for _, priority := range []string{"normal", "high"} {
 		invalid = request(h, "POST", "/tickets", "alice", url.Values{"csrf": {"csrf-alice"}, "subject": {"不允許的優先級"}, "body": {"描述"}, "category": {"technical"}, "priority": {priority}})
 		if invalid.Code != 422 {
 			t.Fatalf("customer could create %s priority: %d", priority, invalid.Code)
 		}
 	}
-	invalid = request(h, "POST", "/tickets", "alice", url.Values{"csrf": {"csrf-alice"}, "subject": {"舊類別"}, "body": {"描述"}, "category": {"account"}, "priority": {"normal"}})
+	invalid = request(h, "POST", "/tickets", "alice", url.Values{"csrf": {"csrf-alice"}, "subject": {"舊類別"}, "body": {"描述"}, "category": {"account"}, "priority": {"low"}})
 	if invalid.Code != 422 {
 		t.Fatalf("customer could create legacy category: %d", invalid.Code)
 	}

@@ -27,7 +27,7 @@ func TestAIResolutionPermissionAndFollowUp(t *testing.T) {
 	}))
 	defer provider.Close()
 	worker := &ai.Worker{Store: a.Store, Key: "test-key", Endpoint: provider.URL, Client: provider.Client()}
-	id, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "AI confirmation", Category: "technical", Priority: "normal", AssistanceMode: "ai"}, "need help", nil)
+	id, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "AI confirmation", Category: "technical", Priority: "low", AssistanceMode: "ai"}, "need help", nil)
 	if err != nil {
 		t.Fatal(err)
 	}

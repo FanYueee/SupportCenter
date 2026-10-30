@@ -44,7 +44,7 @@ func TestAIReplyAndHandoff(t *testing.T) {
 	}))
 	defer provider.Close()
 	worker := &ai.Worker{Store: a.Store, Key: "test-key", Endpoint: provider.URL, Client: provider.Client()}
-	id, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "節點連線", Category: "technical", Priority: "normal", AssistanceMode: "ai"}, "節點連線逾時", nil)
+	id, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "節點連線", Category: "technical", Priority: "low", AssistanceMode: "ai"}, "節點連線逾時", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -98,7 +98,7 @@ func TestAIReplyForAdminCreatingCustomerTicket(t *testing.T) {
 		fmt.Fprint(w, `{"choices":[{"message":{"content":"已收到你的問題。"}}]}`)
 	}))
 	defer provider.Close()
-	form := url.Values{"csrf": {"csrf-admin"}, "subject": {"Admin customer ticket"}, "category": {"other"}, "priority": {"normal"}, "body": {"需要協助"}}
+	form := url.Values{"csrf": {"csrf-admin"}, "subject": {"Admin customer ticket"}, "category": {"other"}, "priority": {"low"}, "body": {"需要協助"}}
 	got := request(h, "POST", "/tickets", "admin", form)
 	if got.Code != http.StatusSeeOther {
 		t.Fatalf("ticket creation: %d %s", got.Code, got.Body.String())
@@ -134,7 +134,7 @@ func TestAIFailureTransfersToHuman(t *testing.T) {
 	}))
 	defer provider.Close()
 	worker := &ai.Worker{Store: a.Store, Key: "test-key", Endpoint: provider.URL, Client: provider.Client()}
-	id, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "AI failure", Category: "other", Priority: "normal", AssistanceMode: "ai"}, "問題", nil)
+	id, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "AI failure", Category: "other", Priority: "low", AssistanceMode: "ai"}, "問題", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -161,7 +161,7 @@ func TestAIEnabledCreationDisclosesAndQueues(t *testing.T) {
 	if got := request(h, "GET", "/tickets/new", "alice", nil); got.Code != 200 || !strings.Contains(got.Body.String(), "公開訊息會傳送至 OpenAI") {
 		t.Fatalf("AI disclosure missing: %d", got.Code)
 	}
-	form := url.Values{"csrf": {"csrf-alice"}, "subject": {"AI create"}, "category": {"other"}, "priority": {"normal"}, "body": {"hello"}}
+	form := url.Values{"csrf": {"csrf-alice"}, "subject": {"AI create"}, "category": {"other"}, "priority": {"low"}, "body": {"hello"}}
 	got := request(h, "POST", "/tickets", "alice", form)
 	if got.Code != 303 {
 		t.Fatalf("AI creation: %d %s", got.Code, got.Body.String())
@@ -225,7 +225,7 @@ func TestAIPromptsAdminAndDepartmentRouting(t *testing.T) {
 	// OPENAI_MODEL overrides the default model.
 	worker := &ai.Worker{Store: a.Store, Key: "test-key", Model: "gpt-6.1-luna", Endpoint: provider.URL, Client: provider.Client()}
 	for _, category := range []string{"other", "billing", "technical"} {
-		_, err := a.Store.Create(context.Background(), alice, model.Ticket{Subject: category, Category: category, Priority: "normal", AssistanceMode: "ai"}, "測試問題", nil)
+		_, err := a.Store.Create(context.Background(), alice, model.Ticket{Subject: category, Category: category, Priority: "low", AssistanceMode: "ai"}, "測試問題", nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -274,7 +274,7 @@ func TestAIEmptyPromptSendsNoSystemMessage(t *testing.T) {
 		fmt.Fprint(w, `{"choices":[{"message":{"content":"收到"}}]}`)
 	}))
 	defer provider.Close()
-	id, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "No system prompt", Category: "billing", Priority: "normal", AssistanceMode: "ai"}, "請問帳單", nil)
+	id, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "No system prompt", Category: "billing", Priority: "low", AssistanceMode: "ai"}, "請問帳單", nil)
 	if err != nil {
 		t.Fatal(err)
 	}

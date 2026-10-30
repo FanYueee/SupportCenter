@@ -22,7 +22,7 @@ func TestStatusNotificationsOnlyGoToTicketParticipants(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	id, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "customer notices only", Category: "other", Priority: "normal"}, "question", nil)
+	id, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "customer notices only", Category: "other", Priority: "low"}, "question", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -35,14 +35,14 @@ func TestStatusNotificationsOnlyGoToTicketParticipants(t *testing.T) {
 		}
 	}
 	for _, status := range []string{"solved", "closed"} {
-		if err = a.Store.Update(ctx, staff, id, true, status, "normal", &staff.ID); err != nil {
+		if err = a.Store.Update(ctx, staff, id, true, status, "low", &staff.ID); err != nil {
 			t.Fatal(err)
 		}
 	}
 	if err = a.Store.Update(ctx, alice, id, false, "new", "", nil); err != nil {
 		t.Fatal(err)
 	}
-	if err = a.Store.Update(ctx, staff, id, true, "solved", "normal", &staff.ID); err != nil {
+	if err = a.Store.Update(ctx, staff, id, true, "solved", "low", &staff.ID); err != nil {
 		t.Fatal(err)
 	}
 	if _, err = a.Store.Pool.Exec(ctx, `UPDATE tickets SET solved_at=now()-interval '2 days' WHERE id=$1`, id); err != nil {
@@ -87,11 +87,11 @@ func TestStaffRoleKeepsNotificationsForOwnTickets(t *testing.T) {
 			if err := a.Store.SaveAutomation(ctx, settings); err != nil {
 				t.Fatal(err)
 			}
-			id, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "promoted ticket owner", Category: "other", Priority: "normal"}, "question", nil)
+			id, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "promoted ticket owner", Category: "other", Priority: "low"}, "question", nil)
 			if err != nil {
 				t.Fatal(err)
 			}
-			if err = a.Store.Update(ctx, staff, id, true, "solved", "normal", nil); err != nil {
+			if err = a.Store.Update(ctx, staff, id, true, "solved", "low", nil); err != nil {
 				t.Fatal(err)
 			}
 			items, _, err := a.Store.Notifications(ctx, alice.ID, 1)
@@ -124,7 +124,7 @@ func TestStaffRoleKeepsNotificationsForOwnTickets(t *testing.T) {
 			if page := request(h, "POST", "/notifications/read", "alice", url.Values{"csrf": {"csrf-alice"}}); page.Code != 303 {
 				t.Fatalf("personal read-all failed: %d", page.Code)
 			}
-			if err = a.Store.Update(ctx, staff, id, true, "closed", "normal", nil); err != nil {
+			if err = a.Store.Update(ctx, staff, id, true, "closed", "low", nil); err != nil {
 				t.Fatal(err)
 			}
 			var count, read int

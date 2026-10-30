@@ -18,7 +18,7 @@ func TestManualClosurePreservesResolvedNotice(t *testing.T) {
 	if err := a.Store.SaveAutomation(ctx, settings); err != nil {
 		t.Fatal(err)
 	}
-	id, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "manual closure", Category: "other", Priority: "normal"}, "question", nil)
+	id, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "manual closure", Category: "other", Priority: "low"}, "question", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -28,7 +28,7 @@ func TestManualClosurePreservesResolvedNotice(t *testing.T) {
 	if err = a.Store.Invite(ctx, alice, id, bob.Email); err != nil {
 		t.Fatal(err)
 	}
-	if err = a.Store.Update(ctx, staff, id, true, "solved", "normal", nil); err != nil {
+	if err = a.Store.Update(ctx, staff, id, true, "solved", "low", nil); err != nil {
 		t.Fatal(err)
 	}
 	before, _, err := a.Store.Notifications(ctx, alice.ID, 1)
@@ -39,7 +39,7 @@ func TestManualClosurePreservesResolvedNotice(t *testing.T) {
 		t.Fatal(err)
 	}
 	path := fmt.Sprintf("/admin/tickets/%d/update", id)
-	if w := request(h, "POST", path, "staff", url.Values{"csrf": {"csrf-staff"}, "status": {"closed"}, "priority": {"normal"}}); w.Code != 303 {
+	if w := request(h, "POST", path, "staff", url.Values{"csrf": {"csrf-staff"}, "status": {"closed"}, "priority": {"low"}}); w.Code != 303 {
 		t.Fatalf("close: %d", w.Code)
 	}
 	for _, viewer := range []model.User{alice, bob} {
@@ -94,7 +94,7 @@ func TestMigrationRepairsMissingClosureNotice(t *testing.T) {
 	if err := a.Store.SaveAutomation(ctx, settings); err != nil {
 		t.Fatal(err)
 	}
-	id, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "repair missing closure", Category: "other", Priority: "normal"}, "question", nil)
+	id, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "repair missing closure", Category: "other", Priority: "low"}, "question", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -104,13 +104,13 @@ func TestMigrationRepairsMissingClosureNotice(t *testing.T) {
 	if err = a.Store.Invite(ctx, alice, id, bob.Email); err != nil {
 		t.Fatal(err)
 	}
-	if err = a.Store.Update(ctx, staff, id, true, "solved", "normal", nil); err != nil {
+	if err = a.Store.Update(ctx, staff, id, true, "solved", "low", nil); err != nil {
 		t.Fatal(err)
 	}
 	if err = a.Store.ReadAllNotifications(ctx, alice.ID); err != nil {
 		t.Fatal(err)
 	}
-	if err = a.Store.Update(ctx, staff, id, true, "closed", "normal", nil); err != nil {
+	if err = a.Store.Update(ctx, staff, id, true, "closed", "low", nil); err != nil {
 		t.Fatal(err)
 	}
 	if err = a.Store.Uninvite(ctx, alice, id, bob.Email); err != nil {

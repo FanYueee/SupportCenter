@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -83,6 +84,11 @@ func (a *App) Handler() http.Handler {
 		p.Title = "建立客服單"
 		p.Active = "new"
 		p.AIEnabled = a.AIEnabled
+		var err error
+		if p.PrioritySupport, err = a.prioritySupport(r.Context(), p.User.ID, p.User.Staff()); err != nil {
+			a.fail(w, r, err)
+			return
+		}
 		a.render(w, r, p)
 	}))
 	mux.HandleFunc("POST /tickets", a.protected(false, a.create))
@@ -98,6 +104,7 @@ func (a *App) Handler() http.Handler {
 	mux.HandleFunc("GET /attachments/{id}/preview", a.protected(false, a.preview))
 	mux.HandleFunc("GET /admin", a.protected(true, func(w http.ResponseWriter, r *http.Request) { http.Redirect(w, r, "/admin/tickets", 303) }))
 	mux.HandleFunc("GET /admin/users", a.protected(true, a.users))
+	mux.HandleFunc("POST /admin/users/{id}/priority-support", a.protected(true, a.setPrioritySupport))
 	mux.HandleFunc("GET /admin/announcements", a.protected(true, a.announcements))
 	mux.HandleFunc("GET /admin/announcements/{id}", a.protected(true, a.announcements))
 	mux.HandleFunc("POST /admin/announcements", a.protected(true, a.saveAnnouncement))
@@ -350,7 +357,7 @@ func (a *App) list(w http.ResponseWriter, r *http.Request) {
 	if p.Admin {
 		validFilter = validFilter || p.Filter == "on_hold"
 	}
-	if !validFilter || !valid(p.Phase, "active", "done") || (p.Filter != "" && (p.Phase == "done") != (p.Filter == "solved" || p.Filter == "closed")) || !valid(p.PriorityFilter, "", "normal", "urgent") || !valid(p.Assignment, "", "mine", "unassigned") || !valid(p.Sort, "", "updated_desc", "updated_asc", "created_desc", "created_asc") || (!p.Admin && (p.PriorityFilter != "" || p.Assignment != "")) || !utf8.ValidString(p.Query) || strings.ContainsRune(p.Query, 0) || len([]rune(p.Query)) > 100 {
+	if !validFilter || !valid(p.Phase, "active", "done") || (p.Filter != "" && (p.Phase == "done") != (p.Filter == "solved" || p.Filter == "closed")) || (p.PriorityFilter != "" && !slices.Contains(model.Priorities, p.PriorityFilter)) || !valid(p.Assignment, "", "mine", "unassigned") || !valid(p.Sort, "", "updated_desc", "updated_asc", "created_desc", "created_asc") || (!p.Admin && (p.PriorityFilter != "" || p.Assignment != "")) || !utf8.ValidString(p.Query) || strings.ContainsRune(p.Query, 0) || len([]rune(p.Query)) > 100 {
 		a.problem(w, r, 400, "搜尋條件無效。")
 		return
 	}
@@ -409,8 +416,17 @@ func (a *App) create(w http.ResponseWriter, r *http.Request) {
 		t.AssistanceMode = "ai"
 	}
 	body := strings.TrimSpace(r.PostFormValue("body"))
-	if !validBody(t.Subject) || len([]rune(t.Subject)) > 160 || !validBody(body) || !valid(t.Category, "other", "billing", "technical") || !valid(t.Priority, "normal", "urgent") {
+	if !validBody(t.Subject) || len([]rune(t.Subject)) > 160 || !validBody(body) || !valid(t.Category, "other", "billing", "technical") || !slices.Contains(model.Priorities, t.Priority) {
 		a.createError(w, r, t, body, "請填寫主旨（最多 160 字）、描述（最多 20,000 字）並選擇有效類別及優先級。")
+		return
+	}
+	support, err := a.prioritySupport(r.Context(), u.ID, u.Staff())
+	if err != nil {
+		a.fail(w, r, err)
+		return
+	}
+	if !model.Allows(support.Level, t.Priority) {
+		a.createError(w, r, t, body, "此優先級需升級優先支援，請改選其他優先級。")
 		return
 	}
 	if !submissionKey.MatchString(r.PostFormValue("submission")) {
@@ -523,7 +539,7 @@ func (a *App) update(w http.ResponseWriter, r *http.Request) {
 	if p.Admin {
 		validStatus = valid(status, "new", "open", "waiting", "on_hold", "solved", "closed")
 	}
-	if !validStatus || (p.Admin && !valid(priority, "normal", "urgent")) {
+	if !validStatus || (p.Admin && !slices.Contains(model.Priorities, priority)) {
 		a.problem(w, r, 422, "請選擇有效狀態與優先級。")
 		return
 	}
@@ -696,6 +712,14 @@ func (a *App) createError(w http.ResponseWriter, r *http.Request, t model.Ticket
 	p.DraftBody = body
 	p.DraftParticipants = r.PostFormValue("participants")
 	p.Error = i18n.T(r.Context(), message)
+	var err error
+	if p.PrioritySupport, err = a.prioritySupport(r.Context(), p.User.ID, p.User.Staff()); err != nil {
+		a.fail(w, r, err)
+		return
+	}
+	if !model.Allows(p.PrioritySupport.Level, t.Priority) {
+		p.Ticket.Priority = "low"
+	}
 	if submissionKey.MatchString(r.PostFormValue("submission")) {
 		p.Submission = r.PostFormValue("submission")
 	}

@@ -21,11 +21,11 @@ func TestAIInterruptedFinalAttemptDoesNotBlockQueue(t *testing.T) {
 	}))
 	defer provider.Close()
 	worker := &ai.Worker{Store: a.Store, Key: "test-key", Endpoint: provider.URL, Client: provider.Client()}
-	stuck, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "stuck", Category: "other", Priority: "normal", AssistanceMode: "ai"}, "問題", nil)
+	stuck, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "stuck", Category: "other", Priority: "low", AssistanceMode: "ai"}, "問題", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	next, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "next", Category: "other", Priority: "normal", AssistanceMode: "ai"}, "問題", nil)
+	next, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "next", Category: "other", Priority: "low", AssistanceMode: "ai"}, "問題", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,14 +55,14 @@ func TestAIDailyReplyCapHandsOff(t *testing.T) {
 	}))
 	defer provider.Close()
 	worker := &ai.Worker{Store: a.Store, Key: "test-key", Endpoint: provider.URL, Client: provider.Client()}
-	earlier, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "earlier", Category: "other", Priority: "normal"}, "問題", nil)
+	earlier, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "earlier", Category: "other", Priority: "low"}, "問題", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, err := a.Store.Pool.Exec(ctx, `INSERT INTO ticket_messages(ticket_id,user_id,body,internal,source) SELECT $1,$2,'答覆',false,'ai' FROM generate_series(1,30)`, earlier, alice.ID); err != nil {
 		t.Fatal(err)
 	}
-	id, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "over cap", Category: "other", Priority: "normal", AssistanceMode: "ai"}, "問題", nil)
+	id, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "over cap", Category: "other", Priority: "low", AssistanceMode: "ai"}, "問題", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -82,7 +82,7 @@ func TestAICutOffAnswerIsNotPosted(t *testing.T) {
 	}))
 	defer provider.Close()
 	worker := &ai.Worker{Store: a.Store, Key: "test-key", Endpoint: provider.URL, Client: provider.Client()}
-	id, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "long", Category: "other", Priority: "normal", AssistanceMode: "ai"}, "問題", nil)
+	id, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "long", Category: "other", Priority: "low", AssistanceMode: "ai"}, "問題", nil)
 	if err != nil {
 		t.Fatal(err)
 	}

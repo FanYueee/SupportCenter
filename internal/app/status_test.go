@@ -10,7 +10,7 @@ import (
 func TestDetailedTicketStatusFlow(t *testing.T) {
 	a, _, alice, _, staff := testApp(t)
 	ctx := context.Background()
-	id, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "status flow", Category: "other", Priority: "normal"}, "question", nil)
+	id, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "status flow", Category: "other", Priority: "low"}, "question", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -18,14 +18,14 @@ func TestDetailedTicketStatusFlow(t *testing.T) {
 	if err != nil || ticket.Status != "new" {
 		t.Fatalf("new ticket: %+v %v", ticket, err)
 	}
-	if err = a.Store.Update(ctx, staff, id, true, "new", "normal", &staff.ID, ticket.Version); err != nil {
+	if err = a.Store.Update(ctx, staff, id, true, "new", "low", &staff.ID, ticket.Version); err != nil {
 		t.Fatal(err)
 	}
 	ticket, _ = a.Store.Ticket(ctx, alice, id, false)
 	if ticket.Status != "open" {
 		t.Fatalf("assignment did not start work: %s", ticket.Status)
 	}
-	if err = a.Store.Update(ctx, staff, id, true, "on_hold", "normal", &staff.ID, ticket.Version); err != nil {
+	if err = a.Store.Update(ctx, staff, id, true, "on_hold", "low", &staff.ID, ticket.Version); err != nil {
 		t.Fatal(err)
 	}
 	_, counts, _, err := a.Store.List(ctx, alice, false, "open", "", "", 1, "")
@@ -36,7 +36,7 @@ func TestDetailedTicketStatusFlow(t *testing.T) {
 		t.Fatal("private hold status leaked")
 	}
 	ticket, _ = a.Store.Ticket(ctx, alice, id, false)
-	if err = a.Store.Update(ctx, staff, id, true, "solved", "normal", &staff.ID, ticket.Version); err != nil {
+	if err = a.Store.Update(ctx, staff, id, true, "solved", "low", &staff.ID, ticket.Version); err != nil {
 		t.Fatal(err)
 	}
 	if err = a.Store.Reply(ctx, alice, id, false, "still need help", false, nil); err != nil {
@@ -46,7 +46,7 @@ func TestDetailedTicketStatusFlow(t *testing.T) {
 	if ticket.Status != "open" {
 		t.Fatalf("reply did not reopen solved ticket: %s", ticket.Status)
 	}
-	if err = a.Store.Update(ctx, staff, id, true, "new", "normal", &staff.ID, ticket.Version); err == nil {
+	if err = a.Store.Update(ctx, staff, id, true, "new", "low", &staff.ID, ticket.Version); err == nil {
 		t.Fatal("old ticket reentered new state")
 	}
 }

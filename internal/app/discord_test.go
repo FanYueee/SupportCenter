@@ -130,13 +130,16 @@ func discordQueue(t *testing.T, a *App) []string {
 func TestDiscordQueuesNewTicketsAndCustomerReplies(t *testing.T) {
 	a, h, alice, bob, _ := testApp(t)
 	ctx := context.Background()
-	if _, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "before setup", Category: "other", Priority: "normal"}, "問題", nil); err != nil {
+	if _, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "before setup", Category: "other", Priority: "low"}, "問題", nil); err != nil {
 		t.Fatal(err)
 	}
 	if kinds := discordQueue(t, a); len(kinds) != 0 {
 		t.Fatal("queued without a webhook", kinds)
 	}
 	saveDiscord(t, h, url.Values{"webhook_url": {discordTestURL}, "on_ticket": {"on"}, "on_reply": {"on"}})
+	if err := a.Store.SetPrioritySupport(ctx, alice.ID, model.PrioritySupport{Level: "urgent"}); err != nil {
+		t.Fatal(err)
+	}
 	created := request(h, "POST", "/tickets", "alice", url.Values{"csrf": {"csrf-alice"}, "subject": {"needs help"}, "category": {"technical"}, "priority": {"urgent"}, "body": {"問題"}, "participants": {bob.Email}})
 	if created.Code != http.StatusSeeOther {
 		t.Fatal("create failed", created.Code)
@@ -156,7 +159,7 @@ func TestDiscordQueuesNewTicketsAndCustomerReplies(t *testing.T) {
 	// Each event can be switched off.
 	saveDiscord(t, h, url.Values{})
 	request(h, "POST", path+"/reply", "alice", url.Values{"csrf": {"csrf-alice"}, "body": {"muted reply"}})
-	request(h, "POST", "/tickets", "alice", url.Values{"csrf": {"csrf-alice"}, "subject": {"muted"}, "category": {"other"}, "priority": {"normal"}, "body": {"問題"}})
+	request(h, "POST", "/tickets", "alice", url.Values{"csrf": {"csrf-alice"}, "subject": {"muted"}, "category": {"other"}, "priority": {"low"}, "body": {"問題"}})
 	if kinds := discordQueue(t, a); len(kinds) != 3 {
 		t.Fatalf("disabled events were queued: %v", kinds)
 	}
@@ -178,7 +181,7 @@ func TestDiscordWorkerDeliversEscapedBatches(t *testing.T) {
 		t.Fatal(err)
 	}
 	for i := 0; i < 11; i++ {
-		if _, err = a.Store.Create(ctx, alice, model.Ticket{Subject: strings.Repeat("長", 160), Category: "other", Priority: "normal"}, strings.Repeat("內容", 2000), nil); err != nil {
+		if _, err = a.Store.Create(ctx, alice, model.Ticket{Subject: strings.Repeat("長", 160), Category: "other", Priority: "low"}, strings.Repeat("內容", 2000), nil); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -246,7 +249,7 @@ func TestDiscordWorkerRetriesAndReportsFailures(t *testing.T) {
 	d := newDiscordServer(t)
 	worker := discordWorker(a, d)
 	saveDiscord(t, h, url.Values{"webhook_url": {discordTestURL}, "on_ticket": {"on"}})
-	id, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "retry", Category: "other", Priority: "normal"}, "問題", nil)
+	id, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "retry", Category: "other", Priority: "low"}, "問題", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -289,7 +292,7 @@ func TestDiscordWorkerRetriesAndReportsFailures(t *testing.T) {
 		t.Fatal("settings page does not explain the failure")
 	}
 	// Removing the webhook drops what is still queued.
-	if _, err = a.Store.Create(ctx, alice, model.Ticket{Subject: "queued", Category: "other", Priority: "normal"}, "問題", nil); err != nil {
+	if _, err = a.Store.Create(ctx, alice, model.Ticket{Subject: "queued", Category: "other", Priority: "low"}, "問題", nil); err != nil {
 		t.Fatal(err)
 	}
 	saveDiscord(t, h, url.Values{"remove_webhook": {"on"}})

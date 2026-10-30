@@ -162,7 +162,6 @@ ZIP 解壓後過大	ZIP expands beyond the allowed size
 未設定	Not set
 未送出的回覆	Unsent reply
 未選擇檔案	No files selected
-標準	Standard
 檔案格式或內容不符合允許的附件類型	File type or content is not allowed
 此客服單已結案。如需繼續討論，請先重新開啟。	This ticket is closed. Reopen it to continue the conversation.
 每個附件須介於 1 byte 與 10 MB	Each attachment must be between 1 byte and 10 MB
@@ -397,3 +396,17 @@ SMTP 伺服器暫時無法處理，稍後會自動重試。	The SMTP server is t
 透過 Portal 使用	Used through the Portal
 登入 {site}	Sign in to {site}
 {name} 官方網站	{name} website
+中	Medium
+需升級	Upgrade required
+{levels}需升級優先支援才能使用。	{levels} require a priority support upgrade.
+優先支援有效至	Priority support valid until
+此優先級需升級優先支援，請改選其他優先級。	This priority requires a priority support upgrade. Choose another priority.
+優先支援	Priority support
+客服不受限	Unlimited for staff
+調整	Change
+可使用到	Highest priority
+到期日（選填）	End date (optional)
+{date} 已到期	Ended {date}
+至 {date}	Until {date}
+請輸入有效的到期日。	Enter a valid end date.
+找不到使用者。	User not found.
