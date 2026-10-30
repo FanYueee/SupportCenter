@@ -196,6 +196,8 @@ func ActivityText(a Activity) string {
 		return "變更顯示名稱"
 	case "signature":
 		return "更新簽名檔"
+	case "link":
+		return "新增登入方式"
 	case "created":
 		return "建立客服單"
 	case "reply":

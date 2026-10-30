@@ -104,9 +104,9 @@ func TestSSOSignInAdoptsThePortalAccountForTheSameEmail(t *testing.T) {
 	if fromPortal, _ := a.Store.PortalUser(ctx, "Portal Person", "mixed@example.test"); fromPortal.ID != portal.ID {
 		t.Fatal("Portal no longer maps to the shared account")
 	}
-	// A different identity for the same address stays separate once nothing is left to adopt.
-	if other, _ := a.Store.User(ctx, "google-oauth2|person", "Person", "mixed@example.test", true); other.ID == portal.ID {
-		t.Fatal("a second identity took over an already adopted account")
+	// Another sign-in method for the address joins the same account.
+	if other, _ := a.Store.User(ctx, "google-oauth2|person", "Person", "mixed@example.test", true); other.ID != portal.ID {
+		t.Fatal("a second sign-in method got an account of its own")
 	}
 }
 

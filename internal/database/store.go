@@ -627,45 +627,73 @@ func (s *Store) Attachment(ctx context.Context, u model.User, id int64) (model.A
 func (s *Store) User(ctx context.Context, subject, name, email string, verified ...bool) (model.User, error) {
 	var u model.User
 	isVerified := len(verified) > 0 && verified[0]
+	tx, err := s.Pool.Begin(ctx)
+	if err != nil {
+		return u, err
+	}
+	defer tx.Rollback(ctx)
 	if isVerified {
-		if err := s.adoptPortalAccount(ctx, subject, email); err != nil {
+		if err = s.claimAddress(ctx, tx, subject, email); err != nil {
 			return u, err
 		}
 	}
-	err := s.Pool.QueryRow(ctx, `INSERT INTO users(auth0_id,name,email,email_verified) VALUES($1,$2,$3,$4) ON CONFLICT(auth0_id) DO UPDATE SET name=CASE WHEN users.name_locked THEN users.name ELSE EXCLUDED.name END,email=EXCLUDED.email,email_verified=EXCLUDED.email_verified RETURNING id,name,email,role,signature`, subject, name, email, isVerified).Scan(&u.ID, &u.Name, &u.Email, &u.Role, &u.Signature)
+	// A sign-in method added to an account leaves the account's name and address alone.
+	err = tx.QueryRow(ctx, `SELECT u.id,u.name,u.email,u.role,u.signature FROM user_logins l JOIN users u ON u.id=l.user_id WHERE l.subject=$1`, subject).Scan(&u.ID, &u.Name, &u.Email, &u.Role, &u.Signature)
+	if errors.Is(err, pgx.ErrNoRows) {
+		err = tx.QueryRow(ctx, `INSERT INTO users(auth0_id,name,email,email_verified) VALUES($1,$2,$3,$4) ON CONFLICT(auth0_id) DO UPDATE SET name=CASE WHEN users.name_locked THEN users.name ELSE EXCLUDED.name END,email=EXCLUDED.email,email_verified=EXCLUDED.email_verified RETURNING id,name,email,role,signature`, subject, name, email, isVerified).Scan(&u.ID, &u.Name, &u.Email, &u.Role, &u.Signature)
+	}
 	if err == nil && isVerified {
-		_, err = s.Pool.Exec(ctx, `UPDATE ticket_invites SET user_id=$1
+		_, err = tx.Exec(ctx, `UPDATE ticket_invites SET user_id=$1
  WHERE user_id IS NULL AND email_key=lower($2)`, u.ID, u.Email)
 	}
-	return u, err
+	if err != nil {
+		return u, err
+	}
+	return u, commit(ctx, tx)
 }
 
-// adoptPortalAccount lets the first verified sign-in for an address take over
-// the account the Portal created for it, so the person sees the same tickets
-// on both sites. It shares PortalUser's lock, so the two cannot race.
-func (s *Store) adoptPortalAccount(ctx context.Context, subject, email string) error {
+// claimAddress gives a sign-in method seen for the first time with a verified
+// address the account already kept for that address: the one the Portal
+// created, so the person sees the same tickets on both sites, or else the
+// oldest verified one, so Google and a passkey reach the same account. It
+// shares PortalUser's lock, so the two cannot race.
+func (s *Store) claimAddress(ctx context.Context, tx pgx.Tx, subject, email string) error {
 	key := strings.ToLower(strings.TrimSpace(email))
 	if key == "" || strings.HasPrefix(subject, "portal:") || strings.HasPrefix(subject, "system:") {
 		return nil
 	}
-	tx, err := s.Pool.Begin(ctx)
-	if err != nil {
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, "portal-user:"+key); err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
-	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, "portal-user:"+key); err != nil {
+	var known bool
+	err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM users WHERE auth0_id=$1) OR EXISTS(SELECT 1 FROM user_logins WHERE subject=$1)`, subject).Scan(&known)
+	if err != nil || known {
 		return err
 	}
-	if _, err = tx.Exec(ctx, `UPDATE users SET auth0_id=$1 WHERE auth0_id='portal:'||$2 AND NOT EXISTS(SELECT 1 FROM users WHERE auth0_id=$1)`, subject, key); err != nil {
+	tag, err := tx.Exec(ctx, `UPDATE users SET auth0_id=$1 WHERE auth0_id='portal:'||$2`, subject, key)
+	if err != nil || tag.RowsAffected() > 0 {
 		return err
 	}
-	return commit(ctx, tx)
+	var owner int64
+	err = tx.QueryRow(ctx, `SELECT id FROM users WHERE lower(trim(email))=$1 AND email_verified
+ AND auth0_id NOT LIKE 'system:%' AND auth0_id NOT LIKE 'portal:%' ORDER BY id LIMIT 1`, key).Scan(&owner)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	}
+	if err == nil {
+		_, err = tx.Exec(ctx, `INSERT INTO user_logins(subject,user_id) VALUES($1,$2)`, subject, owner)
+	}
+	if err == nil {
+		// Shown in the account's history, so its owner notices a method they did not add.
+		err = s.LogAccountEvent(ctx, tx, owner, "link", "")
+	}
+	return err
 }
 func (s *Store) SetRole(ctx context.Context, subject, role string) error {
 	if role != "user" && role != "support" && role != "admin" {
 		return ErrInvalid
 	}
-	tag, err := s.Pool.Exec(ctx, `UPDATE users SET role=$2 WHERE auth0_id=$1`, subject, role)
+	tag, err := s.Pool.Exec(ctx, `UPDATE users SET role=$2 WHERE auth0_id=$1 OR id=(SELECT user_id FROM user_logins WHERE subject=$1)`, subject, role)
 	if err != nil {
 		return err
 	}

@@ -138,3 +138,45 @@ func TestActivityRecordsClientIPAndBrowser(t *testing.T) {
 		t.Fatalf("activity metadata not shown: %d", page.Code)
 	}
 }
+
+// Google and a passkey with the same verified address reach one account.
+func TestSignInMethodsShareOneAccount(t *testing.T) {
+	a, h, _, _, _ := testApp(t)
+	ctx := context.Background()
+	signIn := func(subject, name string, verified bool) model.User {
+		t.Helper()
+		u, err := a.Store.User(ctx, subject, name, " Admin@Example.test", verified)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return u
+	}
+	// Until the account's own address is verified, nobody can join it.
+	if early := signIn("auth0|early", "Early", true); early.Role != "user" {
+		t.Fatal("joined an account whose address was never verified")
+	}
+	admin := signIn("admin", "Admin", true)
+	if unverified := signIn("auth0|unverified", "Someone", false); unverified.ID == admin.ID || unverified.Role != "user" {
+		t.Fatal("an unverified sign-in joined the account")
+	}
+	for range 2 {
+		if passkey := signIn("auth0|passkey", "admin.passkey", true); passkey.ID != admin.ID || passkey.Role != "admin" || passkey.Name != "Admin" {
+			t.Fatalf("passkey reached %+v instead of the admin account", passkey)
+		}
+	}
+	if again := signIn("admin", "Admin", true); again.ID != admin.ID {
+		t.Fatal("the first sign-in method lost its account")
+	}
+	var links, accounts int
+	a.Store.Pool.QueryRow(ctx, `SELECT count(*) FROM account_events WHERE user_id=$1 AND kind='link'`, admin.ID).Scan(&links)
+	a.Store.Pool.QueryRow(ctx, `SELECT count(*) FROM users WHERE auth0_id='auth0|passkey'`).Scan(&accounts)
+	if links != 1 || accounts != 0 {
+		t.Fatal("link recorded", links, "separate accounts", accounts)
+	}
+	if page := request(h, "GET", "/account", "admin", nil).Body.String(); !strings.Contains(page, "新增登入方式") {
+		t.Fatal("account history does not show the added sign-in method")
+	}
+	if err := a.Store.SetRole(ctx, "auth0|passkey", "admin"); err != nil {
+		t.Fatal("roles cannot be set through an added sign-in method", err)
+	}
+}

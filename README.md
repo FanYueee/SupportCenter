@@ -149,6 +149,8 @@ ssh -L 8081:127.0.0.1:8081 your-user@your-vps
 
    使用 Auth0 後台顯示的完整 User ID。每次請求從資料庫取得角色，因此權限變更不需重新登入。支援 `user`、`support`、`admin`；目前 support/admin 的客服單操作權限相同，角色異動只允許 VPS 操作者透過 CLI 執行。
 
+   同一個人用不同方式登入（例如 Google 與通行密鑰）時，Auth0 會給不同的 User ID。第一次以新方式登入、且 Auth0 回報 Email 已驗證時，若已有同一 Email 且已驗證的帳號，新方式會併入最早的那個帳號，沿用其角色、名稱與客服單，並在該帳號的「使用紀錄」留下「新增登入方式」。Email 未驗證的登入一律建立獨立帳號。因此 Auth0 只應啟用會確實驗證 Email 的登入方式。
+
 ### 網站名稱與 Logo
 
 在 `.env` 設定，修改後執行 `docker compose up -d --no-build app` 套用：

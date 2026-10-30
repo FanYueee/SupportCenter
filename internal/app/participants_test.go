@@ -117,8 +117,11 @@ func TestDirectParticipationIsBoundToInvitedAccount(t *testing.T) {
 	if boundTo(t, a, id, bob.Email) != bob.ID {
 		t.Fatal("invitation was not bound to the existing account")
 	}
-	// Another Auth0 identity with the same email cannot claim a bound invitation.
-	other, err := a.Store.User(ctx, "different-subject", "Another account", bob.Email, true)
+	// Another account that later shows the same email cannot claim a bound invitation.
+	other, err := a.Store.User(ctx, "different-subject", "Another account", "another@example.test", true)
+	if err == nil {
+		_, err = a.Store.Pool.Exec(ctx, `UPDATE users SET email=$2 WHERE id=$1`, other.ID, bob.Email)
+	}
 	if err != nil {
 		t.Fatal(err)
 	}

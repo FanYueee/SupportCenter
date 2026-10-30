@@ -11,7 +11,7 @@ import (
 )
 
 func (s *Store) LogAccountEvent(ctx context.Context, tx pgx.Tx, userID int64, kind, detail string) error {
-	if userID < 1 || !oneOf(kind, "login", "logout", "avatar", "name", "signature") || len([]rune(detail)) > 100 {
+	if userID < 1 || !oneOf(kind, "login", "logout", "avatar", "name", "signature", "link") || len([]rune(detail)) > 100 {
 		return ErrInvalid
 	}
 	info := requestInfo(ctx)
