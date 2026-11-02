@@ -18,10 +18,10 @@ ask() { # prompt, default
   printf '%s' "${answer:-$2}"
 }
 smtp_host="$(ask 'SMTP host' '')"
-smtp_port="$(ask 'SMTP port (587 = STARTTLS, 465 = TLS)' '587')"
+smtp_port="$(ask 'SMTP port (587 = STARTTLS, 465 or 2465 = TLS)' '587')"
 default_mode=starttls
-[[ "$smtp_port" == 465 ]] && default_mode=implicit
-smtp_mode="$(ask 'Encryption: starttls or implicit' "$default_mode")"
+[[ "$smtp_port" == 465 || "$smtp_port" == 2465 ]] && default_mode=implicit
+smtp_mode="$(ask 'Encryption: starttls, or implicit for TLS' "$default_mode")"
 # Offer the sender already in .env, if any.
 current_from="$(sed -n "s/^SMTP_FROM='\{0,1\}\([^']*\)'\{0,1\}$/\1/p" "$env_file" | tail -n 1)"
 smtp_from="$(ask 'Sender address' "$current_from")"
