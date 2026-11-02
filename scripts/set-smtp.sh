@@ -26,7 +26,7 @@ smtp_mode="$(ask 'Encryption: starttls or implicit' "$default_mode")"
 current_from="$(sed -n "s/^SMTP_FROM='\{0,1\}\([^']*\)'\{0,1\}$/\1/p" "$env_file" | tail -n 1)"
 smtp_from="$(ask 'Sender address' "$current_from")"
 smtp_user="$(ask 'SMTP username' "$smtp_from")"
-read -r -s -p 'SMTP password: ' smtp_password </dev/tty
+IFS= read -r -s -p 'SMTP password: ' smtp_password </dev/tty
 printf '\n' >/dev/tty
 if [[ -z "$smtp_host" || -z "$smtp_password" ]]; then
   echo 'Host and password cannot be empty.' >&2
@@ -51,15 +51,22 @@ if values["SMTP_TLS_MODE"] not in ("starttls", "implicit"):
 if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", values["SMTP_FROM"]):
     raise SystemExit("Sender must be one email address.")
 for key, value in values.items():
-    # Values are single-quoted in .env, so they cannot contain a single quote.
-    if any(c in value for c in "\r\n\x00\047"):
+    if any(c in value for c in "\r\n\x00"):
         raise SystemExit(key + " contains a character unsupported by this installer.")
+
+def quoted(value):
+    # Compose reads single-quoted values literally; a value with a single quote is
+    # double-quoted instead, escaping what Compose would otherwise interpret.
+    if "\047" not in value:
+        return "\047" + value + "\047"
+    return "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"").replace("$", "\\$") + "\""
+
 lines = path.read_text().splitlines(keepends=True)
 for key, value in values.items():
     matches = [i for i, line in enumerate(lines) if line.startswith(key + "=")]
     if len(matches) > 1:
         raise SystemExit("Duplicate " + key + " entries in .env")
-    replacement = key + "=\047" + value + "\047\n"
+    replacement = key + "=" + quoted(value) + "\n"
     if matches:
         lines[matches[0]] = replacement
     else:
