@@ -25,9 +25,9 @@ type Worker struct {
 }
 
 type notification struct {
-	ID, TicketID int64
-	To, Kind     string
-	Attempts     int
+	ID, TicketID      int64
+	Subject, To, Kind string
+	Attempts          int
 }
 
 func (w *Worker) Run(ctx context.Context) {
@@ -73,20 +73,30 @@ func (w *Worker) ProcessOne(ctx context.Context) (bool, error) {
 	 UPDATE email_notifications n SET state='sending',attempts=attempts+1,lease_until=now()+interval '2 minutes'
 	 FROM picked WHERE n.id=picked.id RETURNING n.id,n.ticket_id,n.recipient_user_id,n.kind,n.attempts
 	)
-	 SELECT c.id,c.ticket_id,u.email,c.kind,c.attempts FROM claimed c JOIN users u ON u.id=c.recipient_user_id`,
-	).Scan(&item.ID, &item.TicketID, &item.To, &item.Kind, &item.Attempts)
+	 SELECT c.id,c.ticket_id,t.subject,u.email,c.kind,c.attempts FROM claimed c JOIN users u ON u.id=c.recipient_user_id JOIN tickets t ON t.id=c.ticket_id`,
+	).Scan(&item.ID, &item.TicketID, &item.Subject, &item.To, &item.Kind, &item.Attempts)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return false, nil
 	}
 	if err != nil {
 		return false, err
 	}
-	subject := fmt.Sprintf("[%s] 技術客服單 #%04d", w.Site.Title(), item.TicketID)
-	message := fmt.Sprintf("客服單 #%04d 已送至技術部門。\n\n%s/admin/tickets/%d\n", item.TicketID, w.Origin, item.TicketID)
+	number := fmt.Sprintf("#%04d", item.TicketID)
+	view := web.NewEmailView(w.Site, w.Origin, time.Now())
+	view.Label = "技術部門"
+	view.Heading = "客服單 " + number + " 已送至技術部門"
+	view.Intro = []string{"有一張技術類客服單需要處理。"}
 	if item.Kind == "assignment" {
-		message = fmt.Sprintf("客服單 #%04d 已指派給你。\n\n%s/admin/tickets/%d\n", item.TicketID, w.Origin, item.TicketID)
+		view.Label = "指派給你"
+		view.Heading = "客服單 " + number + " 已指派給你"
+		view.Intro = []string{"請查看並回覆這張客服單。"}
 	}
-	err = w.Sender.Send(ctx, Message{To: item.To, FromName: w.Site.Title(), Subject: subject, Text: message})
+	view.Details = []web.EmailDetail{{Label: "單號", Value: number}, {Label: "主旨", Value: item.Subject}}
+	view.Action, view.Link = "開啟客服單", fmt.Sprintf("%s/admin/tickets/%d", w.Origin, item.TicketID)
+	msg, err := emailMessage(ctx, item.To, fmt.Sprintf("[%s] 技術客服單 %s", view.Site, number), view)
+	if err == nil {
+		err = w.Sender.Send(ctx, msg)
+	}
 	if err == nil {
 		_, err = w.Store.Pool.Exec(ctx, `UPDATE email_notifications SET state='sent',sent_at=now(),lease_until=NULL WHERE id=$1 AND state='sending'`, item.ID)
 		return true, err

@@ -161,7 +161,7 @@ ssh -L 8081:127.0.0.1:8081 your-user@your-vps
 | `SITE_NAME` | 顯示在「支援中心」前面，例如 `Example Cloud` 會顯示「Example Cloud 支援中心」；也用於頁面標題、登入標題、Email 寄件人名稱與 Discord 通知。最多 60 字。 |
 | `SITE_OWNER` | 頁尾的版權所有者，未設定時使用 `SITE_NAME`；兩者都未設定時不顯示頁尾。 |
 | `SITE_WEBSITE` | 頁尾連到的官方網站（http 或 https）。 |
-| `SITE_LOGO` | 桌機頁首的橫式 Logo，縮放為 48px 高、最寬 240px。 |
+| `SITE_LOGO` | 桌機頁首的橫式 Logo，縮放為 48px 高、最寬 240px。Email 頂端也會顯示（56px 高、最寬 260px），並以 Logo 的主色作為信件的強調色。 |
 | `SITE_ICON` | 手機頁首、登入頁與瀏覽器分頁的正方形圖示。 |
 
 Logo 與圖示接受 PNG、JPEG 或 WebP，每檔最多 1 MiB、每邊 16–4096px。把檔案放在 `compose.yaml` 旁的 `branding/`（唯讀掛載到容器的 `/branding`），例如 `SITE_LOGO=/branding/logo.png`，並讓容器使用者可讀取（`chmod 644`）。檔案在啟動時讀進記憶體，以內容雜湊作為快取版本；檔案不存在或格式不符時服務不會啟動。未設定圖示時使用內建圖示，未設定 Logo 時頁首改顯示圖示與網站名稱。

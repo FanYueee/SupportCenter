@@ -59,7 +59,7 @@ func (a *App) testEmail(w http.ResponseWriter, r *http.Request) {
 		a.problem(w, r, http.StatusUnprocessableEntity, "尚未設定 SMTP。")
 		return
 	}
-	msg, err := notify.TestEmail(r.Context(), u.Email, a.Site.Title(), a.Origin)
+	msg, err := notify.TestEmail(r.Context(), u.Email, a.Site, a.Origin)
 	if err != nil {
 		a.fail(w, r, err)
 		return

@@ -90,17 +90,17 @@ func (w *Worker) ProcessCustomer(ctx context.Context) (bool, error) {
 
 func (w *Worker) customerMessage(ctx context.Context, item customerEmail) (Message, error) {
 	number := fmt.Sprintf("#%04d", item.TicketID)
-	view := web.EmailView{Site: w.Site.Title(), Link: fmt.Sprintf("%s/tickets/%d", w.Origin, item.TicketID), SettingsURL: w.Origin + "/account"}
+	view := web.NewEmailView(w.Site, w.Origin, time.Now())
+	view.Link, view.SettingsURL = fmt.Sprintf("%s/tickets/%d", w.Origin, item.TicketID), w.Origin+"/account"
 	var subject string
 	if item.Kind == "invite" {
 		// Only the inviter's verified address and the number: no ticket text,
 		// so invitations cannot carry someone else's message to a stranger.
 		subject = fmt.Sprintf("[%s] 您受邀參與客服單 %s", view.Site, number)
+		view.Label = "參與邀請"
 		view.Heading = "您受邀參與客服單 " + number
-		view.Intro = []string{
-			fmt.Sprintf("%s 邀請您參與 %s 的客服單 %s。", item.Inviter, view.Site, number),
-			fmt.Sprintf("使用這個 Email（%s）登入或註冊後，即可查看及回覆。", item.To),
-		}
+		view.Intro = []string{fmt.Sprintf("%s 邀請您參與 %s 的客服單，使用受邀的 Email 登入或註冊後，即可查看及回覆。", item.Inviter, view.Site)}
+		view.Details = []web.EmailDetail{{Label: "單號", Value: number}, {Label: "邀請人", Value: item.Inviter}, {Label: "受邀 Email", Value: item.To}}
 		view.Note = "如果您不認識邀請人，可以忽略這封信。"
 		view.Action = "查看客服單"
 	} else {
@@ -117,9 +117,11 @@ func (w *Worker) customerMessage(ctx context.Context, item customerEmail) (Messa
 			author = "AI 助理"
 		}
 		subject = fmt.Sprintf("[%s] 客服單 %s 有新回覆：%s", view.Site, number, item.Subject)
+		view.Label = "新回覆"
 		view.Heading = "客服單 " + number + " 有新回覆"
-		view.Intro = []string{fmt.Sprintf("您的客服單「%s」有新的回覆。", item.Subject)}
+		view.Details = []web.EmailDetail{{Label: "單號", Value: number}, {Label: "主旨", Value: item.Subject}}
 		if item.IncludeReply {
+			view.Intro = []string{"您的客服單有新的回覆，內容如下。"}
 			view.QuoteAuthor = author
 			view.Quote = strings.TrimSpace(body)
 			if r := []rune(view.Quote); len(r) > maxQuotedReply {
@@ -129,31 +131,29 @@ func (w *Worker) customerMessage(ctx context.Context, item customerEmail) (Messa
 				view.Note = fmt.Sprintf("這則回覆附有 %d 個檔案，請登入查看。", attachments)
 			}
 		} else {
-			view.Intro = append(view.Intro, "請登入支援中心查看回覆內容。")
+			view.Intro = []string{"您的客服單有新的回覆，請登入支援中心查看回覆內容。"}
 		}
 		view.Action = "查看及回覆"
 	}
+	return emailMessage(ctx, item.To, subject, view)
+}
+
+func emailMessage(ctx context.Context, to, subject string, view web.EmailView) (Message, error) {
 	html, err := web.EmailHTML(ctx, view)
 	if err != nil {
 		return Message{}, err
 	}
-	return Message{To: item.To, FromName: view.Site, Subject: subject, Text: web.EmailText(view), HTML: html}, nil
+	return Message{To: to, FromName: view.Site, Subject: subject, Text: web.EmailText(view), HTML: html}, nil
 }
 
 // TestEmail is what the settings page sends to check the SMTP setup.
-func TestEmail(ctx context.Context, to, site, origin string) (Message, error) {
-	view := web.EmailView{
-		Site:    site,
-		Heading: "測試信",
-		Intro:   []string{"支援中心可以正常寄信。客戶會在客服回覆或受邀參與客服單時收到通知。"},
-		Action:  "開啟 Email 通知設定",
-		Link:    origin + "/admin/email",
-	}
-	html, err := web.EmailHTML(ctx, view)
-	if err != nil {
-		return Message{}, err
-	}
-	return Message{To: to, FromName: site, Subject: "[" + site + "] 測試信", Text: web.EmailText(view), HTML: html}, nil
+func TestEmail(ctx context.Context, to string, site web.Site, origin string) (Message, error) {
+	view := web.NewEmailView(site, origin, time.Now())
+	view.Label = "測試信"
+	view.Heading = "Email 通知可以正常寄出"
+	view.Intro = []string{"支援中心可以正常寄信。客戶會在客服回覆或受邀參與客服單時收到通知。"}
+	view.Action, view.Link = "開啟 Email 通知設定", origin+"/admin/email"
+	return emailMessage(ctx, to, "["+view.Site+"] 測試信", view)
 }
 
 // MailErrorCode sorts a send failure into a code the settings page explains,

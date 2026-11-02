@@ -87,7 +87,7 @@ func TestDepartmentsCategoryTimelineAndTechnicalEmail(t *testing.T) {
 			t.Fatalf("send notification %d: %v %v", i, processed, err)
 		}
 	}
-	if len(mail.sent) != 2 || mail.sent[0].to != staff.Email || !strings.Contains(mail.sent[0].body, path) {
+	if len(mail.sent) != 2 || mail.sent[0].to != staff.Email || !strings.Contains(mail.sent[0].body, path) || !strings.Contains(mail.sent[0].html, "technical routing") || !strings.Contains(mail.sent[1].html, "已指派給你") {
 		t.Fatalf("unexpected notification: %+v", mail.sent)
 	}
 	update := url.Values{"csrf": {"csrf-admin"}, "version": {fmt.Sprint(ticket.Version)}, "status": {"open"}, "priority": {"low"}, "category": {"billing"}, "assignees": {fmt.Sprint(staff.ID)}}

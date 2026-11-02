@@ -7,8 +7,10 @@ import (
 	"errors"
 	"fmt"
 	"image"
+	"image/color"
 	_ "image/jpeg"
 	_ "image/png"
+	"math"
 	"os"
 	"strconv"
 	"strings"
@@ -44,15 +46,18 @@ type Image struct {
 	Width, Height int
 	Data          []byte
 	Version       string // content hash, used as the ETag and ?v= value
+	Accent        string // the logo's main color, dark enough for white text; "" when it has none
 }
 
 func (i *Image) URL() string { return "/branding/" + i.File + "?v=" + i.Version }
 
 // headerSize fits a logo in the header: 48px tall and at most 240px wide.
-func (i *Image) headerSize() (width, height int) {
-	width, height = i.Width*48/i.Height, 48
-	if width > 240 {
-		width, height = 240, i.Height*240/i.Width
+func (i *Image) headerSize() (width, height int) { return i.fit(48, 240) }
+
+func (i *Image) fit(maxHeight, maxWidth int) (width, height int) {
+	width, height = i.Width*maxHeight/i.Height, maxHeight
+	if width > maxWidth {
+		width, height = maxWidth, i.Height*maxWidth/i.Width
 	}
 	return max(width, 1), max(height, 1)
 }
@@ -87,8 +92,71 @@ func NewImage(data []byte, name string) (*Image, error) {
 	if config.Width < 16 || config.Height < 16 || config.Width > 4096 || config.Height > 4096 {
 		return nil, errors.New("the image must be between 16 and 4096 pixels on each side")
 	}
+	decoded, _, err := image.Decode(bytes.NewReader(data))
+	if err != nil {
+		return nil, errors.New("the image must be a PNG, JPEG or WebP file")
+	}
 	sum := sha256.Sum256(data)
-	return &Image{File: name + "." + ext, Type: "image/" + format, Width: config.Width, Height: config.Height, Data: data, Version: fmt.Sprintf("%x", sum[:6])}, nil
+	return &Image{File: name + "." + ext, Type: "image/" + format, Width: config.Width, Height: config.Height, Data: data, Version: fmt.Sprintf("%x", sum[:6]), Accent: accentColor(decoded)}, nil
+}
+
+// accentColor finds the most common vivid hue in a logo, ignoring transparent,
+// grey, near-white and near-black pixels, and darkens it until white text on it
+// reaches a 4.5:1 contrast. A logo without such color has no accent.
+func accentColor(img image.Image) string {
+	type bucket struct{ count, r, g, b float64 }
+	var hues [24]bucket
+	var opaque, vivid float64
+	bounds := img.Bounds()
+	step := max(1, int(math.Sqrt(float64(bounds.Dx()*bounds.Dy())/250000)))
+	for y := bounds.Min.Y; y < bounds.Max.Y; y += step {
+		for x := bounds.Min.X; x < bounds.Max.X; x += step {
+			c := color.NRGBAModel.Convert(img.At(x, y)).(color.NRGBA)
+			if c.A < 128 {
+				continue
+			}
+			opaque++
+			r, g, b := float64(c.R)/255, float64(c.G)/255, float64(c.B)/255
+			hi, lo := max(r, g, b), min(r, g, b)
+			if hi < 0.2 || hi-lo < 0.3 || (hi > 0.95 && lo > 0.85) {
+				continue
+			}
+			var hue float64
+			switch hi {
+			case r:
+				hue = math.Mod((g-b)/(hi-lo)+6, 6)
+			case g:
+				hue = (b-r)/(hi-lo) + 2
+			default:
+				hue = (r-g)/(hi-lo) + 4
+			}
+			h := &hues[int(hue*4)%24]
+			h.count++
+			h.r, h.g, h.b = h.r+r, h.g+g, h.b+b
+			vivid++
+		}
+	}
+	best := 0
+	for i := range hues {
+		if hues[i].count > hues[best].count {
+			best = i
+		}
+	}
+	if vivid == 0 || vivid < opaque/100 {
+		return ""
+	}
+	h := hues[best]
+	r, g, b := h.r/h.count, h.g/h.count, h.b/h.count
+	linear := func(v float64) float64 {
+		if v <= 0.04045 {
+			return v / 12.92
+		}
+		return math.Pow((v+0.055)/1.055, 2.4)
+	}
+	for 0.2126*linear(r)+0.7152*linear(g)+0.0722*linear(b) > 1.05/4.5-0.05 {
+		r, g, b = r*0.95, g*0.95, b*0.95
+	}
+	return fmt.Sprintf("#%02x%02x%02x", int(math.Round(r*255)), int(math.Round(g*255)), int(math.Round(b*255)))
 }
 
 type siteKey struct{}
