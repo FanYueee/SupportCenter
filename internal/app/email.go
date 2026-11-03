@@ -37,6 +37,7 @@ func (a *App) saveEmailSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	settings := model.EmailSettings{
+		OnCreate:     r.PostFormValue("on_create") == "on",
 		OnReply:      r.PostFormValue("on_reply") == "on",
 		IncludeReply: r.PostFormValue("include_reply") == "on",
 		OnInvite:     r.PostFormValue("on_invite") == "on",

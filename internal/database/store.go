@@ -299,6 +299,9 @@ func (s *Store) CreateWithParticipants(ctx context.Context, u model.User, t mode
 	if err != nil {
 		return 0, err
 	}
+	if err = s.queueCreatedEmail(ctx, tx, id, u.ID); err != nil {
+		return 0, err
+	}
 	for _, email := range emails {
 		if _, err = tx.Exec(ctx, insertInvitation, id, email, u.ID); err != nil {
 			return 0, err
@@ -423,7 +426,7 @@ func (s *Store) reply(ctx context.Context, u model.User, id int64, admin bool, b
 			if err = queueDiscord(ctx, tx, id, mid, "reply"); err != nil {
 				return err
 			}
-		} else if err = s.QueueReplyEmails(ctx, tx, id, u.ID); err != nil {
+		} else if err = s.QueueReplyEmails(ctx, tx, id, mid, u.ID); err != nil {
 			return err
 		}
 	}

@@ -58,12 +58,10 @@ func mailWorker(a *App, sender notify.Sender) *notify.Worker {
 	return &notify.Worker{Store: a.Store, Sender: sender, Origin: a.Origin, Site: a.Site, Log: a.Log}
 }
 
-// sendDue makes every queued email due and runs the worker until the queue is empty.
+// sendDue runs the worker until no queued email is left; emails are due as
+// soon as they are queued.
 func sendDue(t *testing.T, a *App, worker *notify.Worker) {
 	t.Helper()
-	if _, err := a.Store.Pool.Exec(context.Background(), `UPDATE customer_emails SET available_at=now() WHERE state='pending'`); err != nil {
-		t.Fatal(err)
-	}
 	for {
 		processed, err := worker.ProcessCustomer(context.Background())
 		if err != nil {
@@ -122,7 +120,11 @@ func TestReplyEmailsReachRequesterAndParticipants(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sendDue(t, a, worker) // the invitation
+	sendDue(t, a, worker) // the confirmation and the invitation
+	if len(mail.sent) != 2 || mail.sent[0].to != alice.Email || !strings.Contains(mail.sent[0].subject, "已收到您的客服單") ||
+		!strings.Contains(mail.sent[0].subject, fmt.Sprintf("#%04d", id)) || !strings.Contains(mail.sent[0].body, "連線逾時") || mail.sent[1].to != bob.Email {
+		t.Fatalf("opening a ticket should confirm it to the requester: %+v", mail.sent)
+	}
 	mail.sent = nil
 	path := fmt.Sprintf("/tickets/%d", id)
 	staffReply := func(body string, internal bool) {
@@ -141,21 +143,21 @@ func TestReplyEmailsReachRequesterAndParticipants(t *testing.T) {
 	}
 	staffReply("第一則回覆", false)
 	staffReply("請試試 <b>重新連線</b>", false)
-	if to := pendingReplies(t, a, id); strings.Join(to, ",") != alice.Email+","+bob.Email {
-		t.Fatalf("each person should have one waiting email: %v", to)
+	if to := pendingReplies(t, a, id); strings.Join(to, ",") != alice.Email+","+bob.Email+","+alice.Email+","+bob.Email {
+		t.Fatalf("each reply should email each person: %v", to)
 	}
-	// Bob turns emails off in his settings, which also drops the waiting one.
+	// Bob turns emails off in his settings, which also drops the waiting ones.
 	if res := request(h, "POST", "/account/email", "bob", url.Values{"csrf": {"csrf-bob"}}); res.Code != http.StatusSeeOther {
 		t.Fatal("email preference not saved", res.Code)
 	}
-	if to := pendingReplies(t, a, id); strings.Join(to, ",") != alice.Email {
+	if to := pendingReplies(t, a, id); strings.Join(to, ",") != alice.Email+","+alice.Email {
 		t.Fatalf("opted-out participant still queued: %v", to)
 	}
 	sendDue(t, a, worker)
-	if len(mail.sent) != 1 {
-		t.Fatalf("expected one email, got %+v", mail.sent)
+	if len(mail.sent) != 2 || !strings.Contains(mail.sent[0].body, "第一則回覆") || strings.Contains(mail.sent[0].body, "重新連線") {
+		t.Fatalf("each email should quote its own reply: %+v", mail.sent)
 	}
-	m := mail.sent[0]
+	m := mail.sent[1]
 	link := fmt.Sprintf("%s/tickets/%d", a.Origin, id)
 	if m.to != alice.Email || m.from != "Example Cloud 支援中心" || !strings.Contains(m.subject, fmt.Sprintf("#%04d", id)) || !strings.Contains(m.subject, "連線逾時") ||
 		!strings.Contains(m.body, "請試試 <b>重新連線</b>") || !strings.Contains(m.body, link) || strings.Contains(m.body, "內部備註") {
@@ -164,12 +166,12 @@ func TestReplyEmailsReachRequesterAndParticipants(t *testing.T) {
 	if strings.Contains(m.html, "<b>重新連線</b>") || !strings.Contains(m.html, "&lt;b&gt;") || !strings.Contains(m.html, `href="`+link+`"`) {
 		t.Fatal("reply text must be escaped in the HTML part")
 	}
-	// Someone who answered after the reply has seen it; no email.
+	// The email goes out even if the person answers before the worker runs.
 	staffReply("第三則回覆", false)
 	request(h, "POST", path+"/reply", "alice", url.Values{"csrf": {"csrf-alice"}, "body": {"saw it"}})
 	sendDue(t, a, worker)
-	if len(mail.sent) != 1 {
-		t.Fatal("emailed someone who already answered")
+	if len(mail.sent) != 3 || !strings.Contains(mail.sent[2].body, "第三則回覆") {
+		t.Fatalf("reply email dropped after the person answered: %+v", mail.sent)
 	}
 	// Without the reply text the email only points to the ticket.
 	if err = a.Store.SaveEmailSettings(ctx, model.EmailSettings{OnReply: true, OnInvite: true}); err != nil {
@@ -177,7 +179,7 @@ func TestReplyEmailsReachRequesterAndParticipants(t *testing.T) {
 	}
 	staffReply("私密的回覆內容", false)
 	sendDue(t, a, worker)
-	if len(mail.sent) != 2 || strings.Contains(mail.sent[1].body, "私密的回覆內容") || strings.Contains(mail.sent[1].html, "私密的回覆內容") {
+	if len(mail.sent) != 4 || strings.Contains(mail.sent[3].body, "私密的回覆內容") || strings.Contains(mail.sent[3].html, "私密的回覆內容") {
 		t.Fatalf("reply text sent while disabled: %+v", mail.sent)
 	}
 	// Turning reply emails off stops them; so does a server without SMTP.
@@ -188,6 +190,16 @@ func TestReplyEmailsReachRequesterAndParticipants(t *testing.T) {
 	staffReply("沒有 SMTP 的回覆", false)
 	if to := pendingReplies(t, a, id); len(to) != 0 {
 		t.Fatal("queued while switched off or without SMTP", to)
+	}
+	// Confirmations follow their own switch and only go to verified addresses.
+	a.Store.MailEnabled = true
+	a.Store.SaveEmailSettings(ctx, model.EmailSettings{OnReply: true, OnInvite: true})
+	quiet, _ := a.Store.Create(ctx, alice, model.Ticket{Subject: "不需確認", Category: "other", Priority: "low"}, "問題", nil)
+	a.Store.SaveEmailSettings(ctx, model.EmailSettings{OnCreate: true, OnReply: true, OnInvite: true})
+	a.Store.Pool.Exec(ctx, `UPDATE users SET email_verified=false WHERE id=$1`, alice.ID)
+	unverified, _ := a.Store.Create(ctx, alice, model.Ticket{Subject: "未驗證", Category: "other", Priority: "low"}, "問題", nil)
+	if q := append(customerQueue(t, a, quiet), customerQueue(t, a, unverified)...); len(q) != 0 {
+		t.Fatal("confirmation queued while off or to an unverified address", q)
 	}
 }
 
@@ -208,7 +220,7 @@ func TestAIRepliesEmailTheRequester(t *testing.T) {
 	}
 	mail := &fakeMailSender{}
 	sendDue(t, a, mailWorker(a, mail))
-	if len(mail.sent) != 1 || !strings.Contains(mail.sent[0].body, "AI 助理") || !strings.Contains(mail.sent[0].body, "請重新啟動路由器。") || mail.sent[0].from != "支援中心" {
+	if len(mail.sent) != 2 || !strings.Contains(mail.sent[1].body, "AI 助理") || !strings.Contains(mail.sent[1].body, "請重新啟動路由器。") || mail.sent[1].from != "支援中心" {
 		t.Fatalf("AI reply email: %+v", mail.sent)
 	}
 }
@@ -218,6 +230,10 @@ func TestInviteEmailsLookTheSameAndAreLimited(t *testing.T) {
 	ctx := context.Background()
 	a.Store.MailEnabled = true
 	verify(t, a, alice, bob)
+	// Only the invitations here, not the confirmations of each new ticket.
+	if err := a.Store.SaveEmailSettings(ctx, model.EmailSettings{OnReply: true, IncludeReply: true, OnInvite: true}); err != nil {
+		t.Fatal(err)
+	}
 	create := func(subject string) int64 {
 		id, err := a.Store.Create(ctx, alice, model.Ticket{Subject: subject, Category: "other", Priority: "low"}, "問題", nil)
 		if err != nil {
@@ -310,7 +326,7 @@ func TestEmailSettingsAndTestMessage(t *testing.T) {
 	if res := request(h, "POST", "/admin/email", "admin", url.Values{"csrf": {"csrf-admin"}, "on_invite": {"on"}}); res.Code != http.StatusSeeOther {
 		t.Fatal("save failed", res.Code)
 	}
-	if s, _ := a.Store.EmailSettings(ctx); s.OnReply || s.IncludeReply || !s.OnInvite {
+	if s, _ := a.Store.EmailSettings(ctx); s.OnCreate || s.OnReply || s.IncludeReply || !s.OnInvite {
 		t.Fatalf("switches not saved: %+v", s)
 	}
 	mail := &fakeMailSender{}

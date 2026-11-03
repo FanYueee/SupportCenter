@@ -378,9 +378,11 @@ SMTP 已設定	SMTP is set up
 在主機執行 scripts/set-smtp.sh 設定 SMTP 後才會寄信；未設定前不會排入任何客戶通知。	Emails are sent once SMTP is set up with scripts/set-smtp.sh on the server. Until then, no customer emails are queued.
 通知客戶	Customer emails
 客服回覆時寄信	Email when support replies
-包含真人客服與 AI 的公開回覆，寄給開單者和已加入的參與者（需已驗證 Email，且未在個人設定關閉）。回覆後等 2 分鐘再寄，期間的多則回覆合併成一封；對方已回覆就不寄。	Covers public replies from staff and AI, sent to the requester and joined participants who have a verified email and kept emails on. Each email waits 2 minutes so quick replies arrive together, and is skipped if the person has already answered.
+客戶開單時寄確認信	Email a confirmation when a customer opens a ticket
+寄給開單者（需已驗證 Email，且未在個人設定關閉），信中有單號、主旨和查看連結。	Sent to the requester if their email is verified and they kept emails on, with the ticket number, subject and a link.
+包含真人客服與 AI 的公開回覆，寄給開單者和已加入的參與者（需已驗證 Email，且未在個人設定關閉）。每則回覆都會立即寄出一封。	Covers public replies from staff and AI, sent to the requester and joined participants who have a verified email and kept emails on. Every reply is emailed right away.
 信中附上回覆內容	Include the reply in the email
-附上最新一則回覆，最多 4,000 字。關閉後只通知有新回覆，客戶需登入查看。	Adds the latest reply, up to 4,000 characters. When off, the email only says there is a reply and the customer signs in to read it.
+附上該則回覆，最多 4,000 字。關閉後只通知有新回覆，客戶需登入查看。	Adds that reply, up to 4,000 characters. When off, the email only says there is a reply and the customer signs in to read it.
 邀請參與者時寄信	Email invited participants
 信中只有邀請人的 Email 和單號，不含客服單內容，不論對方是否已註冊都會寄出。每位使用者每天最多寄 30 封邀請信，同一個 Email 每天最多收到 3 封。	The email contains only the inviter's email and the ticket number, never ticket content, and is sent whether or not the address is registered. Each person can send up to 30 invitation emails a day, and an address receives at most 3 a day.
 最近寄送成功	Last sent

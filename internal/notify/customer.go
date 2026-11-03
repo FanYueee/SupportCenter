@@ -20,16 +20,16 @@ const (
 )
 
 type customerEmail struct {
-	ID, TicketID, RecipientID int64
-	Kind, To, Subject         string
-	Inviter                   string
-	IncludeReply, Wanted      bool
-	Attempts                  int
+	ID, TicketID, RecipientID, MessageID int64
+	Kind, To, Subject                    string
+	Inviter                              string
+	IncludeReply, Wanted                 bool
+	Attempts                             int
 }
 
 // ProcessCustomer sends one queued customer email and reports whether one was
 // claimed. It checks again at send time that the email is still wanted: the
-// person may have left the ticket, turned emails off, or already answered.
+// person may have left the ticket or turned emails off.
 func (w *Worker) ProcessCustomer(ctx context.Context) (bool, error) {
 	if _, err := w.Store.Pool.Exec(ctx, `UPDATE customer_emails SET state=CASE WHEN attempts>=$1 THEN 'failed' ELSE 'cancelled' END,lease_until=NULL
 	 WHERE state IN ('pending','sending') AND (created_at<now()-interval '3 days' OR (state='sending' AND lease_until<now() AND attempts>=$1))`, customerAttempts); err != nil {
@@ -43,15 +43,14 @@ func (w *Worker) ProcessCustomer(ctx context.Context) (bool, error) {
 	), claimed AS (
 	 UPDATE customer_emails e SET state='sending',attempts=attempts+1,lease_until=now()+interval '2 minutes'
 	 FROM picked WHERE e.id=picked.id
-	 RETURNING e.id,e.ticket_id,e.kind,e.recipient_email,e.recipient_user_id,e.actor_user_id,e.attempts,e.last_reply_at
+	 RETURNING e.id,e.ticket_id,e.kind,e.recipient_email,e.recipient_user_id,e.actor_user_id,e.message_id,e.attempts
 	)
-	 SELECT c.id,c.ticket_id,c.kind,c.recipient_email,COALESCE(c.recipient_user_id,0),c.attempts,t.subject,COALESCE(inviter.email,''),s.include_reply,
+	 SELECT c.id,c.ticket_id,c.kind,c.recipient_email,COALESCE(c.recipient_user_id,0),COALESCE(c.message_id,0),c.attempts,t.subject,COALESCE(inviter.email,''),s.include_reply,
 	 CASE WHEN c.kind='invite' THEN s.on_invite AND EXISTS(SELECT 1 FROM ticket_invites i WHERE i.ticket_id=t.id AND i.email_key=c.recipient_email)
-	 ELSE s.on_reply AND EXISTS(SELECT 1 FROM users u WHERE u.id=c.recipient_user_id AND u.email_notify AND u.email_verified AND lower(u.email)=c.recipient_email
-	  AND (t.user_id=u.id OR EXISTS(SELECT 1 FROM ticket_invites i WHERE i.ticket_id=t.id AND (i.user_id=u.id OR (i.user_id IS NULL AND i.email_key=lower(u.email))))))
-	  AND NOT EXISTS(SELECT 1 FROM ticket_messages m WHERE m.ticket_id=t.id AND m.user_id=c.recipient_user_id AND m.created_at>c.last_reply_at) END
+	 ELSE (CASE WHEN c.kind='created' THEN s.on_create ELSE s.on_reply END) AND EXISTS(SELECT 1 FROM users u WHERE u.id=c.recipient_user_id AND u.email_notify AND u.email_verified AND lower(u.email)=c.recipient_email
+	  AND (t.user_id=u.id OR EXISTS(SELECT 1 FROM ticket_invites i WHERE i.ticket_id=t.id AND (i.user_id=u.id OR (i.user_id IS NULL AND i.email_key=lower(u.email)))))) END
 	 FROM claimed c JOIN tickets t ON t.id=c.ticket_id JOIN email_settings s ON s.id=1 LEFT JOIN users inviter ON inviter.id=c.actor_user_id`, customerAttempts,
-	).Scan(&item.ID, &item.TicketID, &item.Kind, &item.To, &item.RecipientID, &item.Attempts, &item.Subject, &item.Inviter, &item.IncludeReply, &item.Wanted)
+	).Scan(&item.ID, &item.TicketID, &item.Kind, &item.To, &item.RecipientID, &item.MessageID, &item.Attempts, &item.Subject, &item.Inviter, &item.IncludeReply, &item.Wanted)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return false, nil
 	}
@@ -62,7 +61,7 @@ func (w *Worker) ProcessCustomer(ctx context.Context) (bool, error) {
 	if item.Wanted {
 		msg, err = w.customerMessage(ctx, item)
 	}
-	// A reply email with no staff reply left to quote is no longer wanted either.
+	// A reply email whose reply is gone is no longer wanted either.
 	if !item.Wanted || errors.Is(err, pgx.ErrNoRows) {
 		_, err = w.Store.Pool.Exec(ctx, `UPDATE customer_emails SET state='cancelled',lease_until=NULL WHERE id=$1 AND state='sending'`, item.ID)
 		return true, err
@@ -93,7 +92,15 @@ func (w *Worker) customerMessage(ctx context.Context, item customerEmail) (Messa
 	view := web.NewEmailView(w.Site, w.Origin, time.Now())
 	view.Link, view.SettingsURL = fmt.Sprintf("%s/tickets/%d", w.Origin, item.TicketID), w.Origin+"/account"
 	var subject string
-	if item.Kind == "invite" {
+	switch item.Kind {
+	case "created":
+		subject = fmt.Sprintf("[%s] 已收到您的客服單 %s：%s", view.Site, number, item.Subject)
+		view.Label = "已收到"
+		view.Heading = "已收到您的客服單 " + number
+		view.Intro = []string{"我們已收到您的客服單，有新的回覆時會再寄信通知您。"}
+		view.Details = []web.EmailDetail{{Label: "單號", Value: number}, {Label: "主旨", Value: item.Subject}}
+		view.Action = "查看客服單"
+	case "invite":
 		// Only the inviter's verified address and the number: no ticket text,
 		// so invitations cannot carry someone else's message to a stranger.
 		subject = fmt.Sprintf("[%s] 您受邀參與客服單 %s", view.Site, number)
@@ -103,13 +110,13 @@ func (w *Worker) customerMessage(ctx context.Context, item customerEmail) (Messa
 		view.Details = []web.EmailDetail{{Label: "單號", Value: number}, {Label: "邀請人", Value: item.Inviter}, {Label: "受邀 Email", Value: item.To}}
 		view.Note = "如果您不認識邀請人，可以忽略這封信。"
 		view.Action = "查看客服單"
-	} else {
+	default:
 		var body, source, author string
 		var attachments int
 		err := w.Store.Pool.QueryRow(ctx, `SELECT m.body,m.source,u.name,(SELECT count(*) FROM ticket_attachments a WHERE a.message_id=m.id)
 		 FROM ticket_messages m JOIN users u ON u.id=m.user_id
-		 WHERE m.ticket_id=$1 AND NOT m.internal AND NOT m.service_notice AND (m.source='ai' OR (m.source='human' AND u.role IN ('support','admin')))
-		 ORDER BY m.id DESC LIMIT 1`, item.TicketID).Scan(&body, &source, &author, &attachments)
+		 WHERE m.id=$1 AND m.ticket_id=$2 AND NOT m.internal AND NOT m.service_notice AND (m.source='ai' OR (m.source='human' AND u.role IN ('support','admin')))`,
+			item.MessageID, item.TicketID).Scan(&body, &source, &author, &attachments)
 		if err != nil {
 			return Message{}, err
 		}
@@ -151,7 +158,7 @@ func TestEmail(ctx context.Context, to string, site web.Site, origin string) (Me
 	view := web.NewEmailView(site, origin, time.Now())
 	view.Label = "測試信"
 	view.Heading = "Email 通知可以正常寄出"
-	view.Intro = []string{"支援中心可以正常寄信。客戶會在客服回覆或受邀參與客服單時收到通知。"}
+	view.Intro = []string{"支援中心可以正常寄信。客戶會在開單、客服回覆或受邀參與客服單時收到通知。"}
 	view.Action, view.Link = "開啟 Email 通知設定", origin+"/admin/email"
 	return emailMessage(ctx, to, "["+view.Site+"] 測試信", view)
 }

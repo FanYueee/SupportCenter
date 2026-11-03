@@ -266,11 +266,12 @@ func (w *Worker) finish(ctx context.Context, j job, answer string, failure bool)
 	if err != nil {
 		return err
 	}
-	_, err = tx.Exec(ctx, `INSERT INTO ticket_messages(ticket_id,user_id,body,internal,source) VALUES($1,$2,$3,false,'ai')`, j.ticketID, authorID, answer)
+	var messageID int64
+	err = tx.QueryRow(ctx, `INSERT INTO ticket_messages(ticket_id,user_id,body,internal,source) VALUES($1,$2,$3,false,'ai') RETURNING id`, j.ticketID, authorID, answer).Scan(&messageID)
 	if err != nil {
 		return err
 	}
-	if err = w.Store.QueueReplyEmails(ctx, tx, j.ticketID, authorID); err != nil {
+	if err = w.Store.QueueReplyEmails(ctx, tx, j.ticketID, messageID, authorID); err != nil {
 		return err
 	}
 	_, err = tx.Exec(ctx, `UPDATE tickets SET status='waiting',updated_at=now(),version=version+1 WHERE id=$1`, j.ticketID)

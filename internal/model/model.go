@@ -87,9 +87,9 @@ func (d DiscordSettings) Configured() bool { return d.WebhookID != "" }
 // EmailSettings controls the emails sent to customers. LastError is a short
 // code (see web.mailError), not the SMTP server's reply.
 type EmailSettings struct {
-	OnReply, IncludeReply, OnInvite bool
-	LastError                       string
-	LastSentAt, LastErrorAt         *time.Time
+	OnCreate, OnReply, IncludeReply, OnInvite bool
+	LastError                                 string
+	LastSentAt, LastErrorAt                   *time.Time
 }
 
 type Activity struct {

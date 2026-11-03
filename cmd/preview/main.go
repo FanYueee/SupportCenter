@@ -109,7 +109,7 @@ func main() {
 			p.Active, p.Title = "email", "Email 通知"
 			sent := time.Now().UTC().Add(-5 * time.Minute)
 			p.MailEnabled, p.MailFrom = true, "noreply@support.example.com"
-			p.Email = model.EmailSettings{OnReply: true, IncludeReply: true, OnInvite: true, LastSentAt: &sent}
+			p.Email = model.EmailSettings{OnCreate: true, OnReply: true, IncludeReply: true, OnInvite: true, LastSentAt: &sent}
 			switch r.URL.Query().Get("state") {
 			case "off":
 				p.MailEnabled, p.MailFrom = false, ""

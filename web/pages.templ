@@ -1609,10 +1609,12 @@ templ EmailSettings(p model.Page) {
 		</section>
 		<section class="account-card">
 			<h2>{ i18n.T(ctx,"通知客戶") }</h2>
+			<label class="automation-toggle"><input type="checkbox" name="on_create" checked?={ p.Email.OnCreate }/>{ i18n.T(ctx,"客戶開單時寄確認信") }</label>
+			<p class="field-hint">{ i18n.T(ctx,"寄給開單者（需已驗證 Email，且未在個人設定關閉），信中有單號、主旨和查看連結。") }</p>
 			<label class="automation-toggle"><input type="checkbox" name="on_reply" checked?={ p.Email.OnReply }/>{ i18n.T(ctx,"客服回覆時寄信") }</label>
-			<p class="field-hint">{ i18n.T(ctx,"包含真人客服與 AI 的公開回覆，寄給開單者和已加入的參與者（需已驗證 Email，且未在個人設定關閉）。回覆後等 2 分鐘再寄，期間的多則回覆合併成一封；對方已回覆就不寄。") }</p>
+			<p class="field-hint">{ i18n.T(ctx,"包含真人客服與 AI 的公開回覆，寄給開單者和已加入的參與者（需已驗證 Email，且未在個人設定關閉）。每則回覆都會立即寄出一封。") }</p>
 			<label class="automation-toggle"><input type="checkbox" name="include_reply" checked?={ p.Email.IncludeReply }/>{ i18n.T(ctx,"信中附上回覆內容") }</label>
-			<p class="field-hint">{ i18n.T(ctx,"附上最新一則回覆，最多 4,000 字。關閉後只通知有新回覆，客戶需登入查看。") }</p>
+			<p class="field-hint">{ i18n.T(ctx,"附上該則回覆，最多 4,000 字。關閉後只通知有新回覆，客戶需登入查看。") }</p>
 			<label class="automation-toggle"><input type="checkbox" name="on_invite" checked?={ p.Email.OnInvite }/>{ i18n.T(ctx,"邀請參與者時寄信") }</label>
 			<p class="field-hint">{ i18n.T(ctx,"信中只有邀請人的 Email 和單號，不含客服單內容，不論對方是否已註冊都會寄出。每位使用者每天最多寄 30 封邀請信，同一個 Email 每天最多收到 3 封。") }</p>
 		</section>

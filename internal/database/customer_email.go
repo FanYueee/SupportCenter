@@ -13,12 +13,11 @@ import (
 const (
 	maxInviteEmailsPerInviter = 30
 	maxInviteEmailsPerAddress = 3
-	replyEmailDelay           = "2 minutes"
 )
 
 func (s *Store) EmailSettings(ctx context.Context) (e model.EmailSettings, err error) {
-	err = s.Pool.QueryRow(ctx, `SELECT on_reply,include_reply,on_invite,last_error,last_sent_at,last_error_at FROM email_settings WHERE id=1`).
-		Scan(&e.OnReply, &e.IncludeReply, &e.OnInvite, &e.LastError, &e.LastSentAt, &e.LastErrorAt)
+	err = s.Pool.QueryRow(ctx, `SELECT on_create,on_reply,include_reply,on_invite,last_error,last_sent_at,last_error_at FROM email_settings WHERE id=1`).
+		Scan(&e.OnCreate, &e.OnReply, &e.IncludeReply, &e.OnInvite, &e.LastError, &e.LastSentAt, &e.LastErrorAt)
 	return
 }
 
@@ -29,10 +28,10 @@ func (s *Store) SaveEmailSettings(ctx context.Context, e model.EmailSettings) er
 		return err
 	}
 	defer tx.Rollback(ctx)
-	if _, err = tx.Exec(ctx, `UPDATE email_settings SET on_reply=$1,include_reply=$2,on_invite=$3,updated_at=now() WHERE id=1`, e.OnReply, e.IncludeReply, e.OnInvite); err != nil {
+	if _, err = tx.Exec(ctx, `UPDATE email_settings SET on_create=$1,on_reply=$2,include_reply=$3,on_invite=$4,updated_at=now() WHERE id=1`, e.OnCreate, e.OnReply, e.IncludeReply, e.OnInvite); err != nil {
 		return err
 	}
-	if _, err = tx.Exec(ctx, `UPDATE customer_emails SET state='cancelled',lease_until=NULL WHERE state='pending' AND ((kind='reply' AND NOT $1) OR (kind='invite' AND NOT $2))`, e.OnReply, e.OnInvite); err != nil {
+	if _, err = tx.Exec(ctx, `UPDATE customer_emails SET state='cancelled',lease_until=NULL WHERE state='pending' AND ((kind='created' AND NOT $1) OR (kind='reply' AND NOT $2) OR (kind='invite' AND NOT $3))`, e.OnCreate, e.OnReply, e.OnInvite); err != nil {
 		return err
 	}
 	return commit(ctx, tx)
@@ -72,11 +71,22 @@ func (s *Store) SetEmailNotify(ctx context.Context, userID int64, on bool) error
 	return commit(ctx, tx)
 }
 
+// queueCreatedEmail confirms a new ticket to its requester, if their address
+// is verified and they kept emails on.
+func (s *Store) queueCreatedEmail(ctx context.Context, tx pgx.Tx, ticketID, userID int64) error {
+	if !s.MailEnabled {
+		return nil
+	}
+	_, err := tx.Exec(ctx, `INSERT INTO customer_emails(ticket_id,kind,recipient_email,recipient_user_id)
+SELECT $1,'created',lower(u.email),u.id FROM users u JOIN email_settings s ON s.id=1
+ WHERE u.id=$2 AND s.on_create AND u.email_verified AND u.email_notify AND u.auth0_id NOT LIKE 'system:%'`, ticketID, userID)
+	return err
+}
+
 // QueueReplyEmails tells the ticket's requester and joined participants about a
-// staff or AI reply. Only verified addresses that kept emails on are used, and
-// a reply joins an email already waiting for the same person and ticket.
-// The email waits a little so quick follow-ups arrive together.
-func (s *Store) QueueReplyEmails(ctx context.Context, tx pgx.Tx, ticketID, authorID int64) error {
+// staff or AI reply. Only verified addresses that kept emails on are used.
+// Every reply gets its own email, sent right away and quoting that reply.
+func (s *Store) QueueReplyEmails(ctx context.Context, tx pgx.Tx, ticketID, messageID, authorID int64) error {
 	if !s.MailEnabled {
 		return nil
 	}
@@ -85,12 +95,11 @@ func (s *Store) QueueReplyEmails(ctx context.Context, tx pgx.Tx, ticketID, autho
  UNION SELECT user_id FROM ticket_invites WHERE ticket_id=$1 AND user_id IS NOT NULL
  UNION SELECT u.id FROM ticket_invites i JOIN users u ON i.user_id IS NULL AND lower(u.email)=i.email_key AND u.email_verified WHERE i.ticket_id=$1
 )
-INSERT INTO customer_emails(ticket_id,kind,recipient_email,recipient_user_id,available_at)
-SELECT DISTINCT ON (lower(u.email)) $1,'reply',lower(u.email),u.id,now()+interval '`+replyEmailDelay+`'
+INSERT INTO customer_emails(ticket_id,kind,recipient_email,recipient_user_id,message_id)
+SELECT DISTINCT ON (lower(u.email)) $1,'reply',lower(u.email),u.id,$2
  FROM people p JOIN users u ON u.id=p.id JOIN email_settings s ON s.id=1
- WHERE s.on_reply AND u.email_verified AND u.email_notify AND u.id<>$2 AND u.auth0_id NOT LIKE 'system:%'
- ORDER BY lower(u.email),u.id
-ON CONFLICT (ticket_id,kind,recipient_email) WHERE state='pending' DO UPDATE SET last_reply_at=now()`, ticketID, authorID)
+ WHERE s.on_reply AND u.email_verified AND u.email_notify AND u.id<>$3 AND u.auth0_id NOT LIKE 'system:%'
+ ORDER BY lower(u.email),u.id`, ticketID, messageID, authorID)
 	return err
 }
 
@@ -107,6 +116,6 @@ SELECT $1,'invite',$3,$2 FROM email_settings s JOIN users inviter ON inviter.id=
  AND NOT EXISTS(SELECT 1 FROM users u WHERE lower(u.email)=$3 AND NOT u.email_notify)
  AND (SELECT count(*) FROM customer_emails WHERE kind='invite' AND actor_user_id=$2 AND created_at>now()-interval '1 day')<$4
  AND (SELECT count(*) FROM customer_emails WHERE kind='invite' AND recipient_email=$3 AND created_at>now()-interval '1 day')<$5
-ON CONFLICT (ticket_id,kind,recipient_email) WHERE state='pending' DO NOTHING`, ticketID, inviterID, strings.ToLower(email), maxInviteEmailsPerInviter, maxInviteEmailsPerAddress)
+ON CONFLICT (ticket_id,kind,recipient_email) WHERE state='pending' AND kind='invite' DO NOTHING`, ticketID, inviterID, strings.ToLower(email), maxInviteEmailsPerInviter, maxInviteEmailsPerAddress)
 	return err
 }
