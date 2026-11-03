@@ -945,15 +945,15 @@ templ List(p model.Page) {
 	</section>
 }
 
-// attachmentTypes are the extensions the server accepts; it still checks each
+// AttachmentTypes are the extensions the server accepts; it still checks each
 // file's content.
-const attachmentTypes = ".jpg,.jpeg,.png,.webp,.pdf,.txt,.log,.csv,.md,.json,.har,.xml,.yaml,.yml,.conf,.cfg,.ini,.pcap,.pcapng,.cap,.zip,.gz,.tgz,.tar,.7z"
+const AttachmentTypes = ".jpg,.jpeg,.png,.webp,.pdf,.txt,.log,.csv,.md,.json,.har,.xml,.yaml,.yml,.conf,.cfg,.ini,.pcap,.pcapng,.cap,.zip,.gz,.tgz,.tar,.7z"
 
 templ Upload() {
 	<div class="upload-field">
 		<label for="attachments">{ i18n.T(ctx,"附件") } <span class="field-hint">{ i18n.T(ctx,"選填 · 最多 3 個，每個 10 MB · 可拖曳檔案到這裡") }</span></label>
 		<div class="file-picker">
-			<input id="attachments" type="file" name="attachments" multiple accept={ attachmentTypes } aria-describedby="attachment-types" data-image-worker={ assetURL("image-worker.js") }/>
+			<input id="attachments" type="file" name="attachments" multiple accept={ AttachmentTypes } aria-describedby="attachment-types" data-image-worker={ assetURL("image-worker.js") }/>
 			<div class="file-picker-display">
 				<span class="file-picker-button" aria-hidden="true">{ i18n.T(ctx,"選擇檔案") }</span>
 				<output class="file-picker-summary" aria-live="polite" data-file-summary>{ i18n.T(ctx,"未選擇檔案") }</output>

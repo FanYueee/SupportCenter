@@ -6349,9 +6349,9 @@ func List(p model.Page) templ.Component {
 	})
 }
 
-// attachmentTypes are the extensions the server accepts; it still checks each
+// AttachmentTypes are the extensions the server accepts; it still checks each
 // file's content.
-const attachmentTypes = ".jpg,.jpeg,.png,.webp,.pdf,.txt,.log,.csv,.md,.json,.har,.xml,.yaml,.yml,.conf,.cfg,.ini,.pcap,.pcapng,.cap,.zip,.gz,.tgz,.tar,.7z"
+const AttachmentTypes = ".jpg,.jpeg,.png,.webp,.pdf,.txt,.log,.csv,.md,.json,.har,.xml,.yaml,.yml,.conf,.cfg,.ini,.pcap,.pcapng,.cap,.zip,.gz,.tgz,.tar,.7z"
 
 func Upload() templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
@@ -6405,7 +6405,7 @@ func Upload() templ.Component {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var365 string
-		templ_7745c5c3_Var365, templ_7745c5c3_Err = templ.ResolveAttributeValue(attachmentTypes)
+		templ_7745c5c3_Var365, templ_7745c5c3_Err = templ.ResolveAttributeValue(AttachmentTypes)
 		if templ_7745c5c3_Err != nil {
 			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/pages.templ`, Line: 956, Col: 91}
 		}

@@ -3,9 +3,11 @@ package app
 import (
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"supportcenter/internal/model"
+	"supportcenter/web"
 )
 
 func portalPerson(user model.User, private bool) map[string]any {
@@ -90,7 +92,7 @@ func (a *App) portalMetadata(w http.ResponseWriter, r *http.Request) {
 	portalJSON(w, 200, map[string]any{"version": 1, "departments": portalDepartments(), "statuses": portalStatuses(identity.CanStaff),
 		"priorities": model.Priorities, "prioritySupport": portalPrioritySupport(support, identity.CanStaff), "canStaff": identity.CanStaff, "canManageSettings": identity.CanManage,
 		"aiEnabled": a.AIEnabled, "mailEnabled": a.MailEnabled, "announcements": portalAnnouncements(announcements), "serviceNotice": portalNotice(notice), "unreadNotifications": unread,
-		"attachments": map[string]any{"maxFiles": 3, "maxFileBytes": maxFile, "maxTotalBytes": 30 << 20, "extensions": []string{".jpg", ".jpeg", ".png", ".webp", ".txt", ".log", ".pdf", ".zip"}}})
+		"attachments": map[string]any{"maxFiles": 3, "maxFileBytes": maxFile, "maxTotalBytes": 30 << 20, "extensions": strings.Split(web.AttachmentTypes, ",")}})
 }
 
 func portalAnnouncements(items []model.Announcement) []map[string]any {

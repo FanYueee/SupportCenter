@@ -160,6 +160,10 @@ func TestPortalStoreSetsPrioritySupport(t *testing.T) {
 	if fmt.Sprint(metadata.JSON["priorities"]) != "[low medium high urgent]" || support["current"] != "high" || !end.Equal(until) {
 		t.Fatal("metadata", metadata.JSON["priorities"], support)
 	}
+	// The Portal's file picker offers what the server accepts, captures included.
+	if files, _ := metadata.JSON["attachments"].(map[string]any); !strings.Contains(fmt.Sprint(files["extensions"]), ".pcapng") {
+		t.Fatal("attachment extensions", files)
+	}
 	create := func(priority string) *testResponse {
 		var body bytes.Buffer
 		writer := multipart.NewWriter(&body)
