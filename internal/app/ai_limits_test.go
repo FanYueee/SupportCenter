@@ -69,7 +69,7 @@ func TestAIDailyReplyCapHandsOff(t *testing.T) {
 	if processed, err := worker.ProcessOnce(ctx); err != nil || !processed {
 		t.Fatalf("capped job: %v %v", processed, err)
 	}
-	if ticket, _ := a.Store.Ticket(ctx, alice, id, false); ticket.AssistanceMode != "human" || ticket.Status != "open" {
+	if ticket, _ := a.Store.Ticket(ctx, alice, id, false); ticket.AssistanceMode != "human" || ticket.Status != "new" {
 		t.Fatalf("over-cap ticket not handed to a person: %+v", ticket)
 	}
 }

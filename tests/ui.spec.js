@@ -442,9 +442,9 @@ test('new support ticket locks priorities above the account priority support', a
   for (const scheme of ['light', 'dark']) {
     await page.emulateMedia({ colorScheme: scheme });
     await page.goto('/tickets/new');
-    const category = page.getByRole('combobox', { name: '問題類別' });
-    await expect(category.locator('option')).toHaveText(['一般支援', '帳務支援', '技術支援']);
-    await expect(category).toHaveValue('other');
+    const category = page.getByRole('group', { name: /問題類別/ }).getByRole('radio');
+    await expect(category).toHaveCount(3);
+    for (const name of ['一般支援', '帳務支援', '技術支援']) await expect(page.getByRole('radio', { name })).not.toBeChecked();
     const select = page.getByRole('combobox', { name: '優先級' });
     await expect(select.locator('option')).toHaveText(['低', '中 · 需升級', '高 · 需升級', '緊急 · 需升級']);
     await expect(select).toHaveValue('low');
@@ -822,7 +822,7 @@ test('English interface text is translated across customer and admin pages', asy
     expect(response.headers()['content-language']).toBe('en');
     await expect(page.locator('html')).toHaveAttribute('lang', 'en');
     const untranslated = await page.locator('h1,h2,h3,h4,dt,th,button,summary,.tab,.phase-tab,.priority-tab,.nav-item,.field-hint,.field,.back-link').evaluateAll(elements => elements
-      .filter(el => !el.matches('.detail-heading h1,button[value="zh-Hant"]'))
+      .filter(el => !el.matches('.detail-heading h1,button[value="zh-Hant"],.ticket-mention'))
       .map(el => {
         const copy = el.cloneNode(true);
         copy.querySelectorAll('textarea,input').forEach(node => node.remove());

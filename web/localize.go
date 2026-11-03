@@ -61,7 +61,7 @@ func notificationLabel(ctx context.Context, count int) string {
 	return fmt.Sprintf("通知 · %d 則未讀", count)
 }
 func messageBody(ctx context.Context, message model.Message) string {
-	if message.Source == "automation" && message.Body == "此客服單已依設定自動結案。如需繼續討論，請重新開啟客服單。" {
+	if message.Source == "automation" && (message.Body == "此客服單已依設定自動結案。如需繼續討論，請重新開啟客服單。" || message.Body == "此客服單因未收到回覆，已自動結案。") {
 		return i18n.T(ctx, message.Body)
 	}
 	return message.Body

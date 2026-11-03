@@ -255,7 +255,7 @@ func (w *Worker) finish(ctx context.Context, j job, answer string, failure bool)
 		if err != nil {
 			return err
 		}
-		_, err = tx.Exec(ctx, `UPDATE tickets SET assistance_mode='human',handoff_at=now(),status='open',updated_at=now(),version=version+1 WHERE id=$1`, j.ticketID)
+		_, err = tx.Exec(ctx, `UPDATE tickets SET assistance_mode='human',handoff_at=now(),status='new',updated_at=now(),version=version+1 WHERE id=$1`, j.ticketID)
 		if err != nil {
 			return err
 		}
@@ -274,7 +274,7 @@ func (w *Worker) finish(ctx context.Context, j job, answer string, failure bool)
 	if err = w.Store.QueueReplyEmails(ctx, tx, j.ticketID, messageID, authorID); err != nil {
 		return err
 	}
-	_, err = tx.Exec(ctx, `UPDATE tickets SET status='waiting',updated_at=now(),version=version+1 WHERE id=$1`, j.ticketID)
+	_, err = tx.Exec(ctx, `UPDATE tickets SET status='waiting',waiting_at=statement_timestamp(),reminded_at=NULL,updated_at=now(),version=version+1 WHERE id=$1`, j.ticketID)
 	if err != nil {
 		return err
 	}

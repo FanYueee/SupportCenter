@@ -90,7 +90,7 @@ func TestAIResolutionPermissionAndFollowUp(t *testing.T) {
 		t.Fatalf("AI follow-up after resolution: %v %v", processed, err)
 	}
 	ticket, _ = a.Store.Ticket(ctx, alice, id, false)
-	if ticket.Status != "waiting" || ticket.AssistanceMode != "ai" || ticket.AutoCloseAt != nil {
+	if ticket.Status != "waiting" || ticket.AssistanceMode != "ai" || ticket.SolvedAt != nil {
 		t.Fatalf("AI follow-up state: %+v", ticket)
 	}
 	// A real staff reply takes over; the customer's old AI action cannot resolve it.

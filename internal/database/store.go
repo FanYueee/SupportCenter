@@ -23,6 +23,14 @@ type Store struct {
 
 var ErrNotFound = errors.New("not found")
 var ErrClosed = errors.New("ticket closed")
+
+// ErrLocked means a ticket closed long enough ago takes no more replies and
+// cannot be reopened; the customer opens a new ticket instead.
+var ErrLocked = errors.New("ticket locked")
+
+// lockedTicket says whether ticket t is locked.
+const lockedTicket = `COALESCE(t.status='closed' AND t.closed_at<=now()-(SELECT NULLIF(closed_lock_hours,0) FROM automation_settings WHERE id=1)*interval '1 hour',false)`
+
 var ErrInvalid = errors.New("invalid input")
 
 func Open(ctx context.Context, dsn string) (*Store, error) {
@@ -52,11 +60,13 @@ func notFound(err error) error {
 }
 
 const columns = `t.id,t.user_id,t.subject,t.category,t.status,t.priority,u.name,COALESCE(a.name,''),t.assigned_to,t.created_at,t.updated_at,t.version,t.assistance_mode,t.handoff_at,t.solved_at,
- CASE WHEN t.status='solved' THEN t.solved_at+(SELECT NULLIF(auto_close_days,0)*interval '24 hours' FROM automation_settings WHERE id=1) END,t.auto_closed_at`
+ CASE WHEN t.status='solved' THEN t.solved_at+(SELECT NULLIF(auto_close_days,0)*interval '24 hours' FROM automation_settings WHERE id=1)
+  WHEN t.status='waiting' THEN t.waiting_at+(SELECT NULLIF(waiting_close_hours,0)*interval '1 hour' FROM automation_settings WHERE id=1) END,t.auto_closed_at,
+ CASE WHEN t.status='closed' THEN t.closed_at+(SELECT NULLIF(closed_lock_hours,0)*interval '1 hour' FROM automation_settings WHERE id=1) END`
 const joins = ` FROM tickets t JOIN users u ON u.id=t.user_id LEFT JOIN users a ON a.id=t.assigned_to `
 
 func scanTicket(row pgx.Row) (t model.Ticket, err error) {
-	err = row.Scan(&t.ID, &t.UserID, &t.Subject, &t.Category, &t.Status, &t.Priority, &t.Owner, &t.Assignee, &t.AssigneeID, &t.CreatedAt, &t.UpdatedAt, &t.Version, &t.AssistanceMode, &t.HandoffAt, &t.SolvedAt, &t.AutoCloseAt, &t.AutoClosedAt)
+	err = row.Scan(&t.ID, &t.UserID, &t.Subject, &t.Category, &t.Status, &t.Priority, &t.Owner, &t.Assignee, &t.AssigneeID, &t.CreatedAt, &t.UpdatedAt, &t.Version, &t.AssistanceMode, &t.HandoffAt, &t.SolvedAt, &t.AutoCloseAt, &t.AutoClosedAt, &t.LockAt)
 	return t, notFound(err)
 }
 func (s *Store) List(ctx context.Context, u model.User, admin bool, status, priority, q string, page int, assignment string, sorts ...string) ([]model.Ticket, model.Counts, bool, error) {
@@ -295,7 +305,7 @@ func (s *Store) CreateWithParticipants(ctx context.Context, u model.User, t mode
 	if mode != "human" && mode != "ai" {
 		return 0, ErrInvalid
 	}
-	err = tx.QueryRow(ctx, `INSERT INTO tickets(user_id,subject,category,priority,client_ip,user_agent,assistance_mode,status) VALUES($1,$2,$3,$4,$5,$6,$7,CASE WHEN $7='ai' THEN 'open' ELSE 'new' END) RETURNING id`, u.ID, t.Subject, t.Category, t.Priority, info.IP, info.UserAgent, mode).Scan(&id)
+	err = tx.QueryRow(ctx, `INSERT INTO tickets(user_id,subject,category,priority,client_ip,user_agent,assistance_mode,status) VALUES($1,$2,$3,$4,$5,$6,$7,'new') RETURNING id`, u.ID, t.Subject, t.Category, t.Priority, info.IP, info.UserAgent, mode).Scan(&id)
 	if err != nil {
 		return 0, err
 	}
@@ -360,9 +370,13 @@ func (s *Store) reply(ctx context.Context, u model.User, id int64, admin bool, b
 	}
 	var status, mode string
 	var version int64
-	err = tx.QueryRow(ctx, `SELECT t.status,t.assistance_mode,t.version FROM tickets t WHERE t.id=$1 AND ($2 OR t.user_id=$3 OR EXISTS(SELECT 1 FROM ticket_invites i JOIN users viewer ON viewer.id=$3 WHERE i.ticket_id=t.id AND (i.user_id=viewer.id OR (i.user_id IS NULL AND viewer.email_verified AND i.email_key=lower(viewer.email))))) FOR UPDATE`, id, staff, u.ID).Scan(&status, &mode, &version)
+	var locked bool
+	err = tx.QueryRow(ctx, `SELECT t.status,t.assistance_mode,t.version,`+lockedTicket+` FROM tickets t WHERE t.id=$1 AND ($2 OR t.user_id=$3 OR EXISTS(SELECT 1 FROM ticket_invites i JOIN users viewer ON viewer.id=$3 WHERE i.ticket_id=t.id AND (i.user_id=viewer.id OR (i.user_id IS NULL AND viewer.email_verified AND i.email_key=lower(viewer.email))))) FOR UPDATE OF t`, id, staff, u.ID).Scan(&status, &mode, &version, &locked)
 	if err != nil {
 		return notFound(err)
+	}
+	if locked && !internal {
+		return ErrLocked
 	}
 	if status == "closed" && !staff {
 		return ErrClosed
@@ -381,14 +395,18 @@ func (s *Store) reply(ctx context.Context, u model.User, id int64, admin bool, b
 	}
 	// Private notes do not change the public ticket status or update timestamp.
 	if !internal {
-		next := "open"
+		// A customer's message waits for staff to accept it again; only staff
+		// choose "open".
+		next := "new"
 		if staff {
 			next = "waiting"
 		}
 		if nextStatus != "" {
 			next = nextStatus
 		}
-		_, err = tx.Exec(ctx, `UPDATE tickets SET status=$2,assistance_mode=CASE WHEN $3 THEN 'human' ELSE assistance_mode END,updated_at=now(),version=version+1 WHERE id=$1`, id, next, staff)
+		// Each staff reply restarts the wait for the customer's answer.
+		_, err = tx.Exec(ctx, `UPDATE tickets SET status=$2,waiting_at=CASE WHEN $2='waiting' THEN statement_timestamp() END,reminded_at=NULL,
+ assistance_mode=CASE WHEN $3 THEN 'human' ELSE assistance_mode END,updated_at=now(),version=version+1 WHERE id=$1`, id, next, staff)
 		if err != nil {
 			return err
 		}
@@ -457,9 +475,17 @@ func (s *Store) updateTeamCategory(ctx context.Context, u model.User, id int64, 
 	defer tx.Rollback(ctx)
 	var old, oldPriority, oldCategory, oldMode string
 	var version int64
-	err = tx.QueryRow(ctx, `SELECT status,priority,category,version,assistance_mode FROM tickets WHERE id=$1 AND ($2 OR user_id=$3) FOR UPDATE`, id, staff, u.ID).Scan(&old, &oldPriority, &oldCategory, &version, &oldMode)
+	var locked bool
+	err = tx.QueryRow(ctx, `SELECT t.status,t.priority,t.category,t.version,t.assistance_mode,`+lockedTicket+` FROM tickets t WHERE t.id=$1 AND ($2 OR t.user_id=$3) FOR UPDATE OF t`, id, staff, u.ID).Scan(&old, &oldPriority, &oldCategory, &version, &oldMode, &locked)
 	if err != nil {
 		return notFound(err)
+	}
+	// Customers reopen into "new"; "open" otherwise means no change for them.
+	if !staff && status == "open" {
+		status = old
+		if old == "closed" {
+			status = "new"
+		}
 	}
 	changingCategory := category != ""
 	if category == "" {
@@ -471,16 +497,14 @@ func (s *Store) updateTeamCategory(ctx context.Context, u model.User, id int64, 
 	if len(expectedVersion) > 0 && version != expectedVersion[0] {
 		return ErrConflict
 	}
+	if locked && status != "closed" {
+		return ErrLocked
+	}
 	if !staff && status == "new" && old != "new" && old != "closed" {
 		return ErrInvalid
 	}
-	if staff {
-		if status == "new" && old != "new" {
-			return ErrInvalid
-		}
-		if old == "new" && status == "new" && len(team) > 0 {
-			status = "open"
-		}
+	if staff && status == "new" && old != "new" {
+		return ErrInvalid
 	}
 	var oldTeam []int64
 	err = tx.QueryRow(ctx, `SELECT COALESCE(array_agg(user_id ORDER BY user_id),'{}'::bigint[]) FROM ticket_assignees WHERE ticket_id=$1`, id).Scan(&oldTeam)
@@ -704,4 +728,46 @@ func (s *Store) SetRole(ctx context.Context, subject, role string) error {
 		return fmt.Errorf("user must log in once before assigning a role")
 	}
 	return nil
+}
+
+// TicketRefs names the mentioned tickets the viewer may open; others are left
+// out, so a mention never reveals someone else's subject.
+func (s *Store) TicketRefs(ctx context.Context, u model.User, admin bool, ids []int64) (map[int64]model.TicketRef, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	rows, err := s.Pool.Query(ctx, `SELECT t.id,t.subject FROM tickets t WHERE t.id=ANY($1::bigint[]) AND ($2 OR t.user_id=$3 OR EXISTS(SELECT 1 FROM ticket_invites i JOIN users viewer ON viewer.id=$3 WHERE i.ticket_id=t.id AND (i.user_id=viewer.id OR (i.user_id IS NULL AND viewer.email_verified AND i.email_key=lower(viewer.email)))))`,
+		ids, admin && u.Staff(), u.ID)
+	if err != nil {
+		return nil, err
+	}
+	refs, err := pgx.CollectRows(rows, pgx.RowToStructByPos[model.TicketRef])
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[int64]model.TicketRef, len(refs))
+	for _, ref := range refs {
+		out[ref.ID] = ref
+	}
+	return out, nil
+}
+
+// OwnTickets are a person's most recently updated tickets except one, offered
+// for mentioning. Callers pass the viewer, or for staff the requester.
+func (s *Store) OwnTickets(ctx context.Context, userID, except int64) ([]model.TicketRef, error) {
+	rows, err := s.Pool.Query(ctx, `SELECT id,subject FROM tickets WHERE user_id=$1 AND id<>$2 ORDER BY updated_at DESC,id DESC LIMIT 20`, userID, except)
+	if err != nil {
+		return nil, err
+	}
+	return pgx.CollectRows(rows, pgx.RowToStructByPos[model.TicketRef])
+}
+
+// RecentTickets counts the tickets a person opened in the last 10 minutes and
+// the last day, and those opened from a network (an address, or an IPv6 /64)
+// in the last hour.
+func (s *Store) RecentTickets(ctx context.Context, userID int64, network string) (burst, day, fromNetwork int, err error) {
+	err = s.Pool.QueryRow(ctx, `SELECT count(*) FILTER (WHERE user_id=$1 AND created_at>=now()-interval '10 minutes'),count(*) FILTER (WHERE user_id=$1),
+ count(*) FILTER (WHERE created_at>=now()-interval '1 hour' AND NULLIF(client_ip,'')::inet<<=NULLIF($2,'')::inet)
+ FROM tickets WHERE created_at>=now()-interval '1 day'`, userID, network).Scan(&burst, &day, &fromNetwork)
+	return
 }

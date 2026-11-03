@@ -177,52 +177,84 @@ async function processImage(file, workerURL) {
     bitmap.close();
   }
 }
+function fileSize(bytes) {
+  return bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+// Every chosen file shows at once: images as pictures, others by name, each
+// with a button to take it out again.
+function previewCard(input, file, index, state) {
+  const card = document.createElement('div');
+  card.className = 'image-preview';
+  if (isImage(file)) {
+    const url = URL.createObjectURL(file);
+    state.urls.push(url);
+    const image = document.createElement('img');
+    image.src = url;
+    image.alt = file.name;
+    card.append(image);
+  } else {
+    const kind = document.createElement('div');
+    kind.className = 'file-preview-kind';
+    kind.textContent = (file.name.match(/\.([^.]+)$/)?.[1] || tr('檔案', 'File')).slice(0, 6).toUpperCase();
+    card.append(kind);
+  }
+  const label = document.createElement('span');
+  label.textContent = file.name;
+  const size = document.createElement('small');
+  size.textContent = fileSize(file.size);
+  const remove = document.createElement('button');
+  remove.type = 'button';
+  remove.className = 'file-preview-remove';
+  remove.textContent = '×';
+  remove.setAttribute('aria-label', `${tr('移除', 'Remove')} ${file.name}`);
+  remove.addEventListener('click', () => chooseFiles(input, state.originals.filter((_, i) => i !== index)));
+  card.append(label, size, remove);
+  return card;
+}
+// chooseFiles puts files in the input and handles them as if picked.
+function chooseFiles(input, files) {
+  const transfer = new DataTransfer();
+  for (const file of files) transfer.items.add(file);
+  input.files = transfer.files;
+  input.dispatchEvent(new Event('change', { bubbles: true }));
+}
 document.addEventListener('change', async event => {
   const input = event.target;
   if (!(input instanceof HTMLInputElement) || input.type !== 'file' || !input.dataset.imageWorker) return;
   const previous = fileStates.get(input);
   if (previous) for (const url of previous.urls) URL.revokeObjectURL(url);
-  const state = { urls: [], version: (previous?.version || 0) + 1 };
-  fileStates.set(input, state);
   const selected = Array.from(input.files || []);
+  const state = { urls: [], originals: selected, version: (previous?.version || 0) + 1 };
+  fileStates.set(input, state);
   const previews = input.closest('.upload-field')?.querySelector('[data-image-previews]');
-  previews?.replaceChildren();
+  previews?.replaceChildren(...selected.map((file, index) => previewCard(input, file, index, state)));
   if (selected.length > 3) return showFileState(input, tr('最多上傳 3 個檔案', 'Up to 3 files'), true);
   if (selected.some(file => file.size === 0)) return showFileState(input, tr('不能上傳空檔案', 'Empty files are not allowed'), true);
   if (selected.some(file => isImage(file) && file.size > maxSourceSize))
     return showFileState(input, tr('圖片原檔不可超過 30 MB', 'Original image cannot exceed 30 MB'), true);
   if (selected.some(file => !isImage(file) && file.size > maxUploadSize))
     return showFileState(input, tr('每個檔案不可超過 10 MB', 'Each file must be under 10 MB'), true);
-  if (!selected.some(isImage)) {
-    showFileState(input, selected.some(file => file.size > maxUploadSize) ? tr('每個檔案不可超過 10 MB', 'Each file must be under 10 MB') : summaryFor(selected), selected.some(file => file.size > maxUploadSize));
-    return;
-  }
+  if (!selected.some(isImage)) return showFileState(input, summaryFor(selected));
   input.dataset.processing = 'true';
   showFileState(input, tr('圖片處理中…', 'Processing images…'), true);
   const output = [];
   let saved = 0;
-  for (const file of selected) {
+  for (const [index, file] of selected.entries()) {
     let upload = file;
-    let preview = null;
     if (isImage(file)) {
+      let preview = null;
       try {
         ({ upload, preview } = await processImage(file, input.dataset.imageWorker));
       } catch (_) {
-        preview = file;
+        upload = file;
       }
       if (fileStates.get(input) !== state) return;
-      if (previews && preview) {
+      // The original shows at once; the small WebP replaces it when ready.
+      const image = previews?.children[index]?.querySelector('img');
+      if (image && preview) {
         const url = URL.createObjectURL(preview);
         state.urls.push(url);
-        const card = document.createElement('div');
-        card.className = 'image-preview';
-        const image = document.createElement('img');
         image.src = url;
-        image.alt = file.name;
-        const label = document.createElement('span');
-        label.textContent = file.name;
-        card.append(image, label);
-        previews.append(card);
       }
     }
     output.push(upload);
@@ -236,6 +268,75 @@ document.addEventListener('change', async event => {
   const error = output.some(file => file.size > maxUploadSize) ? tr('每個檔案不可超過 10 MB', 'Each file must be under 10 MB') : '';
   showFileState(input, error || (summaryFor(output) + (saved > 0 ? tr(` · 節省 ${(saved / 1024).toFixed(0)} KB`, ` · saved ${(saved / 1024).toFixed(0)} KB`) : '')), Boolean(error));
 });
+// Files dropped anywhere on a form join those already chosen.
+function dropTarget(event) {
+  if (!event.dataTransfer?.types?.includes('Files')) return null;
+  return event.target.closest?.('form')?.querySelector('input[type="file"][data-image-worker]') || null;
+}
+document.addEventListener('dragover', event => {
+  const input = dropTarget(event);
+  if (!input) return;
+  event.preventDefault();
+  event.dataTransfer.dropEffect = 'copy';
+  input.closest('.upload-field')?.classList.add('dragging');
+});
+document.addEventListener('dragleave', event => {
+  const form = event.target.closest?.('form');
+  if (form && !form.contains(event.relatedTarget)) form.querySelector('.upload-field.dragging')?.classList.remove('dragging');
+});
+document.addEventListener('drop', event => {
+  const input = dropTarget(event);
+  if (!input || !event.dataTransfer.files.length) return;
+  event.preventDefault();
+  input.closest('.upload-field')?.classList.remove('dragging');
+  const current = fileStates.get(input)?.originals || Array.from(input.files || []);
+  chooseFiles(input, [...current, ...event.dataTransfer.files]);
+});
+// Attachments upload when the form is sent; the bar shows how far along.
+function uploadProgress(form) {
+  const box = form?.querySelector?.('[data-upload-progress]');
+  return box && form.querySelector('input[type="file"]')?.files.length ? box : null;
+}
+document.addEventListener('htmx:xhr:loadstart', event => {
+  const box = uploadProgress(event.target);
+  if (!box) return;
+  box.querySelector('progress').value = 0;
+  box.querySelector('[data-upload-percent]').textContent = tr('上傳中 0%', 'Uploading 0%');
+  box.hidden = false;
+});
+document.addEventListener('htmx:xhr:progress', event => {
+  const box = uploadProgress(event.target);
+  if (!box || box.hidden || !event.detail.lengthComputable || !event.detail.total) return;
+  // The response's own progress follows the upload's; never go backwards.
+  const bar = box.querySelector('progress');
+  bar.value = Math.max(bar.value, Math.round(event.detail.loaded / event.detail.total * 100));
+  box.querySelector('[data-upload-percent]').textContent = bar.value < 100 ? tr(`上傳中 ${bar.value}%`, `Uploading ${bar.value}%`) : tr('處理中…', 'Processing…');
+});
+document.addEventListener('htmx:afterRequest', event => {
+  const box = event.target.querySelector?.('[data-upload-progress]');
+  if (box) box.hidden = true;
+  // A check token works once; a failed submission needs a new one.
+  if (!event.detail.successful && window.turnstile) {
+    for (const widget of event.target.querySelectorAll?.('[data-turnstile][data-widget]') || []) window.turnstile.reset(widget.dataset.widget);
+  }
+});
+document.addEventListener('click', event => {
+  const button = event.target.closest?.('[data-mention]');
+  const field = button?.closest('form')?.querySelector('textarea[name="body"]');
+  if (!field) return;
+  const start = field.selectionStart ?? field.value.length;
+  const end = field.selectionEnd ?? start;
+  const spacer = start > 0 && !/\s$/.test(field.value.slice(0, start)) ? ' ' : '';
+  field.setRangeText(`${spacer}#${button.dataset.mention} `, start, end, 'end');
+  field.focus();
+  button.closest('details')?.removeAttribute('open');
+});
+// Cloudflare's script calls this once loaded; the widget needs JavaScript anyway.
+window.supportTurnstileReady = () => {
+  for (const box of document.querySelectorAll('[data-turnstile]:not([data-widget])')) {
+    box.dataset.widget = window.turnstile.render(box, { sitekey: box.dataset.sitekey, action: 'ticket', theme: 'auto', language: english ? 'en' : 'zh-tw' });
+  }
+};
 document.addEventListener('submit', event => {
   if (event.target.querySelector('input[type="file"][data-processing]')) {
     event.preventDefault();

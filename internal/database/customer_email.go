@@ -90,16 +90,35 @@ func (s *Store) QueueReplyEmails(ctx context.Context, tx pgx.Tx, ticketID, messa
 	if !s.MailEnabled {
 		return nil
 	}
-	_, err := tx.Exec(ctx, `WITH people AS (
- SELECT user_id AS id FROM tickets WHERE id=$1
- UNION SELECT user_id FROM ticket_invites WHERE ticket_id=$1 AND user_id IS NOT NULL
- UNION SELECT u.id FROM ticket_invites i JOIN users u ON i.user_id IS NULL AND lower(u.email)=i.email_key AND u.email_verified WHERE i.ticket_id=$1
-)
+	_, err := tx.Exec(ctx, ticketPeople+`
 INSERT INTO customer_emails(ticket_id,kind,recipient_email,recipient_user_id,message_id)
 SELECT DISTINCT ON (lower(u.email)) $1,'reply',lower(u.email),u.id,$2
  FROM people p JOIN users u ON u.id=p.id JOIN email_settings s ON s.id=1
  WHERE s.on_reply AND u.email_verified AND u.email_notify AND u.id<>$3 AND u.auth0_id NOT LIKE 'system:%'
  ORDER BY lower(u.email),u.id`, ticketID, messageID, authorID)
+	return err
+}
+
+// ticketPeople are the requester and joined participants of ticket $1.
+const ticketPeople = `WITH people AS (
+ SELECT user_id AS id FROM tickets WHERE id=$1
+ UNION SELECT user_id FROM ticket_invites WHERE ticket_id=$1 AND user_id IS NOT NULL
+ UNION SELECT u.id FROM ticket_invites i JOIN users u ON i.user_id IS NULL AND lower(u.email)=i.email_key AND u.email_verified WHERE i.ticket_id=$1
+)`
+
+// queueReminderEmails reminds the requester and joined participants that a
+// ticket is waiting on them. The automation settings decide when, so these
+// have no switch of their own on the email settings page.
+func (s *Store) queueReminderEmails(ctx context.Context, tx pgx.Tx, ticketID int64) error {
+	if !s.MailEnabled {
+		return nil
+	}
+	_, err := tx.Exec(ctx, ticketPeople+`
+INSERT INTO customer_emails(ticket_id,kind,recipient_email,recipient_user_id)
+SELECT DISTINCT ON (lower(u.email)) $1,'reminder',lower(u.email),u.id
+ FROM people p JOIN users u ON u.id=p.id
+ WHERE u.email_verified AND u.email_notify AND u.auth0_id NOT LIKE 'system:%'
+ ORDER BY lower(u.email),u.id`, ticketID)
 	return err
 }
 

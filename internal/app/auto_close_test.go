@@ -196,7 +196,7 @@ func TestAutoCloseCancellationAndInvitationAccess(t *testing.T) {
 		t.Fatal(err)
 	}
 	reopened, _ := a.Store.Ticket(ctx, alice, id, false)
-	if reopened.Status != "open" || reopened.SolvedAt != nil || reopened.AutoCloseAt != nil {
+	if reopened.Status != "new" || reopened.SolvedAt != nil || reopened.AutoCloseAt != nil {
 		t.Fatalf("reply kept countdown: %+v", reopened)
 	}
 	if n, err := a.Store.CloseSolvedTickets(ctx); err != nil || n != 0 {

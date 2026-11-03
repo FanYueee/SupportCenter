@@ -100,6 +100,8 @@ func (a *App) portalFailure(w http.ResponseWriter, err error) {
 		portalError(w, 409, "conflict")
 	case errors.Is(err, database.ErrClosed):
 		portalError(w, 409, "closed")
+	case errors.Is(err, database.ErrLocked):
+		portalError(w, 409, "locked")
 	case errors.Is(err, database.ErrCommitUnknown):
 		portalError(w, 503, "outcome_unknown")
 	default:

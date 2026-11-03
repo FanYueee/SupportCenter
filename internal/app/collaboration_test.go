@@ -70,7 +70,7 @@ func TestMultipleStaffAndReopenQueue(t *testing.T) {
 		t.Fatalf("team save: %d %s", got.Code, got.Body.String())
 	}
 	ticket, err := a.Store.Ticket(ctx, staff, id, true)
-	if err != nil || ticket.Status != "open" || len(ticket.Team) != 2 {
+	if err != nil || ticket.Status != "new" || len(ticket.Team) != 2 {
 		t.Fatalf("team: %+v %v", ticket, err)
 	}
 	list, _, _, err := a.Store.List(ctx, staff, true, "", "", "", 1, "mine")

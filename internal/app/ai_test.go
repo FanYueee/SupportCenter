@@ -49,7 +49,7 @@ func TestAIReplyAndHandoff(t *testing.T) {
 		t.Fatal(err)
 	}
 	initial, _ := a.Store.Ticket(ctx, alice, id, false)
-	if initial.Status != "open" || !strings.Contains(request(h, "GET", fmt.Sprintf("/tickets/%d", id), "alice", nil).Body.String(), "AI 處理中") {
+	if initial.Status != "new" || !strings.Contains(request(h, "GET", fmt.Sprintf("/tickets/%d", id), "alice", nil).Body.String(), "AI 處理中") {
 		t.Fatal("new AI ticket is not visibly processing")
 	}
 	if processed, err := worker.ProcessOnce(ctx); err != nil || !processed {
@@ -146,7 +146,7 @@ func TestAIFailureTransfersToHuman(t *testing.T) {
 		t.Fatalf("failed AI job: %v %v", processed, err)
 	}
 	ticket, err := a.Store.Ticket(ctx, alice, id, false)
-	if err != nil || ticket.AssistanceMode != "human" || ticket.Status != "open" || ticket.HandoffAt == nil {
+	if err != nil || ticket.AssistanceMode != "human" || ticket.Status != "new" || ticket.HandoffAt == nil {
 		t.Fatalf("AI failure not handed to staff: %+v %v", ticket, err)
 	}
 	var state string

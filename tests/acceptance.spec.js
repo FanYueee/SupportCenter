@@ -21,6 +21,7 @@ test('real customer and staff workflow with PostgreSQL and private attachments',
     const subject = `完整流程驗收 ${Date.now()}`;
     await customer.locator('.page-heading').getByRole('link', { name: '建立客服單', exact: true }).click();
     await customer.getByRole('textbox', { name: /客服單主旨/ }).fill(subject);
+    await customer.getByRole('radio', { name: '技術支援' }).check();
     await customer.getByRole('textbox', { name: /問題描述/ }).fill('請協助確認連線問題。');
     await customer.locator('input[name=attachments]').setInputFiles({ name: 'diagnostic.txt', mimeType: 'text/plain', buffer: Buffer.from('private diagnostic') });
     await customer.getByRole('button', { name: '送出客服單', exact: true }).click();
@@ -75,7 +76,7 @@ test('real customer and staff workflow with PostgreSQL and private attachments',
     const csrf = await customer.locator('.reply-form input[name=csrf]').inputValue();
     await customer.getByRole('textbox', { name: '回覆', exact: true }).fill('上午十點發生。');
     await customer.getByRole('button', { name: '送出回覆' }).click();
-    await expect(customer.locator('.detail-heading .badge')).toHaveText('處理中');
+    await expect(customer.locator('.detail-heading .badge')).toHaveText('待受理');
     const retry = await customer.request.post(`${path}/reply`, {
       headers: { Origin: baseURL, 'HX-Request': 'true' },
       multipart: { csrf, submission, body: '上午十點發生。' },
@@ -124,6 +125,7 @@ test('native customer forms work without JavaScript', async ({ browser, baseURL 
     const subject = `無 JavaScript 驗收 ${Date.now()}`;
     await page.getByRole('link', { name: '建立客服單', exact: true }).click();
     await page.getByRole('textbox', { name: /客服單主旨/ }).fill(subject);
+    await page.getByRole('radio', { name: '一般支援' }).check();
     await page.getByRole('textbox', { name: /問題描述/ }).fill('使用原生表單建立。');
     await page.locator('input[name=attachments]').setInputFiles({ name: 'native.txt', mimeType: 'text/plain', buffer: Buffer.from('native upload') });
     await page.getByRole('button', { name: '送出客服單', exact: true }).click();

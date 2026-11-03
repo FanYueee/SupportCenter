@@ -148,7 +148,7 @@ func TestAIHandoffOwnerOnly(t *testing.T) {
 		t.Fatalf("handoff: %d", got.Code)
 	}
 	ticket, err := a.Store.Ticket(context.Background(), alice, id, false)
-	if err != nil || ticket.AssistanceMode != "human" || ticket.Status != "open" || ticket.HandoffAt == nil {
+	if err != nil || ticket.AssistanceMode != "human" || ticket.Status != "new" || ticket.HandoffAt == nil {
 		t.Fatalf("ticket: %+v %v", ticket, err)
 	}
 	if got := request(h, "POST", path, "alice", url.Values{"csrf": {"csrf-alice"}}); got.Code != 303 {

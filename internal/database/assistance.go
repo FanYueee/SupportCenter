@@ -58,15 +58,15 @@ func (s *Store) RequestHuman(ctx context.Context, owner model.User, ticketID int
 	if status == "closed" {
 		return ErrClosed
 	}
-	_, err = tx.Exec(ctx, `UPDATE tickets SET assistance_mode='human',handoff_at=now(),status='open',assigned_to=NULL,updated_at=now(),version=version+1 WHERE id=$1`, ticketID)
+	_, err = tx.Exec(ctx, `UPDATE tickets SET assistance_mode='human',handoff_at=now(),status='new',assigned_to=NULL,updated_at=now(),version=version+1 WHERE id=$1`, ticketID)
 	if err != nil {
 		return err
 	}
 	if err = recordEvent(ctx, tx, ticketID, owner.ID, "handoff", "ai", "human"); err != nil {
 		return err
 	}
-	if status != "open" {
-		if err = recordEvent(ctx, tx, ticketID, owner.ID, "status", status, "open"); err != nil {
+	if status != "new" {
+		if err = recordEvent(ctx, tx, ticketID, owner.ID, "status", status, "new"); err != nil {
 			return err
 		}
 	}

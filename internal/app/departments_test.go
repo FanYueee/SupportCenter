@@ -70,7 +70,7 @@ func TestDepartmentsCategoryTimelineAndTechnicalEmail(t *testing.T) {
 		t.Fatalf("quick assignment: %d %s", got.Code, got.Body.String())
 	}
 	ticket, err = a.Store.Ticket(ctx, admin, id, true)
-	if err != nil || ticket.Status != "open" || len(ticket.Team) != 1 || ticket.Team[0].ID != staff.ID {
+	if err != nil || ticket.Status != "new" || len(ticket.Team) != 1 || ticket.Team[0].ID != staff.ID {
 		t.Fatalf("assigned ticket: %+v %v", ticket, err)
 	}
 	if err = a.Store.Pool.QueryRow(ctx, `SELECT count(*) FROM email_notifications WHERE ticket_id=$1 AND recipient_user_id=$2 AND kind='assignment'`, id, staff.ID).Scan(&queued); err != nil || queued != 1 {

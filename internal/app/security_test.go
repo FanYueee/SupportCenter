@@ -212,8 +212,8 @@ func TestAuthorizationAndTicketFlow(t *testing.T) {
 		t.Fatalf("reply: %d", w.Code)
 	}
 	ticket, _ = a.Store.Ticket(ctx, alice, id, false)
-	if ticket.Status != "open" {
-		t.Fatal("user reply should reopen queue")
+	if ticket.Status != "new" {
+		t.Fatal("user reply should return the ticket to the queue")
 	}
 	w = request(h, "POST", path+"/update", "alice", url.Values{"csrf": {"csrf-alice"}, "status": {"closed"}, "priority": {"urgent"}})
 	if w.Code != 303 {

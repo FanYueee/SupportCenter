@@ -981,6 +981,173 @@ tbody tr:hover {
   outline: 2px solid var(--text);
   outline-offset: 2px;
 }
+.upload-field.dragging .file-picker {
+  outline: 1px dashed var(--text);
+  outline-offset: 6px;
+}
+.image-preview {
+  position: relative;
+}
+.image-preview small {
+  display: block;
+  padding: 0 7px 5px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.file-preview-kind {
+  display: grid;
+  height: 88px;
+  place-items: center;
+  background: var(--soft);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+.file-preview-remove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}
+.upload-progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.upload-progress progress {
+  width: min(320px, 100%);
+  height: 6px;
+  accent-color: var(--text);
+}
+.turnstile {
+  min-height: 65px;
+  margin-top: 23px;
+}
+.category-choice {
+  min-width: 0;
+  border: 0;
+  padding: 0;
+}
+.category-choice legend {
+  padding: 0;
+  margin-bottom: 8px;
+}
+.category-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.category-option {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 11px 12px;
+  border: 1px solid var(--input-line);
+  font-size: 14px;
+  cursor: pointer;
+  transition: border-color 150ms, background-color 150ms;
+}
+.category-option input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.category-option:hover,
+.category-option:has(input:checked) {
+  border-color: var(--text);
+}
+.category-option:has(input:checked) {
+  background: var(--soft);
+  font-weight: 600;
+}
+.category-option:has(input:focus-visible) {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+.ticket-mention {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: baseline;
+  gap: 6px;
+  margin: 1px 0;
+  padding: 1px 7px;
+  border: 1px solid var(--line);
+  background: var(--soft);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.92em;
+  text-decoration: none;
+  vertical-align: baseline;
+  cursor: pointer;
+}
+.ticket-mention:hover {
+  border-color: var(--text);
+}
+.message-body .ticket-mention {
+  color: var(--text);
+  text-decoration: none;
+}
+@media (max-width: 520px) {
+  .category-option {
+    flex-direction: column;
+    justify-content: center;
+    gap: 4px;
+    padding: 10px 6px;
+    text-align: center;
+  }
+}
+.ticket-mention-number {
+  flex-shrink: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.ticket-mention-subject {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ticket-mention-subject::before {
+  content: "- ";
+  color: var(--muted);
+}
+.mention-picker {
+  margin-top: 10px;
+  font-size: 14px;
+}
+.form-panel .mention-picker {
+  margin: -12px 0 23px;
+}
+.mention-picker summary {
+  width: fit-content;
+  color: var(--muted);
+  cursor: pointer;
+}
+.mention-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.mention-options .ticket-mention {
+  max-width: min(100%, 360px);
+}
 .field-hint {
   font-size: 14px;
   font-weight: 400;

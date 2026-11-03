@@ -30,7 +30,24 @@ type Ticket struct {
 	AssigneeID                                                           *int64
 	HandoffAt                                                            *time.Time
 	SolvedAt, AutoCloseAt, AutoClosedAt                                  *time.Time
-	CreatedAt, UpdatedAt                                                 time.Time
+	// LockAt is when a closed ticket stops taking replies and reopening.
+	LockAt               *time.Time
+	CreatedAt, UpdatedAt time.Time
+}
+
+func (t Ticket) Locked() bool { return t.LockAt != nil && !t.LockAt.After(time.Now()) }
+
+// Lifecycle moves tickets the customer has not answered: a reminder, then
+// closure, both counted from when the ticket started waiting, and a lock
+// after closure. Zero hours turns a step off.
+type Lifecycle struct {
+	RemindHours, CloseHours, LockHours int
+}
+
+// TicketRef is a ticket named by number and subject, e.g. in a mention.
+type TicketRef struct {
+	ID      int64
+	Subject string
 }
 type Attachment struct {
 	ID                        int64
@@ -286,17 +303,24 @@ type Page struct {
 	Invites                                                                                                   []Participant
 	DraftParticipants                                                                                         string
 	Automation                                                                                                AutomationSettings
-	AIPrompts                                                                                                 AIPrompts
-	Discord                                                                                                   DiscordSettings
-	DiscordTest                                                                                               string
-	Email                                                                                                     EmailSettings
-	MailFrom, MailTest                                                                                        string
-	EmailNotify                                                                                               bool
-	ActivityPage, LoginPage                                                                                   int
-	HasMoreActivities, HasMoreLogins, Saved                                                                   bool
-	Page, MessagePage                                                                                         int
-	HasNext, HasMoreMessages, Admin, Preview, AIEnabled, MailEnabled                                          bool
-	AIModel                                                                                                   string
+	Lifecycle                                                                                                 Lifecycle
+	// Mentions are the tickets named in the shown messages that the viewer may open.
+	Mentions map[int64]TicketRef
+	// MentionOptions are tickets offered for mentioning in the reply or new ticket form.
+	MentionOptions []TicketRef
+	// TurnstileSiteKey shows the bot check on the new ticket form when set.
+	TurnstileSiteKey                                                 string
+	AIPrompts                                                        AIPrompts
+	Discord                                                          DiscordSettings
+	DiscordTest                                                      string
+	Email                                                            EmailSettings
+	MailFrom, MailTest                                               string
+	EmailNotify                                                      bool
+	ActivityPage, LoginPage                                          int
+	HasMoreActivities, HasMoreLogins, Saved                          bool
+	Page, MessagePage                                                int
+	HasNext, HasMoreMessages, Admin, Preview, AIEnabled, MailEnabled bool
+	AIModel                                                          string
 	// PrioritySupport is the viewer's own, already resolved to the level in force.
 	PrioritySupport PrioritySupport
 	// Location is the site's timezone, in which priority support end dates are entered.

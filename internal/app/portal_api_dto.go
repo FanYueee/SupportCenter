@@ -33,6 +33,7 @@ func portalTicket(ticket model.Ticket, ownerID int64, staff bool) map[string]any
 		"isOwner": ticket.UserID == ownerID, "team": team, "assignedTo": ticket.AssigneeID,
 		"assistanceMode": ticket.AssistanceMode, "handoffAt": ticket.HandoffAt,
 		"solvedAt": ticket.SolvedAt, "autoCloseAt": ticket.AutoCloseAt, "autoClosedAt": ticket.AutoClosedAt,
+		"lockAt": ticket.LockAt, "locked": ticket.Locked(),
 		"createdAt": ticket.CreatedAt, "updatedAt": ticket.UpdatedAt}
 }
 func portalMessages(messages []model.Message) []map[string]any {

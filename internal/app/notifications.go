@@ -45,9 +45,13 @@ func (a *App) AutoClose(ctx context.Context) {
 	for {
 		jobCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
 		_, err := a.Store.CloseSolvedTickets(jobCtx)
-		cancel()
 		if err != nil && ctx.Err() == nil {
 			a.Log.Error("automatic ticket closure failed")
+		}
+		_, _, err = a.Store.AdvanceWaitingTickets(jobCtx)
+		cancel()
+		if err != nil && ctx.Err() == nil {
+			a.Log.Error("waiting ticket reminder or closure failed")
 		}
 		select {
 		case <-ctx.Done():

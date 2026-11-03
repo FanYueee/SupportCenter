@@ -3,8 +3,11 @@ package web
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"strings"
 	"testing"
+
+	"supportcenter/internal/model"
 )
 
 func links(text string) []string {
@@ -61,5 +64,21 @@ func TestLinkedTextEscapesEverything(t *testing.T) {
 	LinkedText(`https://example.com/a&b'c`).Render(context.Background(), &out)
 	if !strings.Contains(out.String(), `href="https://example.com/a&amp;b&#39;c"`) {
 		t.Fatalf("attribute not escaped: %s", out.String())
+	}
+}
+
+func TestMentionsNeedATicketNumberOutsideWords(t *testing.T) {
+	got := MentionedTickets("延續#6，也看 #0012、(#7) 和 https://example.com/#9", "C#3 #4a &#5; ##8 #0 #1234567890")
+	if fmt.Sprint(got) != "[6 12 7]" {
+		t.Fatalf("got %v", got)
+	}
+	var out bytes.Buffer
+	refs := map[int64]model.TicketRef{6: {ID: 6, Subject: `<img src=x onerror=alert(1)>`}}
+	if err := MessageText("看 #6 與 #7", refs, "/tickets/").Render(context.Background(), &out); err != nil {
+		t.Fatal(err)
+	}
+	want := `看 <a class="ticket-mention" href="/tickets/6"><span class="ticket-mention-number">#0006</span><span class="ticket-mention-subject">&lt;img src=x onerror=alert(1)&gt;</span></a> 與 #7`
+	if out.String() != want {
+		t.Fatalf("got  %s\nwant %s", out.String(), want)
 	}
 }

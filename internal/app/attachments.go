@@ -4,6 +4,8 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
+	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"image"
@@ -143,17 +145,59 @@ func fileType(data []byte, name string) (string, error) {
 				return "application/zip", nil
 			}
 		}
-	case ".txt", ".log":
-		if utf8.Valid(data) && !bytes.ContainsRune(data, 0) {
-			for _, r := range string(data) {
-				if unicode.IsControl(r) && r != '\n' && r != '\r' && r != '\t' {
-					return "", errors.New("文字檔包含不支援的控制字元")
-				}
+	case ".pcap", ".cap":
+		// tcpdump and Wireshark captures, in micro- or nanosecond byte orders.
+		if len(data) >= 24 {
+			switch string(data[:4]) {
+			case "\xd4\xc3\xb2\xa1", "\xa1\xb2\xc3\xd4", "\x4d\x3c\xb2\xa1", "\xa1\xb2\x3c\x4d":
+				return "application/vnd.tcpdump.pcap", nil
 			}
-			return "text/plain; charset=utf-8", nil
 		}
+	case ".pcapng":
+		if len(data) >= 28 && string(data[:4]) == "\x0a\x0d\x0d\x0a" && (string(data[8:12]) == "\x1a\x2b\x3c\x4d" || string(data[8:12]) == "\x4d\x3c\x2b\x1a") {
+			return "application/x-pcapng", nil
+		}
+	case ".gz", ".tgz":
+		// The last four bytes hold the unpacked size, so a bomb is turned away as a ZIP is.
+		if len(data) >= 18 && data[0] == 0x1f && data[1] == 0x8b && data[2] == 8 && binary.LittleEndian.Uint32(data[len(data)-4:]) <= 100<<20 {
+			return "application/gzip", nil
+		}
+	case ".tar":
+		if len(data) >= 512 && string(data[257:262]) == "ustar" {
+			return "application/x-tar", nil
+		}
+	case ".7z":
+		if bytes.HasPrefix(data, []byte("7z\xbc\xaf\x27\x1c")) {
+			return "application/x-7z-compressed", nil
+		}
+	case ".har", ".json":
+		if err := textFile(data); err != nil {
+			return "", err
+		}
+		if json.Valid(data) {
+			return "application/json", nil
+		}
+	case ".txt", ".log", ".csv", ".md", ".conf", ".cfg", ".ini", ".yaml", ".yml", ".xml":
+		if err := textFile(data); err != nil {
+			return "", err
+		}
+		return "text/plain; charset=utf-8", nil
 	}
 	return "", errors.New("檔案格式或內容不符合允許的附件類型")
+}
+
+// textFile accepts UTF-8 text without control characters other than line
+// breaks and tabs.
+func textFile(data []byte) error {
+	if !utf8.Valid(data) || bytes.ContainsRune(data, 0) {
+		return errors.New("檔案格式或內容不符合允許的附件類型")
+	}
+	for _, r := range string(data) {
+		if unicode.IsControl(r) && r != '\n' && r != '\r' && r != '\t' {
+			return errors.New("文字檔包含不支援的控制字元")
+		}
+	}
+	return nil
 }
 func safeName(name string) string {
 	name = filepath.Base(strings.ReplaceAll(name, `\`, "/"))

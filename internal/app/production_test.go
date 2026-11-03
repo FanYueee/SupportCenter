@@ -76,7 +76,7 @@ func TestRetryAndConcurrentUpdates(t *testing.T) {
 		t.Fatal(err)
 	}
 	events, err := a.Store.Events(ctx, staff, id)
-	if err != nil || len(events) != 4 {
+	if err != nil || len(events) != 3 {
 		t.Fatal("status/priority/assignment not recorded", err, len(events))
 	}
 	if _, err = a.Store.Events(ctx, alice, id); !errors.Is(err, database.ErrNotFound) {
@@ -133,7 +133,7 @@ func TestMigrationVersions(t *testing.T) {
 		t.Fatal("migration rerun failed", err)
 	}
 	var count int
-	if err := a.Store.Pool.QueryRow(ctx, `SELECT count(*) FROM schema_migrations`).Scan(&count); err != nil || count != 32 {
+	if err := a.Store.Pool.QueryRow(ctx, `SELECT count(*) FROM schema_migrations`).Scan(&count); err != nil || count != 33 {
 		t.Fatal("migration ledger incorrect")
 	}
 	if _, err := a.Store.Pool.Exec(ctx, `UPDATE schema_migrations SET checksum='changed' WHERE name='001_init.sql'`); err != nil {

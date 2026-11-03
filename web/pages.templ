@@ -18,11 +18,15 @@ func choose(b bool, yes, no string) string {
 }
 
 func ticketURL(p model.Page, id int64) string {
-	prefix := "/tickets/"
+	return ticketBase(p) + strconv.FormatInt(id, 10)
+}
+
+// ticketBase is where the viewer opens tickets: the staff or customer pages.
+func ticketBase(p model.Page) string {
 	if p.Admin {
-		prefix = "/admin/tickets/"
+		return "/admin/tickets/"
 	}
-	return prefix + strconv.FormatInt(id, 10)
+	return "/tickets/"
 }
 func activityTicketURL(u model.User, id int64) string {
 	if u.Staff() {
@@ -941,19 +945,42 @@ templ List(p model.Page) {
 	</section>
 }
 
+// attachmentTypes are the extensions the server accepts; it still checks each
+// file's content.
+const attachmentTypes = ".jpg,.jpeg,.png,.webp,.pdf,.txt,.log,.csv,.md,.json,.har,.xml,.yaml,.yml,.conf,.cfg,.ini,.pcap,.pcapng,.cap,.zip,.gz,.tgz,.tar,.7z"
+
 templ Upload() {
 	<div class="upload-field">
-		<label for="attachments">{ i18n.T(ctx,"附件") } <span class="field-hint">{ i18n.T(ctx,"選填 · 最多 3 個，每個 10 MB") }</span></label>
+		<label for="attachments">{ i18n.T(ctx,"附件") } <span class="field-hint">{ i18n.T(ctx,"選填 · 最多 3 個，每個 10 MB · 可拖曳檔案到這裡") }</span></label>
 		<div class="file-picker">
-			<input id="attachments" type="file" name="attachments" multiple accept=".jpg,.jpeg,.png,.webp,.txt,.log,.pdf,.zip" aria-describedby="attachment-types" data-image-worker={ assetURL("image-worker.js") }/>
+			<input id="attachments" type="file" name="attachments" multiple accept={ attachmentTypes } aria-describedby="attachment-types" data-image-worker={ assetURL("image-worker.js") }/>
 			<div class="file-picker-display">
 				<span class="file-picker-button" aria-hidden="true">{ i18n.T(ctx,"選擇檔案") }</span>
 				<output class="file-picker-summary" aria-live="polite" data-file-summary>{ i18n.T(ctx,"未選擇檔案") }</output>
 			</div>
 		</div>
-		<div class="image-previews" data-image-previews aria-label={ i18n.T(ctx,"已選圖片預覽") }></div>
-		<p id="attachment-types" class="field-hint">JPG、PNG、WebP、TXT、LOG、PDF、ZIP</p>
+		<div class="image-previews" data-image-previews aria-label={ i18n.T(ctx,"已選檔案") }></div>
+		<div class="upload-progress" data-upload-progress hidden>
+			<progress max="100" value="0"></progress>
+			<span data-upload-percent></span>
+		</div>
+		<p id="attachment-types" class="field-hint">{ i18n.T(ctx,"圖片（JPG、PNG、WebP）、PDF、文字與記錄檔（TXT、LOG、CSV、JSON、HAR、YAML、XML、CONF）、封包擷取（PCAP、PCAPNG）、壓縮檔（ZIP、GZ、TAR、7Z）") }</p>
 	</div>
+}
+
+// MentionPicker lists tickets to mention in the form's description or reply.
+templ MentionPicker(options []model.TicketRef) {
+	if len(options) > 0 {
+		<details class="mention-picker">
+			<summary>{ i18n.T(ctx,"提及客服單") }</summary>
+			<div class="mention-options">
+				for _, ticket := range options {
+					<button type="button" class="ticket-mention" data-mention={ strconv.FormatInt(ticket.ID,10) }><span class="ticket-mention-number">{ fmt.Sprintf("#%04d",ticket.ID) }</span><span class="ticket-mention-subject">{ ticket.Subject }</span></button>
+				}
+			</div>
+			<p class="field-hint">{ i18n.T(ctx,"也可以直接輸入 # 加單號，例如 #12。") }</p>
+		</details>
+	}
 }
 
 templ NewTicket(p model.Page) {
@@ -963,22 +990,26 @@ templ NewTicket(p model.Page) {
 	</a>
 	<div class="page-heading"><h1>{ i18n.T(ctx,"建立客服單") }</h1></div>
 	<div class="form-layout">
-		<form class="form-panel" method="post" action="/tickets" enctype="multipart/form-data">
+		<form class="form-panel" method="post" action="/tickets" enctype="multipart/form-data" hx-post="/tickets" hx-encoding="multipart/form-data" hx-swap="none" hx-disabled-elt="find button[type='submit']">
 			<input type="hidden" name="csrf" value={ p.CSRF }/>
 			<input type="hidden" name="submission" value={ p.Submission }/>
 			<label class="field">
 				{ i18n.T(ctx,"客服單主旨") } <span class="required">*</span>
 				<input name="subject" value={ p.Ticket.Subject } required maxlength="160" placeholder={ i18n.T(ctx,"簡述問題") }/>
 			</label>
+			<fieldset class="field category-choice">
+				<legend>{ i18n.T(ctx,"問題類別") } <span class="required">*</span></legend>
+				<div class="category-options">
+					for _, category := range []string{"other","billing","technical"} {
+						<label class="category-option">
+							<input type="radio" name="category" value={ category } required checked?={ p.Ticket.Category==category }/>
+							@Icon("category-"+category)
+							<span>{ i18n.T(ctx,model.Category(category)) }</span>
+						</label>
+					}
+				</div>
+			</fieldset>
 			<div class="field-grid">
-				<label class="field">
-					{ i18n.T(ctx,"問題類別") } <span class="required">*</span>
-					<select name="category" required>
-						<option value="other" selected?={ p.Ticket.Category=="other" || p.Ticket.Category=="account" }>{ i18n.T(ctx,"一般支援") }</option>
-						<option value="billing" selected?={ p.Ticket.Category=="billing" }>{ i18n.T(ctx,"帳務支援") }</option>
-						<option value="technical" selected?={ p.Ticket.Category=="technical" }>{ i18n.T(ctx,"技術支援") }</option>
-					</select>
-				</label>
 				<label class="field">
 					{ i18n.T(ctx,"優先級") }
 					<select name="priority" class="priority-choice" aria-describedby="priority-support-hint">
@@ -1005,6 +1036,7 @@ templ NewTicket(p model.Page) {
 				{ i18n.T(ctx,"問題描述") } <span class="required">*</span>
 				<textarea name="body" required maxlength="20000" rows="8" placeholder={ i18n.T(ctx,"問題內容、發生時間或錯誤訊息") }>{ p.DraftBody }</textarea>
 			</label>
+			@MentionPicker(p.MentionOptions)
 			<label class="field">
 				{ i18n.T(ctx,"參與者（選填）") }
 				<input type="email" name="participants" multiple maxlength="5120" value={ p.DraftParticipants } placeholder="name@example.com"/>
@@ -1014,6 +1046,10 @@ templ NewTicket(p model.Page) {
 				<p class="field-hint ai-disclosure">{ i18n.T(ctx,"AI 會讀取主旨及問題描述並回覆；公開訊息會傳送至 OpenAI。附件不會傳送。可隨時轉真人客服。") }</p>
 			}
 			@Upload()
+			if p.TurnstileSiteKey != "" {
+				<div class="turnstile" data-turnstile data-sitekey={ p.TurnstileSiteKey }></div>
+				<script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=supportTurnstileReady" defer></script>
+			}
 			<div class="form-actions">
 				<a class="button secondary" href="/tickets">{ i18n.T(ctx,"取消") }</a>
 				<button type="submit" class="button primary">
@@ -1060,6 +1096,8 @@ templ Detail(p model.Page) {
 				</div>
 			} else if p.Ticket.Status=="closed" && p.Ticket.AutoClosedAt!=nil {
 				<div class="auto-close-notice" role="status"><p>{ i18n.T(ctx,"此客服單已於") } <time datetime={ p.Ticket.AutoClosedAt.Format(time.RFC3339) } data-local-time="full" data-timezone-inline>{ p.Ticket.AutoClosedAt.UTC().Format("2006/01/02 15:04") } UTC</time> { i18n.T(ctx,"自動結案。") }</p></div>
+			} else if p.Ticket.Status=="waiting" && p.Ticket.AutoCloseAt!=nil {
+				<div class="auto-close-notice" role="status"><p>{ i18n.T(ctx,"若未收到回覆，客服單將於") } <time datetime={ p.Ticket.AutoCloseAt.Format(time.RFC3339) } data-local-time="full" data-timezone-inline>{ p.Ticket.AutoCloseAt.UTC().Format("2006/01/02 15:04") } UTC</time> { i18n.T(ctx,"自動結案。") }</p></div>
 			}
 			<div class="panel-heading">
 				<h2>{ i18n.T(ctx,"對話記錄") }</h2>
@@ -1117,7 +1155,7 @@ templ Detail(p model.Page) {
 							</div>
 						</div>
 						<div class="message-body">
-							@LinkedText(messageBody(ctx,m))
+							@MessageText(messageBody(ctx,m),p.Mentions,ticketBase(p))
 						</div>
 						if len(m.Attachments)>0 {
 							<div class="attachment-list">
@@ -1182,9 +1220,20 @@ templ Detail(p model.Page) {
 			</div>
 			if p.Ticket.Status == "closed" && !p.Admin {
 				<div class="closed-notice">
-					@Icon("check")
-					{ i18n.T(ctx,"此客服單已結案。如需繼續討論，請先重新開啟。") }
+					@Icon(choose(p.Ticket.Locked(),"lock","check"))
+					<span>
+						if p.Ticket.Locked() {
+							{ i18n.T(ctx,"此客服單已鎖定，無法回覆或重新開啟。如需協助，請建立新的客服單。") }
+						} else if p.Ticket.LockAt != nil {
+							{ i18n.T(ctx,"此客服單已結案。如需繼續討論，請在") } <time datetime={ p.Ticket.LockAt.Format(time.RFC3339) } data-local-time="full" data-timezone-inline>{ p.Ticket.LockAt.UTC().Format("2006/01/02 15:04") } UTC</time> { i18n.T(ctx,"前重新開啟，之後將鎖定。") }
+						} else {
+							{ i18n.T(ctx,"此客服單已結案。如需繼續討論，請先重新開啟。") }
+						}
+					</span>
 				</div>
+				if p.Ticket.Locked() {
+					<a class="button primary" href={ templ.SafeURL(fmt.Sprintf("/tickets/new?from=%d",p.Ticket.ID)) }>{ i18n.T(ctx,"建立新的客服單") }</a>
+				}
 				if p.DraftBody!="" {
 					<label class="field">{ i18n.T(ctx,"未送出的回覆") }<textarea readonly rows="5">{ p.DraftBody }</textarea></label>
 				}
@@ -1203,12 +1252,17 @@ templ Detail(p model.Page) {
 					<input type="hidden" name="submission" value={ p.Submission }/>
 					<label class="field" for="reply">{ i18n.T(ctx,"回覆") }</label>
 					<textarea id="reply" name="body" required maxlength="20000" rows="5" placeholder={ i18n.T(ctx,"輸入回覆…") }>{ p.DraftBody }</textarea>
-					if p.User.Role=="admin" && p.User.Signature!="" {
+					if p.Admin && p.Ticket.Locked() {
+						<p class="field-hint">{ i18n.T(ctx,"此客服單已鎖定，只能新增內部備註。") }</p>
+					} else if p.User.Role=="admin" && p.User.Signature!="" {
 						<p class="field-hint">{ i18n.T(ctx,"公開回覆會自動附上簽名檔") }</p>
 					}
+					@MentionPicker(p.MentionOptions)
 					@Upload()
 					<div class="form-actions">
-						if p.Admin {
+						if p.Admin && p.Ticket.Locked() {
+							<input type="hidden" name="internal" value="true"/>
+						} else if p.Admin {
 							<label class="checkbox-label">
 								<input type="checkbox" name="internal" value="true" checked?={ p.DraftInternal }/>{ i18n.T(ctx,"內部備註（僅客服可見）") }
 							</label>
@@ -1287,8 +1341,10 @@ templ Detail(p model.Page) {
 						}
 						<button class="button primary full-width">{ i18n.T(ctx,"儲存變更") }</button>
 					} else if p.Ticket.Status == "closed" {
-						<input type="hidden" name="status" value="new"/>
-						<button class="button secondary full-width">{ i18n.T(ctx,"重新開啟客服單") }</button>
+						if !p.Ticket.Locked() {
+							<input type="hidden" name="status" value="new"/>
+							<button class="button secondary full-width">{ i18n.T(ctx,"重新開啟客服單") }</button>
+						}
 					} else {
 						<input type="hidden" name="status" value="closed"/>
 						<button class="button secondary close-action full-width">
@@ -1435,6 +1491,16 @@ templ Automation(p model.Page) {
 			<label class="field">{ i18n.T(ctx,"已解決後幾天結案") }<input class="auto-close-days" type="number" name="auto_close_days" min="0" max="365" step="1" value={ strconv.Itoa(p.Automation.AutoCloseDays) } required/></label>
 			<p class="field-hint">{ i18n.T(ctx,"0 表示停用；從標記已解決時起算。回覆後取消倒數，並發出站內通知。") }</p>
 			<p class="field-hint">{ i18n.T(ctx,"變更天數也會套用目前已解決的客服單。") }</p>
+		</section>
+		<section class="account-card">
+			<h2>{ i18n.T(ctx,"等待客戶回覆") }</h2>
+			<div class="field-grid">
+				<label class="field">{ i18n.T(ctx,"幾小時後寄提醒信") }<input class="auto-close-days" type="number" name="waiting_remind_hours" min="0" max="720" step="1" value={ strconv.Itoa(p.Lifecycle.RemindHours) } required/></label>
+				<label class="field">{ i18n.T(ctx,"幾小時後自動結案") }<input class="auto-close-days" type="number" name="waiting_close_hours" min="0" max="720" step="1" value={ strconv.Itoa(p.Lifecycle.CloseHours) } required/></label>
+			</div>
+			<p class="field-hint">{ i18n.T(ctx,"從客服單進入「等待使用者回覆」時起算，客服每次回覆會重新計時；客戶回覆後取消。0 表示停用。") }</p>
+			<label class="field">{ i18n.T(ctx,"結案幾小時後鎖定") }<input class="auto-close-days" type="number" name="closed_lock_hours" min="0" max="8760" step="1" value={ strconv.Itoa(p.Lifecycle.LockHours) } required/></label>
+			<p class="field-hint">{ i18n.T(ctx,"鎖定後無法回覆或重新開啟，客戶需建立新的客服單；客服仍可新增內部備註。0 表示不鎖定。") }</p>
 		</section>
 		<section class="account-card">
 			<h2>{ i18n.T(ctx,"服務時間") }</h2>

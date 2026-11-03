@@ -23,6 +23,10 @@ func (a *App) automation(w http.ResponseWriter, r *http.Request) {
 		a.fail(w, r, err)
 		return
 	}
+	if p.Lifecycle, err = a.Store.Lifecycle(r.Context()); err != nil {
+		a.fail(w, r, err)
+		return
+	}
 	a.render(w, r, p)
 }
 
@@ -51,6 +55,25 @@ func (a *App) saveAutomation(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		settings.AutoCloseDays = days
+	}
+	// A form without the waiting and lock hours keeps them as they are.
+	lifecycle, err := a.Store.Lifecycle(r.Context())
+	if err != nil {
+		a.fail(w, r, err)
+		return
+	}
+	hours := func(name string, most int, value *int) bool {
+		if r.PostFormValue(name) == "" {
+			return true
+		}
+		n, err := strconv.Atoi(r.PostFormValue(name))
+		*value = n
+		return err == nil && n >= 0 && n <= most
+	}
+	if !hours("waiting_remind_hours", 720, &lifecycle.RemindHours) || !hours("waiting_close_hours", 720, &lifecycle.CloseHours) || !hours("closed_lock_hours", 8760, &lifecycle.LockHours) ||
+		(lifecycle.RemindHours > 0 && lifecycle.CloseHours > 0 && lifecycle.RemindHours >= lifecycle.CloseHours) {
+		a.problem(w, r, 422, "提醒與結案時數須為 0 至 720 小時，且提醒須早於結案；鎖定時數須為 0 至 8,760 小時。")
+		return
 	}
 	loc, err := time.LoadLocation(settings.Timezone)
 	if err != nil {
@@ -98,6 +121,10 @@ func (a *App) saveAutomation(w http.ResponseWriter, r *http.Request) {
 		settings.Days = append(settings.Days, schedule)
 	}
 	if err := a.Store.SaveAutomation(r.Context(), settings); err != nil {
+		a.fail(w, r, err)
+		return
+	}
+	if err := a.Store.SaveLifecycle(r.Context(), lifecycle); err != nil {
 		a.fail(w, r, err)
 		return
 	}

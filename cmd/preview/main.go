@@ -75,6 +75,7 @@ func main() {
 			}
 			days[0].Ranges = []model.TimeRange{{Start: "09:00", End: "12:00"}, {Start: "13:00", End: "18:00"}}
 			p.Automation = model.AutomationSettings{Timezone: "Asia/Taipei", Days: days, AutoCloseDays: 7}
+			p.Lifecycle = model.Lifecycle{RemindHours: 12, CloseHours: 24, LockHours: 72}
 		}
 		if r.URL.Path == "/notifications" {
 			p.Active, p.Title = "notifications", "通知"
@@ -236,6 +237,15 @@ func main() {
 				}
 			}
 		}
+		if p.Active == "detail" || p.Active == "new" {
+			p.Mentions = map[int64]model.TicketRef{}
+			for _, t := range fixture().Tickets {
+				p.Mentions[t.ID] = model.TicketRef{ID: t.ID, Subject: t.Subject}
+				if t.ID != p.Ticket.ID && len(p.MentionOptions) < 4 {
+					p.MentionOptions = append(p.MentionOptions, model.TicketRef{ID: t.ID, Subject: t.Subject})
+				}
+			}
+		}
 		if p.Active == "detail" && r.URL.Query().Get("participants") != "" {
 			member := r.URL.Query().Get("participants") == "member"
 			p.Invites = []model.Participant{{Email: "taylor@example.com", Self: member}, {Email: "future.participant@example.com"}}
@@ -392,7 +402,7 @@ func fixture() model.Page {
 		p.Tickets = append(p.Tickets, ticket)
 	}
 	p.Ticket = p.Tickets[0]
-	p.Messages = []model.Message{{ID: 1, Author: "Alex Chen", Role: "user", Body: "你好，今天早上使用代理服務時，偶爾會出現連線逾時。\n\n已經嘗試重新連線及更換本機網路，但仍有同樣的情況。想請你們協助確認目前的節點狀態，謝謝！", CreatedAt: now.Add(-2 * time.Hour)}, {ID: 2, Author: "Jamie", Role: "support", Body: "你好 Alex，謝謝你提供這些資訊。\n\n我們正在確認相關節點的連線狀態。為了更快定位問題，方便補充受影響的節點地區，以及大約發生的時間嗎？節點狀態可至 https://status.example.com/nodes 查看。\n\n請直接在這張客服單回覆，我們會持續協助你。", CreatedAt: now.Add(-time.Hour)}}
+	p.Messages = []model.Message{{ID: 1, Author: "Alex Chen", Role: "user", Body: "你好，今天早上使用代理服務時，偶爾會出現連線逾時。\n\n已經嘗試重新連線及更換本機網路，但仍有同樣的情況。想請你們協助確認目前的節點狀態，謝謝！", CreatedAt: now.Add(-2 * time.Hour)}, {ID: 2, Author: "Jamie", Role: "support", Body: "你好 Alex，謝謝你提供這些資訊。\n\n我們正在確認相關節點的連線狀態。為了更快定位問題，方便補充受影響的節點地區，以及大約發生的時間嗎？節點狀態可至 https://status.example.com/nodes 查看，先前的 #1047 也有類似情況。\n\n請直接在這張客服單回覆，我們會持續協助你。", CreatedAt: now.Add(-time.Hour)}}
 	p.Staff = []model.User{{ID: 2, Name: "Jamie", Role: "support", Departments: []string{"billing"}}, {ID: 3, Name: "Morgan", Role: "support", Departments: []string{"technical"}}, {ID: 4, Name: "Taylor", Role: "support", Departments: []string{"billing"}}, {ID: 5, Name: "Casey", Role: "support", Departments: []string{"other"}}}
 	return p
 }

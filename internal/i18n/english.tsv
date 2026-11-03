@@ -94,7 +94,7 @@ ZIP 解壓後過大	ZIP expands beyond the allowed size
 已結案	Closed
 已解決	Resolved
 已轉交真人客服，等待回覆	Handed to a support agent; waiting for a reply
-已選圖片預覽	Selected image previews
+已選檔案	Selected files
 帳務支援	Billing support
 帳務部門	Billing team
 帳號操作	Account action
@@ -255,7 +255,7 @@ ZIP 解壓後過大	ZIP expands beyond the allowed size
 週六	Saturday
 週四	Thursday
 週日	Sunday
-選填 · 最多 3 個，每個 10 MB	Optional · up to 3 files, 10 MB each
+選填 · 最多 3 個，每個 10 MB · 可拖曳檔案到這裡	Optional · up to 3 files, 10 MB each · drop files here
 選擇檔案	Choose files
 邀請	Invite
 邀請使用者加入客服單	Invited user to ticket
@@ -412,3 +412,23 @@ SMTP 伺服器暫時無法處理，稍後會自動重試。	The SMTP server is t
 至 {date}	Until {date}
 請輸入有效的到期日。	Enter a valid end date.
 找不到使用者。	User not found.
+等待客戶回覆	Waiting on the customer
+幾小時後寄提醒信	Reminder email after (hours)
+幾小時後自動結案	Close automatically after (hours)
+從客服單進入「等待使用者回覆」時起算，客服每次回覆會重新計時；客戶回覆後取消。0 表示停用。	Counted from when the ticket starts waiting on the customer; each staff reply restarts it and a customer reply cancels it. 0 turns it off.
+結案幾小時後鎖定	Lock after closing (hours)
+鎖定後無法回覆或重新開啟，客戶需建立新的客服單；客服仍可新增內部備註。0 表示不鎖定。	A locked ticket takes no replies and cannot be reopened, so the customer opens a new ticket; staff can still add internal notes. 0 never locks.
+圖片（JPG、PNG、WebP）、PDF、文字與記錄檔（TXT、LOG、CSV、JSON、HAR、YAML、XML、CONF）、封包擷取（PCAP、PCAPNG）、壓縮檔（ZIP、GZ、TAR、7Z）	Images (JPG, PNG, WebP), PDF, text and logs (TXT, LOG, CSV, JSON, HAR, YAML, XML, CONF), packet captures (PCAP, PCAPNG), archives (ZIP, GZ, TAR, 7Z)
+提及客服單	Mention a ticket
+也可以直接輸入 # 加單號，例如 #12。	You can also type # and a ticket number, such as #12.
+若未收到回覆，客服單將於	Without a reply, this ticket closes automatically on
+此客服單已鎖定，無法回覆或重新開啟。如需協助，請建立新的客服單。	This ticket is locked and cannot be replied to or reopened. Open a new ticket if you need help.
+此客服單已結案。如需繼續討論，請在	This ticket is closed. To continue the conversation, reopen it before
+前重新開啟，之後將鎖定。	. After that it is locked.
+建立新的客服單	Open a new ticket
+此客服單已鎖定，只能新增內部備註。	This ticket is locked; only internal notes can be added.
+請選擇問題類別。	Choose a category.
+建立客服單的次數過多，請稍後再試；如需補充，可直接回覆既有的客服單。	Too many new tickets. Try again later, or reply to an existing ticket to add details.
+請完成人機驗證後再送出。	Complete the verification before submitting.
+提醒與結案時數須為 0 至 720 小時，且提醒須早於結案；鎖定時數須為 0 至 8,760 小時。	Reminder and closing hours must be 0 to 720, with the reminder before closing; lock hours must be 0 to 8,760.
+此客服單因未收到回覆，已自動結案。	This ticket was closed automatically because no reply arrived.

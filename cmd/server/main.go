@@ -101,6 +101,9 @@ func run() error {
 		return err
 	}
 	a := &app.App{Store: store, Auth: auth, Files: files, Origin: origin, Site: site, Log: slog.Default(), AIEnabled: aiEnabled, AIModel: aiModel, MailEnabled: mailConfig.Enabled(), PortalAPI: portalAPI}
+	if key, secret := os.Getenv("TURNSTILE_SITE_KEY"), os.Getenv("TURNSTILE_SECRET_KEY"); key != "" && secret != "" {
+		a.Turnstile = &app.Turnstile{SiteKey: key, Secret: secret, Client: &http.Client{Timeout: 10 * time.Second}}
+	}
 	if aiEnabled {
 		go (&ai.Worker{Store: store, Key: aiKey, Model: aiModel, Log: slog.Default()}).Run(ctx)
 	}

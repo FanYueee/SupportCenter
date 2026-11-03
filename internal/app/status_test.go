@@ -21,9 +21,16 @@ func TestDetailedTicketStatusFlow(t *testing.T) {
 	if err = a.Store.Update(ctx, staff, id, true, "new", "low", &staff.ID, ticket.Version); err != nil {
 		t.Fatal(err)
 	}
+	// Assigning someone does not start work; only staff choose "open".
 	ticket, _ = a.Store.Ticket(ctx, alice, id, false)
-	if ticket.Status != "open" {
-		t.Fatalf("assignment did not start work: %s", ticket.Status)
+	if ticket.Status != "new" {
+		t.Fatalf("assignment changed the status: %s", ticket.Status)
+	}
+	if err = a.Store.Update(ctx, staff, id, true, "open", "low", &staff.ID, ticket.Version); err != nil {
+		t.Fatal(err)
+	}
+	if ticket, _ = a.Store.Ticket(ctx, alice, id, false); ticket.Status != "open" {
+		t.Fatalf("staff could not start work: %s", ticket.Status)
 	}
 	if err = a.Store.Update(ctx, staff, id, true, "on_hold", "low", &staff.ID, ticket.Version); err != nil {
 		t.Fatal(err)
@@ -43,10 +50,14 @@ func TestDetailedTicketStatusFlow(t *testing.T) {
 		t.Fatal(err)
 	}
 	ticket, _ = a.Store.Ticket(ctx, alice, id, false)
-	if ticket.Status != "open" {
-		t.Fatalf("reply did not reopen solved ticket: %s", ticket.Status)
+	if ticket.Status != "new" {
+		t.Fatalf("reply did not return the solved ticket to the queue: %s", ticket.Status)
 	}
+	if err = a.Store.Update(ctx, staff, id, true, "open", "low", &staff.ID, ticket.Version); err != nil {
+		t.Fatal(err)
+	}
+	ticket, _ = a.Store.Ticket(ctx, alice, id, false)
 	if err = a.Store.Update(ctx, staff, id, true, "new", "low", &staff.ID, ticket.Version); err == nil {
-		t.Fatal("old ticket reentered new state")
+		t.Fatal("staff moved a ticket in progress back to new")
 	}
 }

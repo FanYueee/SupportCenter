@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"os"
 	"slices"
 	"strconv"
@@ -40,7 +41,17 @@ type App struct {
 	Discord     notify.Discord // the settings page's test message
 	Mailer      notify.Sender  // nil without SMTP; the settings page's test email
 	MailFrom    string
+	Turnstile   *Turnstile // the bot check on new tickets; nil without keys
 }
+
+// Customers may open a few tickets in a row, but not a flood: per account in
+// 10 minutes and in a day, and per network (an address, or an IPv6 /64) in an
+// hour. Staff are not limited.
+const (
+	ticketsPerBurst   = 3
+	ticketsPerDay     = 20
+	ticketsPerNetwork = 10
+)
 
 func (a *App) Handler() http.Handler {
 	mux := http.NewServeMux()
@@ -89,6 +100,11 @@ func (a *App) Handler() http.Handler {
 			a.fail(w, r, err)
 			return
 		}
+		// Continuing a locked ticket starts the description with a mention of it.
+		if from, err := strconv.ParseInt(r.URL.Query().Get("from"), 10, 64); err == nil && from > 0 {
+			p.DraftBody = fmt.Sprintf("延續客服單 #%d\n\n", from)
+		}
+		a.newTicketForm(w, &p)
 		a.render(w, r, p)
 	}))
 	mux.HandleFunc("POST /tickets", a.protected(false, a.create))
@@ -277,6 +293,10 @@ func (a *App) render(w http.ResponseWriter, r *http.Request, p model.Page) {
 			return
 		}
 	}
+	if err = a.mentionData(r, &p); err != nil {
+		a.fail(w, r, err)
+		return
+	}
 	if r.Header.Get("HX-Request") == "true" {
 		err = web.Workspace(p).Render(r.Context(), &buf)
 	} else {
@@ -318,6 +338,10 @@ func (a *App) fail(w http.ResponseWriter, r *http.Request, err error) {
 	}
 	if errors.Is(err, database.ErrClosed) {
 		a.problem(w, r, 409, "客服單已結案，請先重新開啟再回覆。")
+		return
+	}
+	if errors.Is(err, database.ErrLocked) {
+		a.problem(w, r, 409, "此客服單已鎖定，無法回覆或重新開啟。如需協助，請建立新的客服單。")
 		return
 	}
 	if errors.Is(err, database.ErrInvalid) {
@@ -416,7 +440,11 @@ func (a *App) create(w http.ResponseWriter, r *http.Request) {
 		t.AssistanceMode = "ai"
 	}
 	body := strings.TrimSpace(r.PostFormValue("body"))
-	if !validBody(t.Subject) || len([]rune(t.Subject)) > 160 || !validBody(body) || !valid(t.Category, "other", "billing", "technical") || !slices.Contains(model.Priorities, t.Priority) {
+	if !valid(t.Category, "other", "billing", "technical") {
+		a.createError(w, r, t, body, "請選擇問題類別。")
+		return
+	}
+	if !validBody(t.Subject) || len([]rune(t.Subject)) > 160 || !validBody(body) || !slices.Contains(model.Priorities, t.Priority) {
 		a.createError(w, r, t, body, "請填寫主旨（最多 160 字）、描述（最多 20,000 字）並選擇有效類別及優先級。")
 		return
 	}
@@ -439,6 +467,22 @@ func (a *App) create(w http.ResponseWriter, r *http.Request) {
 		a.createError(w, r, t, body, "請輸入有效的參與者 Email，最多 20 位，且不可邀請自己。")
 		return
 	}
+	if !u.Staff() {
+		burst, day, network, err := a.Store.RecentTickets(r.Context(), u.ID, clientKey(r))
+		if err != nil {
+			a.fail(w, r, err)
+			return
+		}
+		if burst >= ticketsPerBurst || day >= ticketsPerDay || network >= ticketsPerNetwork {
+			w.Header().Set("Retry-After", "600")
+			a.createErrorStatus(w, r, t, body, "建立客服單的次數過多，請稍後再試；如需補充，可直接回覆既有的客服單。", http.StatusTooManyRequests)
+			return
+		}
+	}
+	if a.Turnstile.Enabled() && !a.Turnstile.Verify(r.Context(), r.PostFormValue("cf-turnstile-response"), ClientRequestInfo(r).IP, originHost(a.Origin)) {
+		a.createError(w, r, t, body, "請完成人機驗證後再送出。")
+		return
+	}
 	files, err := a.uploads(r)
 	if err != nil {
 		a.createError(w, r, t, body, i18n.T(r.Context(), err.Error())+" "+i18n.T(r.Context(), "附件請重新選擇。"))
@@ -458,8 +502,55 @@ func (a *App) create(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	http.Redirect(w, r, fmt.Sprintf("/tickets/%d", id), 303)
+	target := fmt.Sprintf("/tickets/%d", id)
+	if r.Header.Get("HX-Request") == "true" {
+		w.Header().Set("HX-Redirect", target)
+		return
+	}
+	http.Redirect(w, r, target, 303)
 }
+
+// mentionData names the tickets mentioned in the shown messages that the viewer
+// may open, and lists tickets to offer for mentioning: the viewer's own, or for
+// staff the requester's.
+func (a *App) mentionData(r *http.Request, p *model.Page) error {
+	var err error
+	if len(p.Messages) > 0 && p.Mentions == nil {
+		bodies := make([]string, len(p.Messages))
+		for i, m := range p.Messages {
+			bodies[i] = m.Body
+		}
+		if p.Mentions, err = a.Store.TicketRefs(r.Context(), p.User, p.Admin, web.MentionedTickets(bodies...)); err != nil {
+			return err
+		}
+	}
+	partial := r.Header.Get("HX-Target") == "conversation-activity" || r.Header.Get("HX-Target") == "ticket-sidebar"
+	if p.MentionOptions == nil && (p.Active == "new" || p.Active == "detail" && !partial) {
+		owner := p.User.ID
+		if p.Active == "detail" && p.Admin && p.User.Staff() {
+			owner = p.Ticket.UserID
+		}
+		p.MentionOptions, err = a.Store.OwnTickets(r.Context(), owner, p.Ticket.ID)
+	}
+	return err
+}
+
+// newTicketForm adds the bot check to the new ticket form.
+func (a *App) newTicketForm(w http.ResponseWriter, p *model.Page) {
+	if a.Turnstile.Enabled() {
+		p.TurnstileSiteKey = a.Turnstile.SiteKey
+		allowTurnstile(w)
+	}
+}
+
+func originHost(origin string) string {
+	u, err := url.Parse(origin)
+	if err != nil {
+		return ""
+	}
+	return u.Hostname()
+}
+
 func (a *App) reply(w http.ResponseWriter, r *http.Request) {
 	p := base(r)
 	id, ok := idFrom(r)
@@ -704,6 +795,16 @@ func (a *App) Cleanup(ctx context.Context) {
 }
 
 func (a *App) createError(w http.ResponseWriter, r *http.Request, t model.Ticket, body, message string) {
+	a.createErrorStatus(w, r, t, body, message, http.StatusUnprocessableEntity)
+}
+
+// createErrorStatus shows the form again with the entries kept. An HTMX
+// submission keeps its form, files included, and only shows the message.
+func (a *App) createErrorStatus(w http.ResponseWriter, r *http.Request, t model.Ticket, body, message string, status int) {
+	if r.Header.Get("HX-Request") == "true" {
+		a.problem(w, r, status, message)
+		return
+	}
 	p := base(r)
 	p.Active = "new"
 	p.Title = "建立客服單"
@@ -723,13 +824,18 @@ func (a *App) createError(w http.ResponseWriter, r *http.Request, t model.Ticket
 	if submissionKey.MatchString(r.PostFormValue("submission")) {
 		p.Submission = r.PostFormValue("submission")
 	}
+	a.newTicketForm(w, &p)
+	if err = a.mentionData(r, &p); err != nil {
+		a.fail(w, r, err)
+		return
+	}
 	var buf bytes.Buffer
 	if err := web.Document(p).Render(r.Context(), &buf); err != nil {
 		a.fail(w, r, err)
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.WriteHeader(422)
+	w.WriteHeader(status)
 	w.Write(buf.Bytes())
 }
 
@@ -744,6 +850,9 @@ func (a *App) replyError(w http.ResponseWriter, r *http.Request, message string,
 		case errors.Is(cause, database.ErrClosed):
 			status = 409
 			message = "客服單已結案，請重新開啟後再回覆。"
+		case errors.Is(cause, database.ErrLocked):
+			status = 409
+			message = "此客服單已鎖定，無法回覆或重新開啟。如需協助，請建立新的客服單。"
 		case errors.Is(cause, database.ErrNotFound):
 			a.fail(w, r, cause)
 			return
@@ -782,6 +891,10 @@ func (a *App) replyError(w http.ResponseWriter, r *http.Request, message string,
 	}
 	p.Active = "detail"
 	p.Title = p.Ticket.Subject
+	if err = a.mentionData(r, &p); err != nil {
+		a.fail(w, r, err)
+		return
+	}
 	p.Error = i18n.T(r.Context(), message) + " " + i18n.T(r.Context(), "附件請重新選擇。")
 	p.DraftBody = r.PostFormValue("body")
 	p.DraftInternal = r.PostFormValue("internal") == "true"
