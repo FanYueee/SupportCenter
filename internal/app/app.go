@@ -479,9 +479,12 @@ func (a *App) create(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if a.Turnstile.Enabled() && !a.Turnstile.Verify(r.Context(), r.PostFormValue("cf-turnstile-response"), ClientRequestInfo(r).IP, originHost(a.Origin)) {
-		a.createError(w, r, t, body, "請完成人機驗證後再送出。")
-		return
+	if a.Turnstile.Enabled() {
+		if ok, reason := a.Turnstile.Verify(r.Context(), r.PostFormValue("cf-turnstile-response"), ClientRequestInfo(r).IP, originHost(a.Origin)); !ok {
+			a.Log.Warn("turnstile check failed", "reason", reason)
+			a.createError(w, r, t, body, "請完成人機驗證後再送出。")
+			return
+		}
 	}
 	files, err := a.uploads(r)
 	if err != nil {
