@@ -338,10 +338,8 @@ func (s *Store) CreateWithParticipants(ctx context.Context, u model.User, t mode
 			return 0, err
 		}
 	}
-	if t.Category == "technical" {
-		if err = queueTechnicalNotifications(ctx, tx, id, "technical", nil); err != nil {
-			return 0, err
-		}
+	if err = queueDepartmentNotifications(ctx, tx, id, "department", nil); err != nil {
+		return 0, err
 	}
 	return id, commit(ctx, tx)
 }
@@ -615,31 +613,27 @@ func (s *Store) updateTeamCategory(ctx context.Context, u model.User, id int64, 
 			if _, err = tx.Exec(ctx, `INSERT INTO ticket_messages(ticket_id,user_id,body,source,client_ip,user_agent) VALUES($1,$2,$3,'system',$4,$5)`, id, u.ID, body, info.IP, info.UserAgent); err != nil {
 				return err
 			}
-			if category == "technical" {
-				if err = queueTechnicalNotifications(ctx, tx, id, "technical", nil); err != nil {
-					return err
-				}
-			} else if oldCategory == "technical" {
-				if _, err = tx.Exec(ctx, `UPDATE email_notifications SET state='cancelled' WHERE ticket_id=$1 AND state='pending'`, id); err != nil {
-					return err
-				}
+			// The old department's unsent notices go; the new department hears about it.
+			if _, err = tx.Exec(ctx, `UPDATE email_notifications SET state='cancelled' WHERE ticket_id=$1 AND state='pending'`, id); err != nil {
+				return err
+			}
+			if err = queueDepartmentNotifications(ctx, tx, id, "department", nil); err != nil {
+				return err
 			}
 		}
 		if !slices.Equal(oldTeam, team) {
 			if err = recordEvent(ctx, tx, id, u.ID, "assignment", teamText(oldTeam), teamText(team)); err != nil {
 				return err
 			}
-			if category == "technical" {
-				added := []int64{}
-				for _, personID := range team {
-					if !slices.Contains(oldTeam, personID) {
-						added = append(added, personID)
-					}
+			added := []int64{}
+			for _, personID := range team {
+				if !slices.Contains(oldTeam, personID) {
+					added = append(added, personID)
 				}
-				if len(added) > 0 {
-					if err = queueTechnicalNotifications(ctx, tx, id, "assignment", added); err != nil {
-						return err
-					}
+			}
+			if len(added) > 0 {
+				if err = queueDepartmentNotifications(ctx, tx, id, "assignment", added); err != nil {
+					return err
 				}
 			}
 		}

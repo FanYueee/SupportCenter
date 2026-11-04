@@ -5,7 +5,8 @@ AI 回覆	AI reply
 AI 指令	AI prompts
 AI 會讀取主旨及問題描述並回覆；公開訊息會傳送至 OpenAI。附件不會傳送。可隨時轉真人客服。	AI reads the subject and description to reply. Public messages are sent to OpenAI; attachments are not. You can switch to a person at any time.
 IP 未記錄	IP not recorded
-SMTP 尚未設定，技術通知暫存 7 天。	SMTP is not configured. Technical notifications are queued for 7 days.
+SMTP 尚未設定，部門通知暫存 7 天。	SMTP is not configured. Department notifications are queued for 7 days.
+新客服單會依問題類別寄 Email 給該部門的成員；該部門的客服被指派時也會收到通知。同一位客服可以加入多個部門，Email 需已驗證。	New tickets are emailed to the members of the matching department, and department members are emailed when assigned. One person can join several departments; their email must be verified.
 ZIP 解壓後過大	ZIP expands beyond the allowed size
 一般支援	General support
 一般支援部門	General support team

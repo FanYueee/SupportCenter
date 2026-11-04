@@ -25,7 +25,7 @@ func (f *fakeMailSender) Send(_ context.Context, msg notify.Message) error {
 	return nil
 }
 
-func TestDepartmentsCategoryTimelineAndTechnicalEmail(t *testing.T) {
+func TestDepartmentsCategoryTimelineAndDepartmentEmail(t *testing.T) {
 	a, h, alice, _, staff := testApp(t)
 	ctx := context.Background()
 	admin, err := a.Store.User(ctx, "admin", "admin", "admin@example.test", true)
@@ -114,7 +114,7 @@ func TestDepartmentsCategoryTimelineAndTechnicalEmail(t *testing.T) {
 	if got := request(h, "POST", path+"/update", "admin", update); got.Code != 303 {
 		t.Fatalf("return to technical department: %d", got.Code)
 	}
-	if err = a.Store.Pool.QueryRow(ctx, `SELECT count(*) FROM email_notifications WHERE ticket_id=$1 AND kind='technical' AND state='pending'`, id).Scan(&queued); err != nil || queued != 1 {
+	if err = a.Store.Pool.QueryRow(ctx, `SELECT count(*) FROM email_notifications WHERE ticket_id=$1 AND kind='department' AND state='pending'`, id).Scan(&queued); err != nil || queued != 1 {
 		t.Fatalf("rerouting notification: %d %v", queued, err)
 	}
 	ticket, err = a.Store.Ticket(ctx, admin, id, true)
@@ -126,10 +126,51 @@ func TestDepartmentsCategoryTimelineAndTechnicalEmail(t *testing.T) {
 	if got := request(h, "POST", path+"/update", "admin", update); got.Code != 303 {
 		t.Fatalf("correct technical misroute: %d", got.Code)
 	}
-	if err = a.Store.Pool.QueryRow(ctx, `SELECT count(*) FROM email_notifications WHERE ticket_id=$1 AND kind='technical' AND state='cancelled'`, id).Scan(&queued); err != nil || queued != 1 {
+	if err = a.Store.Pool.QueryRow(ctx, `SELECT count(*) FROM email_notifications WHERE ticket_id=$1 AND kind='department' AND state='cancelled'`, id).Scan(&queued); err != nil || queued != 1 {
 		t.Fatalf("misroute cancellation: %d %v", queued, err)
 	}
 	if processed, err := worker.ProcessOne(ctx); err != nil || processed {
 		t.Fatalf("cancelled notification sent: %v %v", processed, err)
+	}
+}
+
+func TestNewTicketsEmailTheirDepartment(t *testing.T) {
+	a, h, alice, _, staff := testApp(t)
+	ctx := context.Background()
+	admin, err := a.Store.User(ctx, "admin", "admin", "admin@example.test", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = a.Store.Pool.Exec(ctx, `UPDATE users SET email_verified=true WHERE id=$1`, staff.ID); err != nil {
+		t.Fatal(err)
+	}
+	// One person may look after several departments.
+	for id, departments := range map[int64][]string{staff.ID: {"billing", "other"}, admin.ID: {"technical"}} {
+		if got := request(h, "POST", fmt.Sprintf("/admin/departments/%d", id), "admin", url.Values{"csrf": {"csrf-admin"}, "departments": departments}); got.Code != 303 {
+			t.Fatalf("save departments: %d", got.Code)
+		}
+	}
+	mail := &fakeMailSender{}
+	worker := notify.Worker{Store: a.Store, Sender: mail, Origin: "https://support.example.test", Log: a.Log}
+	for _, c := range []struct{ category, to string }{{"billing", staff.Email}, {"other", staff.Email}, {"technical", admin.Email}} {
+		id, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "routing " + c.category, Category: c.category, Priority: "low"}, "help", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		mail.sent = nil
+		for {
+			processed, err := worker.ProcessOne(ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !processed {
+				break
+			}
+		}
+		department := model.DepartmentName(c.category)
+		if len(mail.sent) != 1 || mail.sent[0].to != c.to || !strings.Contains(mail.sent[0].subject, model.Category(c.category)+"客服單") ||
+			!strings.Contains(mail.sent[0].html, "已送至"+department) || !strings.Contains(mail.sent[0].body, fmt.Sprintf("/admin/tickets/%d", id)) {
+			t.Fatalf("%s ticket notified %+v", c.category, mail.sent)
+		}
 	}
 }

@@ -644,9 +644,12 @@ templ Departments(p model.Page) {
 	if p.Saved {
 		<div class="notice success" role="status">{ i18n.T(ctx,"已儲存") }</div>
 	}
-	if !p.MailEnabled {
-		<p class="field-hint department-mail-note">{ i18n.T(ctx,"SMTP 尚未設定，技術通知暫存 7 天。") }</p>
-	}
+	<p class="field-hint department-mail-note">
+		{ i18n.T(ctx,"新客服單會依問題類別寄 Email 給該部門的成員；該部門的客服被指派時也會收到通知。同一位客服可以加入多個部門，Email 需已驗證。") }
+		if !p.MailEnabled {
+			{ i18n.T(ctx,"SMTP 尚未設定，部門通知暫存 7 天。") }
+		}
+	</p>
 	<div class="department-settings">
 		for _, person := range p.Staff {
 			<form class="department-member" method="post" action={ "/admin/departments/"+strconv.FormatInt(person.ID,10) }>

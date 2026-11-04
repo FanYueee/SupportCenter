@@ -9,6 +9,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"supportcenter/internal/database"
+	"supportcenter/internal/model"
 	"supportcenter/web"
 )
 
@@ -25,9 +26,9 @@ type Worker struct {
 }
 
 type notification struct {
-	ID, TicketID      int64
-	Subject, To, Kind string
-	Attempts          int
+	ID, TicketID                int64
+	Subject, Category, To, Kind string
+	Attempts                    int
 }
 
 func (w *Worker) Run(ctx context.Context) {
@@ -58,8 +59,8 @@ func (w *Worker) ProcessOne(ctx context.Context) (bool, error) {
 	_, err := w.Store.Pool.Exec(ctx, `UPDATE email_notifications n SET state='cancelled',lease_until=NULL
 	 WHERE state IN ('pending','sending') AND (created_at<now()-interval '7 days' OR NOT EXISTS (
 	 SELECT 1 FROM tickets t JOIN users u ON u.id=n.recipient_user_id
-	 JOIN staff_departments d ON d.user_id=u.id AND d.category='technical'
-	 WHERE t.id=n.ticket_id AND t.category='technical' AND t.status NOT IN ('solved','closed')
+	 JOIN staff_departments d ON d.user_id=u.id AND d.category=t.category
+	 WHERE t.id=n.ticket_id AND t.status NOT IN ('solved','closed')
 	 AND u.role IN ('support','admin') AND u.email_verified))`)
 	if err != nil {
 		return false, err
@@ -73,8 +74,8 @@ func (w *Worker) ProcessOne(ctx context.Context) (bool, error) {
 	 UPDATE email_notifications n SET state='sending',attempts=attempts+1,lease_until=now()+interval '2 minutes'
 	 FROM picked WHERE n.id=picked.id RETURNING n.id,n.ticket_id,n.recipient_user_id,n.kind,n.attempts
 	)
-	 SELECT c.id,c.ticket_id,t.subject,u.email,c.kind,c.attempts FROM claimed c JOIN users u ON u.id=c.recipient_user_id JOIN tickets t ON t.id=c.ticket_id`,
-	).Scan(&item.ID, &item.TicketID, &item.Subject, &item.To, &item.Kind, &item.Attempts)
+	 SELECT c.id,c.ticket_id,t.subject,t.category,u.email,c.kind,c.attempts FROM claimed c JOIN users u ON u.id=c.recipient_user_id JOIN tickets t ON t.id=c.ticket_id`,
+	).Scan(&item.ID, &item.TicketID, &item.Subject, &item.Category, &item.To, &item.Kind, &item.Attempts)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return false, nil
 	}
@@ -83,9 +84,10 @@ func (w *Worker) ProcessOne(ctx context.Context) (bool, error) {
 	}
 	number := fmt.Sprintf("#%04d", item.TicketID)
 	view := web.NewEmailView(w.Site, w.Origin, time.Now())
-	view.Label = "技術部門"
-	view.Heading = "客服單 " + number + " 已送至技術部門"
-	view.Intro = []string{"有一張技術類客服單需要處理。"}
+	department := model.DepartmentName(item.Category)
+	view.Label = department
+	view.Heading = "客服單 " + number + " 已送至" + department
+	view.Intro = []string{"有一張" + model.Category(item.Category) + "客服單需要處理。"}
 	if item.Kind == "assignment" {
 		view.Label = "指派給你"
 		view.Heading = "客服單 " + number + " 已指派給你"
@@ -93,7 +95,7 @@ func (w *Worker) ProcessOne(ctx context.Context) (bool, error) {
 	}
 	view.Details = []web.EmailDetail{{Label: "單號", Value: number}, {Label: "主旨", Value: item.Subject}}
 	view.Action, view.Link = "開啟客服單", fmt.Sprintf("%s/admin/tickets/%d", w.Origin, item.TicketID)
-	msg, err := emailMessage(ctx, item.To, fmt.Sprintf("[%s] 技術客服單 %s", view.Site, number), view)
+	msg, err := emailMessage(ctx, item.To, fmt.Sprintf("[%s] %s客服單 %s", view.Site, model.Category(item.Category), number), view)
 	if err == nil {
 		err = w.Sender.Send(ctx, msg)
 	}
