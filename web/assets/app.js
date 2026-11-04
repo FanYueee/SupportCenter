@@ -268,29 +268,40 @@ document.addEventListener('change', async event => {
   const error = output.some(file => file.size > maxUploadSize) ? tr('每個檔案不可超過 10 MB', 'Each file must be under 10 MB') : '';
   showFileState(input, error || (summaryFor(output) + (saved > 0 ? tr(` · 節省 ${(saved / 1024).toFixed(0)} KB`, ` · saved ${(saved / 1024).toFixed(0)} KB`) : '')), Boolean(error));
 });
-// Files dropped anywhere on a form join those already chosen.
+// Files dropped anywhere on the page join those already chosen: in the form
+// they were dropped on, or else the page's attachment field.
 function dropTarget(event) {
   if (!event.dataTransfer?.types?.includes('Files')) return null;
-  return event.target.closest?.('form')?.querySelector('input[type="file"][data-image-worker]') || null;
+  const selector = 'input[type="file"][data-image-worker]';
+  return event.target.closest?.('form')?.querySelector(selector) || document.querySelector(selector);
 }
-document.addEventListener('dragover', event => {
-  const input = dropTarget(event);
-  if (!input) return;
-  event.preventDefault();
-  event.dataTransfer.dropEffect = 'copy';
-  input.closest('.upload-field')?.classList.add('dragging');
+let dragDepth = 0;
+function endDrag() {
+  dragDepth = 0;
+  document.documentElement.classList.remove('file-dragging');
+}
+document.addEventListener('dragenter', event => {
+  if (!dropTarget(event)) return;
+  dragDepth++;
+  document.documentElement.classList.add('file-dragging');
 });
 document.addEventListener('dragleave', event => {
-  const form = event.target.closest?.('form');
-  if (form && !form.contains(event.relatedTarget)) form.querySelector('.upload-field.dragging')?.classList.remove('dragging');
+  if (dragDepth && --dragDepth === 0) endDrag();
 });
+document.addEventListener('dragover', event => {
+  if (!dropTarget(event)) return;
+  event.preventDefault();
+  event.dataTransfer.dropEffect = 'copy';
+});
+document.addEventListener('dragend', endDrag);
 document.addEventListener('drop', event => {
+  endDrag();
   const input = dropTarget(event);
   if (!input || !event.dataTransfer.files.length) return;
   event.preventDefault();
-  input.closest('.upload-field')?.classList.remove('dragging');
   const current = fileStates.get(input)?.originals || Array.from(input.files || []);
   chooseFiles(input, [...current, ...event.dataTransfer.files]);
+  input.closest('.upload-field')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
 });
 // Attachments upload when the form is sent; the bar shows how far along.
 function uploadProgress(form) {
@@ -320,16 +331,204 @@ document.addEventListener('htmx:afterRequest', event => {
     for (const widget of event.target.querySelectorAll?.('[data-turnstile][data-widget]') || []) window.turnstile.reset(widget.dataset.widget);
   }
 });
-document.addEventListener('click', event => {
-  const button = event.target.closest?.('[data-mention]');
-  const field = button?.closest('form')?.querySelector('textarea[name="body"]');
-  if (!field) return;
-  const start = field.selectionStart ?? field.value.length;
-  const end = field.selectionEnd ?? start;
-  const spacer = start > 0 && !/\s$/.test(field.value.slice(0, start)) ? ' ' : '';
-  field.setRangeText(`${spacer}#${button.dataset.mention} `, start, end, 'end');
+// The formatting bar writes the Markdown that messages understand, so nobody
+// has to know it: selected text is wrapped, or each selected line prefixed.
+const inlineMarks = { bold: '**', italic: '*', strike: '~~', code: '`' };
+const linePrefixes = { quote: /^> ?/, bullet: /^[-*+] /, number: /^\d+[.)] / };
+function edited(field) {
   field.focus();
-  button.closest('details')?.removeAttribute('open');
+  field.dispatchEvent(new Event('input', { bubbles: true }));
+}
+function insertText(field, text) {
+  field.focus();
+  field.setRangeText(text, field.selectionStart, field.selectionEnd, 'end');
+  edited(field);
+}
+function formatField(field, format) {
+  const { selectionStart: start, selectionEnd: end, value } = field;
+  const selected = value.slice(start, end);
+  if (format === 'mention') {
+    insertText(field, (start > 0 && !/\s$/.test(value.slice(0, start)) ? ' ' : '') + '#');
+    return;
+  }
+  if (format === 'code' && selected.includes('\n')) {
+    const before = start > 0 && value[start - 1] !== '\n' ? '\n' : '';
+    field.setRangeText(`${before}\`\`\`\n${selected}\n\`\`\`\n`, start, end, 'end');
+  } else if (inlineMarks[format]) {
+    const mark = inlineMarks[format];
+    const around = value.slice(start - mark.length, start) === mark && value.slice(end, end + mark.length) === mark &&
+      !(format === 'italic' && (value[start - 2] === '*' || value[end + 1] === '*'));
+    if (around) {
+      field.setRangeText(selected, start - mark.length, end + mark.length, 'select');
+    } else if (selected.length > 2 * mark.length && selected.startsWith(mark) && selected.endsWith(mark)) {
+      field.setRangeText(selected.slice(mark.length, -mark.length), start, end, 'select');
+    } else {
+      field.setRangeText(mark + selected + mark, start, end, 'select');
+      field.setSelectionRange(start + mark.length, end + mark.length);
+    }
+  } else if (linePrefixes[format]) {
+    const lineStart = value.lastIndexOf('\n', start - 1) + 1;
+    let lineEnd = value.indexOf('\n', end > start && value[end - 1] === '\n' ? end - 1 : end);
+    if (lineEnd < 0) lineEnd = value.length;
+    const pattern = linePrefixes[format];
+    const lines = value.slice(lineStart, lineEnd).split('\n');
+    const remove = lines.every(line => pattern.test(line));
+    const prefix = i => format === 'quote' ? '> ' : format === 'bullet' ? '- ' : `${i + 1}. `;
+    field.setRangeText(lines.map((line, i) => remove ? line.replace(pattern, '') : prefix(i) + line).join('\n'), lineStart, lineEnd, 'select');
+    if (!remove && lines.length === 1 && start === end) field.setSelectionRange(start + prefix(0).length, start + prefix(0).length);
+  }
+  edited(field);
+}
+document.addEventListener('click', event => {
+  const button = event.target.closest?.('[data-format]');
+  const field = button?.closest('.composer')?.querySelector('textarea');
+  if (field) formatField(field, button.dataset.format);
+});
+document.addEventListener('keydown', event => {
+  const field = event.target;
+  if (!(event.ctrlKey || event.metaKey) || event.altKey || !field.closest?.('.composer') || field.tagName !== 'TEXTAREA') return;
+  const format = { b: 'bold', i: 'italic' }[event.key.toLowerCase()];
+  if (!format) return;
+  event.preventDefault();
+  formatField(field, format);
+});
+// A canned reply goes in where the cursor is, or fills an empty box.
+document.addEventListener('click', event => {
+  const option = event.target.closest?.('[data-canned]');
+  const field = option?.closest('.composer')?.querySelector('textarea');
+  if (!field) return;
+  const text = option.dataset.canned;
+  if (!field.value.trim()) {
+    field.value = text;
+    field.setSelectionRange(text.length, text.length);
+    edited(field);
+  } else {
+    const before = field.value.slice(0, field.selectionStart);
+    insertText(field, (before && !before.endsWith('\n') ? '\n' : '') + text);
+  }
+  option.closest('details')?.removeAttribute('open');
+});
+document.addEventListener('input', event => {
+  const filter = event.target.closest?.('[data-canned-filter]');
+  if (!filter) return;
+  const query = filter.value.trim().toLowerCase();
+  const menu = filter.closest('.canned-menu');
+  let shown = 0;
+  for (const option of menu.querySelectorAll('[data-canned]')) {
+    option.hidden = Boolean(query) && !option.textContent.toLowerCase().includes(query);
+    if (!option.hidden) shown++;
+  }
+  menu.querySelector('[data-canned-empty]').hidden = shown > 0;
+});
+document.addEventListener('toggle', event => {
+  if (event.target.matches?.('.canned-picker') && event.target.open) event.target.querySelector('[data-canned-filter]')?.focus();
+}, true);
+// Typing # in a message suggests tickets to mention, narrowed as you type and
+// picked with the arrow keys and Enter or Tab, or a tap.
+const mentionToken = /(?:^|[\s(（「『【,，。、:：;；!！?？])#([^\s#]{0,40})$/u;
+let mention = null;
+function mentionAt(field) {
+  if (field.selectionStart !== field.selectionEnd) return null;
+  const match = field.value.slice(0, field.selectionStart).match(mentionToken);
+  return match && { query: match[1], start: field.selectionStart - match[1].length - 1 };
+}
+function closeMentions() {
+  if (!mention) return;
+  mention.request?.abort();
+  clearTimeout(mention.timer);
+  mention.menu.remove();
+  mention.field.removeAttribute('aria-activedescendant');
+  mention.field.removeAttribute('aria-controls');
+  mention = null;
+}
+function mentionOptions() {
+  return mention ? [...mention.menu.querySelectorAll('[data-mention]')] : [];
+}
+function moveMention(index) {
+  const options = mentionOptions();
+  if (!options.length) return mention.field.removeAttribute('aria-activedescendant');
+  mention.active = (index + options.length) % options.length;
+  options.forEach((option, i) => {
+    option.id = `${mention.menu.id}-${i}`;
+    option.setAttribute('aria-selected', String(i === mention.active));
+  });
+  mention.field.setAttribute('aria-activedescendant', options[mention.active].id);
+  options[mention.active].scrollIntoView({ block: 'nearest' });
+}
+function showMentions(field, token) {
+  if (mention?.field !== field) {
+    closeMentions();
+    const menu = document.createElement('div');
+    menu.className = 'mention-menu';
+    menu.id = `${field.id}-mentions`;
+    menu.setAttribute('role', 'listbox');
+    menu.setAttribute('aria-label', tr('提及客服單', 'Mention a ticket'));
+    field.closest('.composer').append(menu);
+    field.setAttribute('aria-controls', menu.id);
+    mention = { field, menu, active: 0 };
+  }
+  const current = mention;
+  current.start = token.start;
+  clearTimeout(current.timer);
+  current.timer = setTimeout(async () => {
+    current.request?.abort();
+    const request = current.request = new AbortController();
+    const url = new URL(field.dataset.mentionSearch, location.origin);
+    url.searchParams.set('q', token.query);
+    try {
+      const response = await fetch(url, { signal: request.signal, headers: { 'HX-Request': 'true' } });
+      if (!response.ok || mention !== current) return;
+      const found = new DOMParser().parseFromString(await response.text(), 'text/html').body;
+      current.menu.replaceChildren(...[...found.childNodes].map(node => document.importNode(node, true)));
+      moveMention(0);
+    } catch {}
+  }, 120);
+}
+function pickMention(option) {
+  const { field, start } = mention;
+  field.setRangeText(`#${option.dataset.mention} `, start, field.selectionStart, 'end');
+  closeMentions();
+  field.focus();
+}
+document.addEventListener('input', event => {
+  const field = event.target;
+  if (!field.matches?.('textarea[data-mention-search]')) return;
+  const token = mentionAt(field);
+  token ? showMentions(field, token) : closeMentions();
+});
+document.addEventListener('keydown', event => {
+  if (!mention || event.target !== mention.field || event.isComposing) return;
+  const options = mentionOptions();
+  if (event.key === 'Escape') {
+    event.preventDefault();
+    closeMentions();
+  } else if (options.length && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
+    event.preventDefault();
+    moveMention(mention.active + (event.key === 'ArrowDown' ? 1 : -1));
+  } else if (options.length && (event.key === 'Enter' || event.key === 'Tab')) {
+    event.preventDefault();
+    pickMention(options[mention.active]);
+  }
+});
+document.addEventListener('keyup', event => {
+  if (mention && event.target === mention.field && ['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key) && !mentionAt(mention.field)) closeMentions();
+});
+// Picked on pointerdown, before the box loses focus; Safari does not focus buttons.
+document.addEventListener('pointerdown', event => {
+  if (!mention) return;
+  const option = event.target.closest?.('.mention-menu [data-mention]');
+  if (option && event.button === 0) {
+    event.preventDefault();
+    pickMention(option);
+  } else if (!event.target.closest?.('.mention-menu') && event.target !== mention.field) {
+    closeMentions();
+  }
+});
+document.addEventListener('mousedown', event => {
+  if (event.target.closest?.('.mention-menu')) event.preventDefault();
+});
+document.addEventListener('focusout', event => {
+  if (mention && event.target === mention.field) setTimeout(() => { if (mention && document.activeElement !== mention.field) closeMentions(); });
 });
 // Cloudflare's script calls this once loaded; the widget needs JavaScript anyway.
 window.supportTurnstileReady = () => {
@@ -390,3 +589,68 @@ document.addEventListener('htmx:sendError', function () {
   const box = document.getElementById('request-error');
   if (box) { box.textContent = tr('連線中斷，請確認網路後重試。', 'Connection lost. Check your network and try again.'); box.hidden = false; }
 });
+// New replies chime once across this browser's tabs, unless turned off on the
+// account page. Browsers play sound only after someone has used the page.
+const soundKey = 'support-sound';
+const heardKey = 'support-activity';
+function soundOn() {
+  try { return localStorage.getItem(soundKey) !== 'off'; } catch { return true; }
+}
+let audio = null;
+function chime() {
+  try {
+    audio ||= new AudioContext();
+    (audio.state === 'running' ? Promise.resolve() : audio.resume()).then(() => {
+      if (audio.state !== 'running') return;
+      [880, 1318.5].forEach((frequency, i) => {
+        const tone = audio.createOscillator();
+        const volume = audio.createGain();
+        const at = audio.currentTime + i * 0.14;
+        tone.frequency.value = frequency;
+        volume.gain.setValueAtTime(0.0001, at);
+        volume.gain.exponentialRampToValueAtTime(0.18, at + 0.02);
+        volume.gain.exponentialRampToValueAtTime(0.0001, at + 0.35);
+        tone.connect(volume).connect(audio.destination);
+        tone.start(at);
+        tone.stop(at + 0.36);
+      });
+    }, () => {});
+  } catch {}
+}
+function unlockAudio() {
+  try {
+    audio ||= new AudioContext();
+    if (audio.state === 'suspended') audio.resume().catch(() => {});
+  } catch {}
+}
+document.addEventListener('pointerdown', unlockAudio, { once: true, capture: true });
+document.addEventListener('keydown', unlockAudio, { once: true, capture: true });
+// Returns the newest message this browser had already heard about.
+function heardBefore(latest) {
+  try {
+    const heard = Number(localStorage.getItem(heardKey) || 0);
+    if (latest > heard) localStorage.setItem(heardKey, String(latest));
+    return heard;
+  } catch { return 0; }
+}
+let latestActivity = Number(document.getElementById('activity-signal')?.dataset.activity || 0);
+heardBefore(latestActivity);
+document.addEventListener('htmx:load', event => {
+  if (event.target.id === 'activity-signal') {
+    const latest = Number(event.target.dataset.activity || 0);
+    if (latest <= latestActivity) return;
+    // A page that did not know the latest message only learns it.
+    const known = latestActivity > 0;
+    latestActivity = latest;
+    if (heardBefore(latest) < latest && known && soundOn()) chime();
+  }
+  for (const toggle of event.target.querySelectorAll?.('[data-sound-toggle]') || []) toggle.checked = soundOn();
+});
+document.addEventListener('change', event => {
+  if (!event.target.matches?.('[data-sound-toggle]')) return;
+  try { localStorage.setItem(soundKey, event.target.checked ? 'on' : 'off'); } catch {}
+});
+document.addEventListener('click', event => {
+  if (event.target.closest?.('[data-sound-test]')) chime();
+});
+for (const toggle of document.querySelectorAll('[data-sound-toggle]')) toggle.checked = soundOn();

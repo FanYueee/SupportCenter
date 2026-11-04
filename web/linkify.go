@@ -72,21 +72,28 @@ func MentionedTickets(texts ...string) []int64 {
 	return ids
 }
 
-// linkParts splits text into plain runs and web links. Only http and https
-// URLs with a host become links; punctuation that ends a sentence stays out.
-func linkParts(text string) []textPart {
-	var parts []textPart
-	last := 0
+// urlRanges finds the web links in text. Only http and https URLs with a
+// host count; punctuation that ends a sentence stays out.
+func urlRanges(text string) [][2]int {
+	var ranges [][2]int
 	for _, match := range webURL.FindAllStringIndex(text, -1) {
 		start := match[0]
-		if start < last {
-			continue
-		}
 		end := start + len(trimURL(text[start:match[1]]))
 		u, err := url.Parse(text[start:end])
 		if err != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") {
 			continue
 		}
+		ranges = append(ranges, [2]int{start, end})
+	}
+	return ranges
+}
+
+// linkParts splits text into plain runs and web links.
+func linkParts(text string) []textPart {
+	var parts []textPart
+	last := 0
+	for _, link := range urlRanges(text) {
+		start, end := link[0], link[1]
 		if start > last {
 			parts = append(parts, textPart{Text: text[last:start]})
 		}
@@ -118,31 +125,32 @@ func trimURL(s string) string {
 // new tab. The link text is always the full address, so it cannot disguise
 // where it goes.
 func LinkedText(text string) templ.Component {
-	return MessageText(text, nil, "")
-}
-
-// MessageText is LinkedText that also shows mentioned tickets the viewer may
-// open as a box with the number and subject, linking under base, e.g.
-// "/tickets/". Other mentions stay plain text, so they reveal nothing.
-func MessageText(text string, tickets map[int64]model.TicketRef, base string) templ.Component {
 	return templ.ComponentFunc(func(_ context.Context, w io.Writer) error {
 		var b strings.Builder
-		for _, part := range linkParts(text) {
-			if part.URL != "" {
-				b.WriteString(`<a href="` + html.EscapeString(part.URL) + `" target="_blank" rel="noopener noreferrer nofollow ugc">` + html.EscapeString(part.Text) + `</a>`)
-				continue
-			}
-			for _, m := range mentionParts(part.Text) {
-				ref, ok := tickets[m.Ticket]
-				if m.Ticket == 0 || !ok {
-					b.WriteString(html.EscapeString(m.Text))
-					continue
-				}
-				b.WriteString(`<a class="ticket-mention" href="` + html.EscapeString(base+strconv.FormatInt(ref.ID, 10)) + `"><span class="ticket-mention-number">` +
-					fmt.Sprintf("#%04d", ref.ID) + `</span><span class="ticket-mention-subject">` + html.EscapeString(ref.Subject) + `</span></a>`)
-			}
-		}
+		writeLinked(&b, text, nil, "")
 		_, err := io.WriteString(w, b.String())
 		return err
 	})
+}
+
+// writeLinked writes escaped text with web addresses as links and mentioned
+// tickets the viewer may open as a box with the number and subject, linking
+// under base, e.g. "/tickets/". Other mentions stay plain text, so they reveal
+// nothing.
+func writeLinked(b *strings.Builder, text string, tickets map[int64]model.TicketRef, base string) {
+	for _, part := range linkParts(text) {
+		if part.URL != "" {
+			b.WriteString(`<a href="` + html.EscapeString(part.URL) + `" target="_blank" rel="noopener noreferrer nofollow ugc">` + html.EscapeString(part.Text) + `</a>`)
+			continue
+		}
+		for _, m := range mentionParts(part.Text) {
+			ref, ok := tickets[m.Ticket]
+			if m.Ticket == 0 || !ok {
+				b.WriteString(html.EscapeString(m.Text))
+				continue
+			}
+			b.WriteString(`<a class="ticket-mention" href="` + html.EscapeString(base+strconv.FormatInt(ref.ID, 10)) + `"><span class="ticket-mention-number">` +
+				fmt.Sprintf("#%04d", ref.ID) + `</span><span class="ticket-mention-subject">` + html.EscapeString(ref.Subject) + `</span></a>`)
+		}
+	}
 }

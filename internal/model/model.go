@@ -49,6 +49,13 @@ type TicketRef struct {
 	ID      int64
 	Subject string
 }
+
+// CannedReply is a ready-made reply staff insert into a message.
+type CannedReply struct {
+	ID          int64
+	Title, Body string
+	Version     int64
+}
 type Attachment struct {
 	ID                        int64
 	Name, Key, MIME, Checksum string
@@ -306,8 +313,11 @@ type Page struct {
 	Lifecycle                                                                                                 Lifecycle
 	// Mentions are the tickets named in the shown messages that the viewer may open.
 	Mentions map[int64]TicketRef
-	// MentionOptions are tickets offered for mentioning in the reply or new ticket form.
-	MentionOptions []TicketRef
+	// CannedReplies are offered to staff replying; CannedReply is the one an admin edits.
+	CannedReplies []CannedReply
+	CannedReply   CannedReply
+	// Activity is the newest message worth a chime; the page polls for newer ones.
+	Activity int64
 	// TurnstileSiteKey shows the bot check on the new ticket form when set.
 	TurnstileSiteKey                                                 string
 	AIPrompts                                                        AIPrompts

@@ -183,6 +183,16 @@ templ Icon(name string) {
 				<path d="M4 5h16v12H9l-5 4V5Zm4 4h8m-8 4h5"></path>
 			case "login":
 				<path d="M14 4h6v16h-6M3 12h12m-4-4 4 4-4 4"></path>
+			case "format-bullets":
+				<path d="M9 6h11M9 12h11M9 18h11"></path>
+				<path d="M4.5 6h.01M4.5 12h.01M4.5 18h.01" stroke-width="2.6"></path>
+			case "format-numbers":
+				<path d="M10 6h10M10 12h10M10 18h10"></path>
+				<path d="M4 4.5h1.5V9M4 9h3M4 14.5h3l-3 4h3"></path>
+			case "format-quote":
+				<path d="M5 5v14M10 8h9M10 12h9M10 16h6"></path>
+			case "format-code":
+				<path d="m8 8-4 4 4 4M16 8l4 4-4 4M13.5 6l-3 12"></path>
 			case "lock":
 				<rect x="5" y="11" width="14" height="9"></rect>
 				<path d="M8 11V8a4 4 0 0 1 8 0v3"></path>
@@ -234,7 +244,7 @@ templ Document(p model.Page) {
 				<script src={ assetURL("app.js") } defer></script>
 			}
 		</head>
-		<body hx-history="false">
+		<body hx-history="false" data-drop-label={ i18n.T(ctx,"放開以加入附件") }>
 			<a href="#workspace" class="skip-link">{ i18n.T(ctx,"跳到主要內容") }</a>
 			if p.Active != "login" {
 				<dialog id="image-dialog" class="image-dialog" aria-label={ i18n.T(ctx,"圖片預覽") }>
@@ -261,7 +271,7 @@ templ Document(p model.Page) {
 								<a class={ "nav-item", templ.KV("selected", p.Admin && (p.Active=="list" || p.Active=="detail")) } href="/admin/tickets">{ i18n.T(ctx,"客服工作台") }</a>
 							}
 							if p.User.Role == "admin" {
-				<a class={ "nav-item", templ.KV("selected", p.Active=="users" || p.Active=="automation" || p.Active=="ai" || p.Active=="discord" || p.Active=="email" || p.Active=="departments" || p.Active=="announcements") } href="/admin/ai">{ i18n.T(ctx,"管理設定") }</a>
+				<a class={ "nav-item", templ.KV("selected", p.Active=="users" || p.Active=="automation" || p.Active=="ai" || p.Active=="discord" || p.Active=="email" || p.Active=="departments" || p.Active=="announcements" || p.Active=="canned") } href="/admin/ai">{ i18n.T(ctx,"管理設定") }</a>
 							}
 						</nav>
 					}
@@ -271,6 +281,9 @@ templ Document(p model.Page) {
 							<span class="theme-icon-moon" aria-hidden="true">@Icon("moon")</span>
 						</button>
 						if p.Active != "login" {
+								if !p.Preview {
+									@ActivitySignal(p.Activity)
+								}
 								<a class="icon-button notification-link" href="/notifications" aria-label={ notificationLabel(ctx,p.UnreadNotifications) } title={ i18n.T(ctx,"通知") }>
 								@Icon("bell")
 								if p.UnreadNotifications>0 {
@@ -340,6 +353,8 @@ templ Workspace(p model.Page) {
 				@Departments(p)
 			case "announcements":
 				@AnnouncementsSettings(p)
+			case "canned":
+				@CannedSettings(p)
 			default:
 				@List(p)
 		}
@@ -419,6 +434,17 @@ templ Account(p model.Page) {
 			<button class="button secondary" type="submit">{ i18n.T(ctx,"儲存") }</button>
 		</form>
 	</section>
+	<section class="account-card sound-settings" aria-labelledby="sound-heading">
+		<h2 id="sound-heading">{ i18n.T(ctx,"提示音") }</h2>
+		<label class="automation-toggle"><input type="checkbox" data-sound-toggle checked/>{ i18n.T(ctx,choose(p.User.Staff(),"客戶開單或回覆時播放提示音","客服回覆時播放提示音")) }</label>
+		<p class="field-hint">
+			if p.User.Staff() {
+				{ i18n.T(ctx,"有分部門時，只提醒所屬部門與指派給你的客服單。") }
+			}
+			{ i18n.T(ctx,"只套用在這個瀏覽器，開著支援中心的分頁時才會響；瀏覽器需要先在頁面上點一下才能播放聲音。") }
+		</p>
+		<button class="button secondary" type="button" data-sound-test>{ i18n.T(ctx,"試聽") }</button>
+	</section>
 	if p.User.Role == "admin" {
 		<div class="account-grid">
 			<section class="account-card">
@@ -496,6 +522,7 @@ templ SettingsNav(p model.Page) {
 		<a class={ "settings-tab", templ.KV("active",p.Active=="announcements") } aria-current={ choose(p.Active=="announcements","page","false") } href="/admin/announcements">{ i18n.T(ctx,"公告") }</a>
 		<a class={ "settings-tab", templ.KV("active",p.Active=="ai") } aria-current={ choose(p.Active=="ai","page","false") } href="/admin/ai">{ i18n.T(ctx,"AI 指令") }</a>
 		<a class={ "settings-tab", templ.KV("active",p.Active=="automation") } aria-current={ choose(p.Active=="automation","page","false") } href="/admin/automation">{ i18n.T(ctx,"自動訊息") }</a>
+		<a class={ "settings-tab", templ.KV("active",p.Active=="canned") } aria-current={ choose(p.Active=="canned","page","false") } href="/admin/canned">{ i18n.T(ctx,"罐頭訊息") }</a>
 		<a class={ "settings-tab", templ.KV("active",p.Active=="discord") } aria-current={ choose(p.Active=="discord","page","false") } href="/admin/discord">{ i18n.T(ctx,"Discord 通知") }</a>
 		<a class={ "settings-tab", templ.KV("active",p.Active=="email") } aria-current={ choose(p.Active=="email","page","false") } href="/admin/email">{ i18n.T(ctx,"Email 通知") }</a>
 		<a class={ "settings-tab", templ.KV("active",p.Active=="users") } aria-current={ choose(p.Active=="users","page","false") } href="/admin/users">{ i18n.T(ctx,"使用者") }</a>
@@ -586,6 +613,71 @@ templ AnnouncementsSettings(p model.Page) {
 			}
 		</div>
 	</div>
+}
+
+templ CannedSettings(p model.Page) {
+	<div class="page-heading"><h1>{ i18n.T(ctx,"罐頭訊息") }</h1></div>
+	@SettingsNav(p)
+	if p.Saved {
+		<div class="notice success announcement-saved" role="status">
+			@Icon("check")
+			<span>{ i18n.T(ctx,"已儲存") }</span>
+		</div>
+	}
+	<div class="announcement-settings">
+		<section class="account-card announcement-editor">
+			<h2>{ i18n.T(ctx,choose(p.CannedReply.ID>0,"編輯罐頭訊息","新增罐頭訊息")) }</h2>
+			<p class="field-hint">{ i18n.T(ctx,"客服回覆時，可從回覆框上方的「罐頭訊息」一鍵套用。") }</p>
+			<form action={ cannedSaveURL(p.CannedReply.ID) } method="post" hx-post={ cannedSaveURL(p.CannedReply.ID) } hx-target="#workspace" hx-swap="outerHTML show:none focus-scroll:false" hx-disabled-elt="find button[type='submit']" data-preserve-scroll>
+				<input type="hidden" name="csrf" value={ p.CSRF }/>
+				if p.CannedReply.ID>0 {
+					<input type="hidden" name="version" value={ strconv.FormatInt(p.CannedReply.Version,10) }/>
+				}
+				<label class="field">{ i18n.T(ctx,"標題") }<input name="title" value={ p.CannedReply.Title } maxlength="80" required/></label>
+				<div class="field">
+					<label for="canned-body">{ i18n.T(ctx,"內容") }</label>
+					@Composer(p, "canned-body", p.CannedReply.Body, "", 6, 4000)
+				</div>
+				<div class="announcement-actions">
+					<button type="submit" class="button primary">{ i18n.T(ctx,choose(p.CannedReply.ID>0,"儲存變更","新增罐頭訊息")) }</button>
+					if p.CannedReply.ID>0 {
+						<a class="button secondary" href="/admin/canned">{ i18n.T(ctx,"取消") }</a>
+					}
+				</div>
+			</form>
+		</section>
+		<div class="announcement-management-list">
+			for _, item := range p.CannedReplies {
+				<section class="announcement-management-item canned-item">
+					<h2>{ item.Title }</h2>
+					<p class="canned-body">{ item.Body }</p>
+					<div class="announcement-management-footer">
+						<div class="announcement-actions">
+							<a class="button secondary" href={ templ.SafeURL("/admin/canned/"+strconv.FormatInt(item.ID,10)) }>{ i18n.T(ctx,"編輯") }</a>
+							<details class="announcement-delete">
+								<summary class="button secondary">{ i18n.T(ctx,"刪除") }</summary>
+								<div class="announcement-delete-confirm">
+									<form method="post" action={ "/admin/canned/"+strconv.FormatInt(item.ID,10)+"/delete" } hx-post={ "/admin/canned/"+strconv.FormatInt(item.ID,10)+"/delete" } hx-target="#workspace" hx-swap="outerHTML show:none focus-scroll:false" hx-disabled-elt="find button" data-preserve-scroll>
+										<input type="hidden" name="csrf" value={ p.CSRF }/>
+										<input type="hidden" name="version" value={ strconv.FormatInt(item.Version,10) }/>
+										<button class="button secondary danger" type="submit">{ i18n.T(ctx,"確認刪除") }</button>
+									</form>
+								</div>
+							</details>
+						</div>
+					</div>
+				</section>
+			}
+			if len(p.CannedReplies)==0 {
+				<p class="field-hint">{ i18n.T(ctx,"尚無罐頭訊息。") }</p>
+			}
+		</div>
+	</div>
+}
+
+func cannedSaveURL(id int64) string {
+	if id>0 { return "/admin/canned/"+strconv.FormatInt(id,10)+"/update" }
+	return "/admin/canned"
 }
 
 templ AnnouncementAction(p model.Page,item model.Announcement,action,label string) {
@@ -954,7 +1046,7 @@ const AttachmentTypes = ".jpg,.jpeg,.png,.webp,.pdf,.txt,.log,.csv,.md,.json,.ha
 
 templ Upload() {
 	<div class="upload-field">
-		<label for="attachments">{ i18n.T(ctx,"附件") } <span class="field-hint">{ i18n.T(ctx,"選填 · 最多 3 個，每個 10 MB · 可拖曳檔案到這裡") }</span></label>
+		<label for="attachments">{ i18n.T(ctx,"附件") } <span class="field-hint">{ i18n.T(ctx,"選填 · 最多 3 個，每個 10 MB · 可把檔案拖曳到頁面任何地方") }</span></label>
 		<div class="file-picker">
 			<input id="attachments" type="file" name="attachments" multiple accept={ AttachmentTypes } aria-describedby="attachment-types" data-image-worker={ assetURL("image-worker.js") }/>
 			<div class="file-picker-display">
@@ -971,19 +1063,74 @@ templ Upload() {
 	</div>
 }
 
-// MentionPicker lists tickets to mention in the form's description or reply.
-templ MentionPicker(options []model.TicketRef) {
-	if len(options) > 0 {
-		<details class="mention-picker">
-			<summary>{ i18n.T(ctx,"提及客服單") }</summary>
-			<div class="mention-options">
-				for _, ticket := range options {
-					<button type="button" class="ticket-mention" data-mention={ strconv.FormatInt(ticket.ID,10) }><span class="ticket-mention-number">{ fmt.Sprintf("#%04d",ticket.ID) }</span><span class="ticket-mention-subject">{ ticket.Subject }</span></button>
-				}
-			</div>
-			<p class="field-hint">{ i18n.T(ctx,"也可以直接輸入 # 加單號，例如 #12。") }</p>
-		</details>
+// Composer is a message box with a formatting bar that writes the Markdown
+// messages understand. Typing # suggests tickets to mention; staff replying
+// also get the canned replies.
+templ Composer(p model.Page, id, value, placeholder string, rows, maxLength int) {
+	<div class="composer">
+		<div class="composer-toolbar" role="toolbar" aria-label={ i18n.T(ctx,"文字格式") } aria-controls={ id }>
+			<button type="button" class="format-button format-bold" data-format="bold" title={ i18n.T(ctx,"粗體") } aria-label={ i18n.T(ctx,"粗體") }>B</button>
+			<button type="button" class="format-button format-italic" data-format="italic" title={ i18n.T(ctx,"斜體") } aria-label={ i18n.T(ctx,"斜體") }>I</button>
+			<button type="button" class="format-button format-strike" data-format="strike" title={ i18n.T(ctx,"刪除線") } aria-label={ i18n.T(ctx,"刪除線") }>S</button>
+			<button type="button" class="format-button" data-format="code" title={ i18n.T(ctx,"程式碼") } aria-label={ i18n.T(ctx,"程式碼") }>@Icon("format-code")</button>
+			<button type="button" class="format-button" data-format="quote" title={ i18n.T(ctx,"引用") } aria-label={ i18n.T(ctx,"引用") }>@Icon("format-quote")</button>
+			<button type="button" class="format-button" data-format="bullet" title={ i18n.T(ctx,"項目清單") } aria-label={ i18n.T(ctx,"項目清單") }>@Icon("format-bullets")</button>
+			<button type="button" class="format-button" data-format="number" title={ i18n.T(ctx,"編號清單") } aria-label={ i18n.T(ctx,"編號清單") }>@Icon("format-numbers")</button>
+			<span class="toolbar-divider" aria-hidden="true"></span>
+			<button type="button" class="format-button format-mention" data-format="mention" title={ i18n.T(ctx,"提及客服單") } aria-label={ i18n.T(ctx,"提及客服單") }>#</button>
+			if p.Active == "detail" && p.Admin && p.User.Staff() {
+				@CannedPicker(p)
+			}
+		</div>
+		<textarea id={ id } name="body" required maxlength={ strconv.Itoa(maxLength) } rows={ strconv.Itoa(rows) } placeholder={ placeholder } data-mention-search={ mentionSearchURL(p) } aria-autocomplete="list">{ value }</textarea>
+	</div>
+}
+
+func mentionSearchURL(p model.Page) string {
+	if p.Active == "detail" && p.Admin {
+		return fmt.Sprintf("/admin/tickets/%d/mentions", p.Ticket.ID)
 	}
+	if p.Active == "detail" {
+		return fmt.Sprintf("/tickets/mentions?except=%d", p.Ticket.ID)
+	}
+	return "/tickets/mentions"
+}
+
+templ CannedPicker(p model.Page) {
+	<details class="canned-picker">
+		<summary class="format-button canned-toggle">{ i18n.T(ctx,"罐頭訊息") }</summary>
+		<div class="canned-menu">
+			if len(p.CannedReplies)>0 {
+				<input type="search" class="canned-filter" data-canned-filter placeholder={ i18n.T(ctx,"搜尋罐頭訊息") } aria-label={ i18n.T(ctx,"搜尋罐頭訊息") }/>
+				<div class="canned-options">
+					for _, reply := range p.CannedReplies {
+						<button type="button" class="canned-option" data-canned={ reply.Body }><strong>{ reply.Title }</strong><span>{ reply.Body }</span></button>
+					}
+				</div>
+				<p class="field-hint" data-canned-empty hidden>{ i18n.T(ctx,"找不到相符的罐頭訊息") }</p>
+			} else {
+				<p class="field-hint">{ i18n.T(ctx,"尚無罐頭訊息。") }</p>
+			}
+			if p.User.Role=="admin" {
+				<a class="canned-manage" href="/admin/canned">{ i18n.T(ctx,"管理罐頭訊息") }</a>
+			}
+		</div>
+	</details>
+}
+
+// MentionOptions are the tickets offered while typing # in a message.
+templ MentionOptions(refs []model.TicketRef) {
+	for _, ticket := range refs {
+		<button type="button" class="mention-option" role="option" aria-selected="false" data-mention={ strconv.FormatInt(ticket.ID,10) }><span class="ticket-mention-number">{ fmt.Sprintf("#%04d",ticket.ID) }</span><span class="ticket-mention-subject">{ ticket.Subject }</span></button>
+	}
+	if len(refs)==0 {
+		<p class="mention-empty">{ i18n.T(ctx,"找不到相符的客服單") }</p>
+	}
+}
+
+// ActivitySignal polls for messages newer than latest; app.js chimes when it changes.
+templ ActivitySignal(latest int64) {
+	<span id="activity-signal" hidden hx-get={ "/activity?since="+strconv.FormatInt(latest,10) } hx-trigger="every 20s" hx-swap="outerHTML" data-activity={ strconv.FormatInt(latest,10) }></span>
 }
 
 templ NewTicket(p model.Page) {
@@ -1035,11 +1182,10 @@ templ NewTicket(p model.Page) {
 					}
 				</label>
 			</div>
-			<label class="field">
-				{ i18n.T(ctx,"問題描述") } <span class="required">*</span>
-				<textarea name="body" required maxlength="20000" rows="8" placeholder={ i18n.T(ctx,"問題內容、發生時間或錯誤訊息") }>{ p.DraftBody }</textarea>
-			</label>
-			@MentionPicker(p.MentionOptions)
+			<div class="field">
+				<label for="ticket-body">{ i18n.T(ctx,"問題描述") } <span class="required">*</span></label>
+				@Composer(p, "ticket-body", p.DraftBody, i18n.T(ctx,"問題內容、發生時間或錯誤訊息"), 8, 20000)
+			</div>
 			<label class="field">
 				{ i18n.T(ctx,"參與者（選填）") }
 				<input type="email" name="participants" multiple maxlength="5120" value={ p.DraftParticipants } placeholder="name@example.com"/>
@@ -1255,13 +1401,12 @@ templ Detail(p model.Page) {
 					<input type="hidden" name="csrf" value={ p.CSRF }/>
 					<input type="hidden" name="submission" value={ p.Submission }/>
 					<label class="field" for="reply">{ i18n.T(ctx,"回覆") }</label>
-					<textarea id="reply" name="body" required maxlength="20000" rows="5" placeholder={ i18n.T(ctx,"輸入回覆…") }>{ p.DraftBody }</textarea>
+					@Composer(p, "reply", p.DraftBody, i18n.T(ctx,"輸入回覆…"), 5, 20000)
 					if p.Admin && p.Ticket.Locked() {
 						<p class="field-hint">{ i18n.T(ctx,"此客服單已鎖定，只能新增內部備註。") }</p>
 					} else if p.User.Role=="admin" && p.User.Signature!="" {
 						<p class="field-hint">{ i18n.T(ctx,"公開回覆會自動附上簽名檔") }</p>
 					}
-					@MentionPicker(p.MentionOptions)
 					@Upload()
 					<div class="form-actions">
 						if p.Admin && p.Ticket.Locked() {

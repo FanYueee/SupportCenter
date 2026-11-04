@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -746,16 +747,6 @@ func (s *Store) TicketRefs(ctx context.Context, u model.User, admin bool, ids []
 	return out, nil
 }
 
-// OwnTickets are a person's most recently updated tickets except one, offered
-// for mentioning. Callers pass the viewer, or for staff the requester.
-func (s *Store) OwnTickets(ctx context.Context, userID, except int64) ([]model.TicketRef, error) {
-	rows, err := s.Pool.Query(ctx, `SELECT id,subject FROM tickets WHERE user_id=$1 AND id<>$2 ORDER BY updated_at DESC,id DESC LIMIT 20`, userID, except)
-	if err != nil {
-		return nil, err
-	}
-	return pgx.CollectRows(rows, pgx.RowToStructByPos[model.TicketRef])
-}
-
 // RecentTickets counts the tickets a person opened in the last 10 minutes and
 // the last day, and those opened from a network (an address, or an IPv6 /64)
 // in the last hour.
@@ -764,4 +755,50 @@ func (s *Store) RecentTickets(ctx context.Context, userID int64, network string)
  count(*) FILTER (WHERE created_at>=now()-interval '1 hour' AND NULLIF(client_ip,'')::inet<<=NULLIF($2,'')::inet)
  FROM tickets WHERE created_at>=now()-interval '1 day'`, userID, network).Scan(&burst, &day, &fromNetwork)
 	return
+}
+
+// likeEscaper keeps % and _ typed into a search from acting as wildcards.
+var likeEscaper = strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
+
+// MentionCandidates are the tickets offered while typing # in a message: the
+// ones the viewer may open, or for staff any ticket, owner's first. q matches
+// the start of a ticket number or any part of a subject.
+func (s *Store) MentionCandidates(ctx context.Context, viewerID int64, staff bool, owner, except int64, q string) ([]model.TicketRef, error) {
+	q = strings.TrimSpace(q)
+	if !utf8.ValidString(q) || utf8.RuneCountInString(q) > 40 {
+		return nil, nil
+	}
+	number := ""
+	if q != "" && strings.Trim(q, "0123456789") == "" {
+		number = strings.TrimLeft(q, "0")
+	}
+	rows, err := s.Pool.Query(ctx, `SELECT t.id,t.subject FROM tickets t
+ WHERE t.id<>$2 AND ($3 OR t.user_id=$1 OR EXISTS(SELECT 1 FROM ticket_invites i JOIN users viewer ON viewer.id=$1
+  WHERE i.ticket_id=t.id AND (i.user_id=viewer.id OR (i.user_id IS NULL AND viewer.email_verified AND i.email_key=lower(viewer.email)))))
+ AND ($4='' OR t.subject ILIKE '%'||$5||'%' OR ($6<>'' AND t.id::text LIKE $6||'%'))
+ ORDER BY t.user_id=$7 DESC,t.updated_at DESC,t.id DESC LIMIT 8`, viewerID, except, staff, q, likeEscaper.Replace(q), number, owner)
+	if err != nil {
+		return nil, err
+	}
+	return pgx.CollectRows(rows, pgx.RowToStructByPos[model.TicketRef])
+}
+
+// LatestActivity is the newest message the person would want to hear about.
+// Staff hear what customers write on tickets of their departments (every
+// ticket when they have none) or assigned to them; everyone else hears public
+// replies by someone else on tickets they may open.
+func (s *Store) LatestActivity(ctx context.Context, u model.User) (int64, error) {
+	var id int64
+	if u.Staff() {
+		err := s.Pool.QueryRow(ctx, `SELECT COALESCE(max(m.id),0) FROM ticket_messages m JOIN tickets t ON t.id=m.ticket_id JOIN users author ON author.id=m.user_id
+ WHERE m.source='human' AND NOT m.internal AND author.role='user'
+ AND (NOT EXISTS(SELECT 1 FROM staff_departments WHERE user_id=$1) OR t.category IN (SELECT category FROM staff_departments WHERE user_id=$1)
+  OR EXISTS(SELECT 1 FROM ticket_assignees a WHERE a.ticket_id=t.id AND a.user_id=$1))`, u.ID).Scan(&id)
+		return id, err
+	}
+	err := s.Pool.QueryRow(ctx, `SELECT COALESCE(max(m.id),0) FROM tickets t JOIN ticket_messages m ON m.ticket_id=t.id
+ WHERE m.user_id<>$1 AND NOT m.internal AND m.source IN ('human','ai')
+ AND (t.user_id=$1 OR EXISTS(SELECT 1 FROM ticket_invites i JOIN users viewer ON viewer.id=$1
+  WHERE i.ticket_id=t.id AND (i.user_id=viewer.id OR (i.user_id IS NULL AND viewer.email_verified AND i.email_key=lower(viewer.email)))))`, u.ID).Scan(&id)
+	return id, err
 }

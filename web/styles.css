@@ -981,9 +981,21 @@ tbody tr:hover {
   outline: 2px solid var(--text);
   outline-offset: 2px;
 }
-.upload-field.dragging .file-picker {
-  outline: 1px dashed var(--text);
-  outline-offset: 6px;
+/* Files can be dropped anywhere; the whole page says where they go. */
+html.file-dragging body::after {
+  content: attr(data-drop-label);
+  position: fixed;
+  inset: 12px;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px dashed var(--text);
+  background: color-mix(in srgb, var(--bg) 90%, transparent);
+  color: var(--text);
+  font-size: 18px;
+  font-weight: 600;
+  pointer-events: none;
 }
 .image-preview {
   position: relative;
@@ -1130,26 +1142,203 @@ tbody tr:hover {
   content: "- ";
   color: var(--muted);
 }
-.mention-picker {
-  margin-top: 10px;
-  font-size: 14px;
+/* The message box: a formatting bar joined to the textarea, with the #
+   suggestions and canned replies opening over the page. */
+.composer {
+  position: relative;
 }
-.form-panel .mention-picker {
-  margin: -12px 0 23px;
+.field > .composer {
+  margin-top: 9px;
 }
-.mention-picker summary {
-  width: fit-content;
-  color: var(--muted);
-  cursor: pointer;
+.composer > textarea {
+  display: block;
+  width: 100%;
 }
-.mention-options {
+.composer-toolbar {
+  position: relative;
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 8px;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--input-line);
+  border-bottom: 0;
+  background: var(--soft);
 }
-.mention-options .ticket-mention {
-  max-width: min(100%, 360px);
+.format-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 30px;
+  padding: 0 7px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1;
+  transition: background-color 150ms, color 150ms;
+}
+.format-button:hover,
+.format-button:focus-visible,
+.canned-picker[open] > .canned-toggle {
+  background: var(--bg);
+  color: var(--text);
+}
+.format-button svg {
+  width: 17px;
+  height: 17px;
+}
+.format-bold { font-weight: 700; }
+.format-italic { font-style: italic; font-family: Georgia, "Times New Roman", serif; font-size: 15px; }
+.format-strike { text-decoration: line-through; }
+.format-mention { font-weight: 600; font-size: 15px; }
+.toolbar-divider {
+  width: 1px;
+  height: 18px;
+  margin: 0 4px;
+  background: var(--line);
+}
+@media (max-width: 520px) {
+  .composer-toolbar { gap: 1px; }
+  .format-button { min-width: 29px; padding: 0 5px; }
+  .toolbar-divider { margin: 0 2px; }
+}
+.canned-toggle {
+  list-style: none;
+  cursor: pointer;
+}
+.canned-toggle::-webkit-details-marker {
+  display: none;
+}
+.canned-menu,
+.mention-menu {
+  position: absolute;
+  z-index: 20;
+  overflow: auto;
+  border: 1px solid var(--input-line);
+  background: var(--bg);
+}
+.canned-menu {
+  top: 100%;
+  right: -1px;
+  display: grid;
+  gap: 6px;
+  width: min(440px, calc(100% + 2px));
+  max-height: 360px;
+  padding: 8px;
+}
+.canned-filter {
+  width: 100%;
+}
+.canned-options {
+  display: grid;
+}
+.canned-option {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+}
+.canned-option:hover,
+.canned-option:focus-visible {
+  background: var(--hover);
+}
+.canned-option strong {
+  font-size: 14px;
+  font-weight: 600;
+}
+.canned-option span {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  color: var(--muted);
+  font-size: 13px;
+  white-space: pre-line;
+}
+.canned-manage {
+  justify-self: start;
+  padding: 2px 10px;
+  color: var(--muted);
+  font-size: 13px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.mention-menu {
+  top: 100%;
+  right: 0;
+  left: 0;
+  max-height: 300px;
+  border-top: 0;
+}
+.mention-menu:empty {
+  display: none;
+}
+.mention-option {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  width: 100%;
+  padding: 9px 12px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 14px;
+  text-align: left;
+}
+.mention-option[aria-selected="true"],
+.mention-option:hover {
+  background: var(--hover);
+}
+.mention-empty {
+  margin: 0;
+  padding: 9px 12px;
+  color: var(--muted);
+  font-size: 14px;
+}
+/* The small Markdown set messages understand. */
+.message-body > * + * {
+  margin-top: 0.6em;
+}
+.message-body ul,
+.message-body ol {
+  padding-left: 1.5em;
+}
+.message-body ul { list-style: disc; }
+.message-body ol { list-style: decimal; }
+.message-body blockquote {
+  padding-left: 14px;
+  border-left: 3px solid var(--line);
+  color: var(--muted);
+}
+.message-body code {
+  padding: 1px 5px;
+  background: var(--soft);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.86em;
+}
+.message-body pre {
+  overflow-x: auto;
+  padding: 12px 14px;
+  background: var(--soft);
+  line-height: 1.6;
+  white-space: pre;
+}
+.message-body pre code {
+  padding: 0;
+  background: none;
+  font-size: 14px;
+}
+.message-body strong,
+.message-heading {
+  font-weight: 600;
+}
+.message-heading {
+  font-size: 1.05em;
 }
 .field-hint {
   font-size: 14px;
@@ -2041,7 +2230,7 @@ dd {
   .field > input,
   .field > select,
   .field > textarea,
-  .reply-form > textarea,
+  .composer > textarea,
   .metadata-panel .field select {
     font-size: 16px;
   }
@@ -2145,7 +2334,10 @@ dd {
 .account-card form { display: grid; justify-items: start; gap: 13px; }
 .account-card form .field, .account-card textarea { width: 100%; }
 .account-card form .field input { display: block; width: 100%; margin-top: 5px; }
-.language-settings, .email-preferences { margin-bottom: 18px; }
+.language-settings, .email-preferences, .sound-settings { margin-bottom: 18px; }
+.sound-settings { display: grid; justify-items: start; gap: 13px; }
+.sound-settings h2 { margin-bottom: 0; }
+.account-card.sound-settings .field-hint { margin: -8px 0 0; }
 .account-card .language-options { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
 .locale-button { display: flex; align-items: center; gap: 7px; width: 100%; min-width: 0; min-height: 44px; border: 1px solid var(--line); background: var(--bg); color: var(--text); padding: 8px 10px; font: inherit; font-size: 14px; text-align: left; cursor: pointer; }
 .locale-button:hover { border-color: var(--text); }
@@ -2362,6 +2554,10 @@ dd {
 .announcement-enabled { display: flex; align-items: center; gap: 9px; cursor: pointer; }
 .announcement-management-list { display: grid; gap: 16px; min-width: 0; }
 .announcement-management-item { min-width: 0; }
+.canned-item { border: 1px solid var(--line); }
+.canned-item h2 { padding: 14px 16px 0; font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
+.canned-body { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 4; padding: 6px 16px 14px; color: var(--muted); font-size: 14px; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
+.canned-item .announcement-management-footer { border: 0; border-top: 1px solid var(--line); }
 .announcement-management-footer { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 12px 16px; border: 1px solid var(--line); border-top: 0; }
 .announcement-publication { font-size: 15px; color: var(--muted); }
 .announcement-publication.published { color: var(--closed); }

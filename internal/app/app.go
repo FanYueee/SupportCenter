@@ -81,6 +81,7 @@ func (a *App) Handler() http.Handler {
 	mux.HandleFunc("POST /logout", a.protected(false, a.logout))
 	mux.HandleFunc("POST /language", a.protected(false, a.language))
 	mux.HandleFunc("GET /notifications", a.protected(false, a.notifications))
+	mux.HandleFunc("GET /activity", a.activity)
 	mux.HandleFunc("POST /notifications/read", a.protected(false, a.readAllNotifications))
 	mux.HandleFunc("POST /notifications/{id}/read", a.protected(false, a.readNotification))
 	mux.HandleFunc("GET /account", a.protected(false, a.account))
@@ -108,6 +109,7 @@ func (a *App) Handler() http.Handler {
 		a.render(w, r, p)
 	}))
 	mux.HandleFunc("POST /tickets", a.protected(false, a.create))
+	mux.HandleFunc("GET /tickets/mentions", a.protected(false, a.mentionSearch))
 	mux.HandleFunc("GET /tickets/{id}", a.protected(false, a.detail))
 	mux.HandleFunc("POST /tickets/{id}/reply", a.protected(false, a.reply))
 	mux.HandleFunc("POST /tickets/{id}/handoff", a.protected(false, a.handoff))
@@ -126,6 +128,11 @@ func (a *App) Handler() http.Handler {
 	mux.HandleFunc("POST /admin/announcements", a.protected(true, a.saveAnnouncement))
 	mux.HandleFunc("POST /admin/announcements/{id}/update", a.protected(true, a.saveAnnouncement))
 	mux.HandleFunc("POST /admin/announcements/{id}/{action}", a.protected(true, a.changeAnnouncement))
+	mux.HandleFunc("GET /admin/canned", a.protected(true, a.cannedReplies))
+	mux.HandleFunc("GET /admin/canned/{id}", a.protected(true, a.cannedReplies))
+	mux.HandleFunc("POST /admin/canned", a.protected(true, a.saveCannedReply))
+	mux.HandleFunc("POST /admin/canned/{id}/update", a.protected(true, a.saveCannedReply))
+	mux.HandleFunc("POST /admin/canned/{id}/delete", a.protected(true, a.deleteCannedReply))
 	mux.HandleFunc("GET /admin/departments", a.protected(true, a.departments))
 	mux.HandleFunc("POST /admin/departments/{id}", a.protected(true, a.saveDepartments))
 	mux.HandleFunc("GET /admin/automation", a.protected(true, a.automation))
@@ -141,6 +148,7 @@ func (a *App) Handler() http.Handler {
 	mux.HandleFunc("GET /admin/tickets", a.protected(true, a.list))
 	mux.HandleFunc("GET /admin/tickets/{id}", a.protected(true, a.detail))
 	mux.HandleFunc("GET /admin/tickets/{id}/people/{person}/avatar", a.protected(true, a.ticketPersonAvatar))
+	mux.HandleFunc("GET /admin/tickets/{id}/mentions", a.protected(true, a.mentionSearch))
 	mux.HandleFunc("POST /admin/tickets/{id}/reply", a.protected(true, a.reply))
 	mux.HandleFunc("POST /admin/tickets/{id}/update", a.protected(true, a.update))
 	mux.HandleFunc("POST /admin/tickets/{id}/assign", a.protected(true, a.assign))
@@ -288,12 +296,15 @@ func (a *App) render(w http.ResponseWriter, r *http.Request, p model.Page) {
 	}
 	if p.User.ID > 0 && r.Header.Get("HX-Request") != "true" {
 		p.UnreadNotifications, err = a.Store.UnreadNotifications(r.Context(), p.User.ID)
+		if err == nil {
+			p.Activity, err = a.Store.LatestActivity(r.Context(), p.User)
+		}
 		if err != nil {
 			a.fail(w, r, err)
 			return
 		}
 	}
-	if err = a.mentionData(r, &p); err != nil {
+	if err = a.composerData(r, &p); err != nil {
 		a.fail(w, r, err)
 		return
 	}
@@ -513,10 +524,9 @@ func (a *App) create(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, target, 303)
 }
 
-// mentionData names the tickets mentioned in the shown messages that the viewer
-// may open, and lists tickets to offer for mentioning: the viewer's own, or for
-// staff the requester's.
-func (a *App) mentionData(r *http.Request, p *model.Page) error {
+// composerData fills in the mentioned tickets of the shown messages and, for
+// staff replying, the canned replies.
+func (a *App) composerData(r *http.Request, p *model.Page) error {
 	var err error
 	if len(p.Messages) > 0 && p.Mentions == nil {
 		bodies := make([]string, len(p.Messages))
@@ -528,12 +538,8 @@ func (a *App) mentionData(r *http.Request, p *model.Page) error {
 		}
 	}
 	partial := r.Header.Get("HX-Target") == "conversation-activity" || r.Header.Get("HX-Target") == "ticket-sidebar"
-	if p.MentionOptions == nil && (p.Active == "new" || p.Active == "detail" && !partial) {
-		owner := p.User.ID
-		if p.Active == "detail" && p.Admin && p.User.Staff() {
-			owner = p.Ticket.UserID
-		}
-		p.MentionOptions, err = a.Store.OwnTickets(r.Context(), owner, p.Ticket.ID)
+	if p.CannedReplies == nil && p.Active == "detail" && p.Admin && p.User.Staff() && !partial {
+		p.CannedReplies, err = a.Store.CannedReplies(r.Context())
 	}
 	return err
 }
@@ -828,7 +834,7 @@ func (a *App) createErrorStatus(w http.ResponseWriter, r *http.Request, t model.
 		p.Submission = r.PostFormValue("submission")
 	}
 	a.newTicketForm(w, &p)
-	if err = a.mentionData(r, &p); err != nil {
+	if err = a.composerData(r, &p); err != nil {
 		a.fail(w, r, err)
 		return
 	}
@@ -894,7 +900,7 @@ func (a *App) replyError(w http.ResponseWriter, r *http.Request, message string,
 	}
 	p.Active = "detail"
 	p.Title = p.Ticket.Subject
-	if err = a.mentionData(r, &p); err != nil {
+	if err = a.composerData(r, &p); err != nil {
 		a.fail(w, r, err)
 		return
 	}

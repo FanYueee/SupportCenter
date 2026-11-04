@@ -256,7 +256,7 @@ ZIP 解壓後過大	ZIP expands beyond the allowed size
 週六	Saturday
 週四	Thursday
 週日	Sunday
-選填 · 最多 3 個，每個 10 MB · 可拖曳檔案到這裡	Optional · up to 3 files, 10 MB each · drop files here
+選填 · 最多 3 個，每個 10 MB · 可把檔案拖曳到頁面任何地方	Optional · up to 3 files, 10 MB each · drop files anywhere on the page
 選擇檔案	Choose files
 邀請	Invite
 邀請使用者加入客服單	Invited user to ticket
@@ -421,7 +421,6 @@ SMTP 伺服器暫時無法處理，稍後會自動重試。	The SMTP server is t
 鎖定後無法回覆或重新開啟，客戶需建立新的客服單；客服仍可新增內部備註。0 表示不鎖定。	A locked ticket takes no replies and cannot be reopened, so the customer opens a new ticket; staff can still add internal notes. 0 never locks.
 圖片（JPG、PNG、WebP）、PDF、文字與記錄檔（TXT、LOG、CSV、JSON、HAR、YAML、XML、CONF）、封包擷取（PCAP、PCAPNG）、壓縮檔（ZIP、GZ、TAR、7Z）	Images (JPG, PNG, WebP), PDF, text and logs (TXT, LOG, CSV, JSON, HAR, YAML, XML, CONF), packet captures (PCAP, PCAPNG), archives (ZIP, GZ, TAR, 7Z)
 提及客服單	Mention a ticket
-也可以直接輸入 # 加單號，例如 #12。	You can also type # and a ticket number, such as #12.
 若未收到回覆，客服單將於	Without a reply, this ticket closes automatically on
 此客服單已鎖定，無法回覆或重新開啟。如需協助，請建立新的客服單。	This ticket is locked and cannot be replied to or reopened. Open a new ticket if you need help.
 此客服單已結案。如需繼續討論，請在	This ticket is closed. To continue the conversation, reopen it before
@@ -433,3 +432,32 @@ SMTP 伺服器暫時無法處理，稍後會自動重試。	The SMTP server is t
 請完成送出按鈕上方的人機驗證；如果沒有看到驗證框，請重新整理頁面。	Complete the verification above the submit button. If you do not see it, refresh the page.
 提醒與結案時數須為 0 至 720 小時，且提醒須早於結案；鎖定時數須為 0 至 8,760 小時。	Reminder and closing hours must be 0 to 720, with the reminder before closing; lock hours must be 0 to 8,760.
 此客服單因未收到回覆，已自動結案。	This ticket was closed automatically because no reply arrived.
+放開以加入附件	Drop to attach
+罐頭訊息	Canned replies
+文字格式	Text formatting
+粗體	Bold
+斜體	Italic
+刪除線	Strikethrough
+程式碼	Code
+引用	Quote
+項目清單	Bulleted list
+編號清單	Numbered list
+搜尋罐頭訊息	Search canned replies
+找不到相符的罐頭訊息	No matching canned replies
+尚無罐頭訊息。	No canned replies yet.
+管理罐頭訊息	Manage canned replies
+找不到相符的客服單	No matching tickets
+編輯罐頭訊息	Edit canned reply
+新增罐頭訊息	Add canned reply
+客服回覆時，可從回覆框上方的「罐頭訊息」一鍵套用。	Staff insert these with “Canned replies” above the reply box.
+標題	Title
+提示音	Sound
+試聽	Play sample
+客戶開單或回覆時播放提示音	Play a sound when a customer opens a ticket or replies
+客服回覆時播放提示音	Play a sound when support replies
+有分部門時，只提醒所屬部門與指派給你的客服單。	With departments set, only tickets of your departments or assigned to you count.
+只套用在這個瀏覽器，開著支援中心的分頁時才會響；瀏覽器需要先在頁面上點一下才能播放聲音。	Applies to this browser only, while a support center tab is open. The browser needs a click on the page before it can play sound.
+找不到罐頭訊息。	Canned reply not found.
+罐頭訊息已被更新，請重新載入後再操作。	This canned reply was changed. Reload the page and try again.
+最多保留 100 則罐頭訊息，請先刪除不再使用的訊息。	Up to 100 canned replies can be kept. Delete ones you no longer use first.
+請填寫標題（最多 80 字）與內容（最多 4,000 字）。	Enter a title (up to 80 characters) and text (up to 4,000 characters).

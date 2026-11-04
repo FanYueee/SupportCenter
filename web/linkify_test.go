@@ -77,7 +77,7 @@ func TestMentionsNeedATicketNumberOutsideWords(t *testing.T) {
 	if err := MessageText("看 #6 與 #7", refs, "/tickets/").Render(context.Background(), &out); err != nil {
 		t.Fatal(err)
 	}
-	want := `看 <a class="ticket-mention" href="/tickets/6"><span class="ticket-mention-number">#0006</span><span class="ticket-mention-subject">&lt;img src=x onerror=alert(1)&gt;</span></a> 與 #7`
+	want := `<p>看 <a class="ticket-mention" href="/tickets/6"><span class="ticket-mention-number">#0006</span><span class="ticket-mention-subject">&lt;img src=x onerror=alert(1)&gt;</span></a> 與 #7</p>`
 	if out.String() != want {
 		t.Fatalf("got  %s\nwant %s", out.String(), want)
 	}

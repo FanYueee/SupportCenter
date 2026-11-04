@@ -28,6 +28,20 @@ func main() {
 	mux := http.NewServeMux()
 	mux.Handle("GET /assets/", app.AssetHandler())
 	mux.Handle("GET /branding/{file}", app.BrandingHandler(site))
+	// Typing # suggests fixture tickets whose number or subject matches.
+	mentions := func(w http.ResponseWriter, r *http.Request) {
+		q := strings.TrimLeft(strings.TrimSpace(r.URL.Query().Get("q")), "0")
+		var refs []model.TicketRef
+		for _, t := range fixture().Tickets {
+			if len(refs) < 8 && (q == "" || strings.HasPrefix(strconv.FormatInt(t.ID, 10), q) || strings.Contains(strings.ToLower(t.Subject), strings.ToLower(q))) {
+				refs = append(refs, model.TicketRef{ID: t.ID, Subject: t.Subject})
+			}
+		}
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		web.MentionOptions(refs).Render(r.Context(), w)
+	}
+	mux.HandleFunc("GET /tickets/mentions", mentions)
+	mux.HandleFunc("GET /admin/tickets/{id}/mentions", mentions)
 	mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
 		p := fixture()
 		p.CSRF = rand.Text()
@@ -121,6 +135,18 @@ func main() {
 		}
 		if r.URL.Path == "/admin/departments" {
 			p.Active, p.Title = "departments", "客服分組"
+		}
+		p.CannedReplies = cannedFixture()
+		if r.URL.Path == "/admin/canned" || strings.HasPrefix(r.URL.Path, "/admin/canned/") {
+			p.Active, p.Title = "canned", "罐頭訊息"
+			p.Saved = r.URL.Query().Get("saved") == "1"
+			if id, err := strconv.ParseInt(strings.TrimPrefix(r.URL.Path, "/admin/canned/"), 10, 64); err == nil {
+				for _, item := range p.CannedReplies {
+					if item.ID == id {
+						p.CannedReply = item
+					}
+				}
+			}
 		}
 		if r.URL.Query().Get("announcements") == "1" {
 			p.Announcements = announcementFixture()[:3]
@@ -241,9 +267,6 @@ func main() {
 			p.Mentions = map[int64]model.TicketRef{}
 			for _, t := range fixture().Tickets {
 				p.Mentions[t.ID] = model.TicketRef{ID: t.ID, Subject: t.Subject}
-				if t.ID != p.Ticket.ID && len(p.MentionOptions) < 4 {
-					p.MentionOptions = append(p.MentionOptions, model.TicketRef{ID: t.ID, Subject: t.Subject})
-				}
 			}
 		}
 		if p.Active == "detail" && r.URL.Query().Get("participants") != "" {
@@ -405,4 +428,12 @@ func fixture() model.Page {
 	p.Messages = []model.Message{{ID: 1, Author: "Alex Chen", Role: "user", Body: "你好，今天早上使用代理服務時，偶爾會出現連線逾時。\n\n已經嘗試重新連線及更換本機網路，但仍有同樣的情況。想請你們協助確認目前的節點狀態，謝謝！", CreatedAt: now.Add(-2 * time.Hour)}, {ID: 2, Author: "Jamie", Role: "support", Body: "你好 Alex，謝謝你提供這些資訊。\n\n我們正在確認相關節點的連線狀態。為了更快定位問題，方便補充受影響的節點地區，以及大約發生的時間嗎？節點狀態可至 https://status.example.com/nodes 查看，先前的 #1047 也有類似情況。\n\n請直接在這張客服單回覆，我們會持續協助你。", CreatedAt: now.Add(-time.Hour)}}
 	p.Staff = []model.User{{ID: 2, Name: "Jamie", Role: "support", Departments: []string{"billing"}}, {ID: 3, Name: "Morgan", Role: "support", Departments: []string{"technical"}}, {ID: 4, Name: "Taylor", Role: "support", Departments: []string{"billing"}}, {ID: 5, Name: "Casey", Role: "support", Departments: []string{"other"}}}
 	return p
+}
+
+func cannedFixture() []model.CannedReply {
+	return []model.CannedReply{
+		{ID: 1, Title: "請提供錯誤畫面", Body: "您好，請提供以下資訊以便我們協助：\n- 錯誤畫面截圖\n- 發生時間\n- 使用的裝置與瀏覽器", Version: 1},
+		{ID: 2, Title: "已轉交技術部門", Body: "您好，我們已將問題轉交**技術部門**處理，有進一步消息會立即回覆您。", Version: 1},
+		{ID: 3, Title: "問題已解決確認", Body: "請問目前問題是否已經解決？若沒有其他問題，我們會將客服單結案。", Version: 1},
+	}
 }

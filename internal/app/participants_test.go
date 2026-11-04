@@ -376,7 +376,7 @@ func TestMessageLinksAreClickable(t *testing.T) {
 		t.Fatal(err)
 	}
 	page := request(h, "GET", fmt.Sprintf("/tickets/%d", id), "alice", nil).Body.String()
-	want := `<div class="message-body">您好，請直接至 <a href="https://portal.example.com" target="_blank" rel="noopener noreferrer nofollow ugc">https://portal.example.com</a> 註冊登入，&lt;script&gt;x&lt;/script&gt; 再看 javascript:alert(1)。</div>`
+	want := `<div class="message-body"><p>您好，請直接至 <a href="https://portal.example.com" target="_blank" rel="noopener noreferrer nofollow ugc">https://portal.example.com</a> 註冊登入，&lt;script&gt;x&lt;/script&gt; 再看 javascript:alert(1)。</p></div>`
 	if !strings.Contains(page, want) {
 		start := strings.Index(page, `<div class="message-body">`)
 		t.Fatalf("message body not linked as expected:\n%s", page[start:start+400])

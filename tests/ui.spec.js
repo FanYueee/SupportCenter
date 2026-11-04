@@ -103,13 +103,13 @@ test('admin settings share one stable menu and department prompts fit mobile', a
   for (const width of [320, 390, 768, 1440]) {
     await page.setViewportSize({ width, height: 844 });
     const menuPositions = [];
-    for (const path of ['/admin/tickets', '/admin/ai', '/admin/automation', '/admin/discord', '/admin/email', '/admin/users', '/admin/departments', '/admin/announcements']) {
+    for (const path of ['/admin/tickets', '/admin/ai', '/admin/automation', '/admin/discord', '/admin/email', '/admin/users', '/admin/departments', '/admin/announcements', '/admin/canned']) {
       await page.goto(path);
       const menu = page.getByRole('navigation', { name: '主選單' });
       await expect(menu.getByRole('link')).toHaveCount(3);
       menuPositions.push((await menu.getByRole('link', { name: '管理設定' }).boundingBox()).x);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-      if (path !== '/admin/tickets') await expect(page.getByRole('navigation', { name: '管理設定' }).getByRole('link')).toHaveCount(7);
+      if (path !== '/admin/tickets') await expect(page.getByRole('navigation', { name: '管理設定' }).getByRole('link')).toHaveCount(8);
     }
     expect(Math.max(...menuPositions) - Math.min(...menuPositions)).toBeLessThan(2);
     await page.goto('/admin/ai');
@@ -571,6 +571,97 @@ test('attachment picker reports chosen files without changing the native input',
   expect(await input.evaluate(el => el.checkValidity())).toBe(true);
 });
 
+test('files dropped anywhere on the page join the attachments', async ({ page }) => {
+  await page.goto('/tickets/1048');
+  const drag = async (type, target) => page.evaluate(([type, target]) => {
+    const data = new DataTransfer();
+    data.items.add(new File(['log line'], 'server.log', { type: 'text/plain' }));
+    const element = document.querySelector(target);
+    element.dispatchEvent(new DragEvent(type, { bubbles: true, cancelable: true, dataTransfer: data }));
+  }, [type, target]);
+  await drag('dragenter', '.message-body');
+  await expect(page.locator('html')).toHaveClass(/file-dragging/);
+  expect(await page.evaluate(() => getComputedStyle(document.body, '::after').content)).toContain('放開以加入附件');
+  await drag('drop', '.site-header');
+  await expect(page.locator('html')).not.toHaveClass(/file-dragging/);
+  await expect(page.locator('[data-file-summary]')).toHaveText('server.log');
+});
+
+test('the formatting bar writes Markdown around the selection', async ({ page }) => {
+  await page.goto('/tickets/1048');
+  const field = page.locator('#reply');
+  await field.fill('請重新啟動');
+  await field.evaluate(el => el.setSelectionRange(2, 5));
+  await page.getByRole('button', { name: '粗體' }).click();
+  await expect(field).toHaveValue('請重**新啟動**');
+  await page.getByRole('button', { name: '粗體' }).click();
+  await expect(field).toHaveValue('請重新啟動');
+  await field.fill('第一步\n第二步');
+  await field.evaluate(el => el.setSelectionRange(0, el.value.length));
+  await page.getByRole('button', { name: '編號清單' }).click();
+  await expect(field).toHaveValue('1. 第一步\n2. 第二步');
+  await field.fill('');
+  await field.press('Control+b');
+  await field.pressSequentially('重要');
+  await expect(field).toHaveValue('**重要**');
+});
+
+test('typing # suggests tickets to mention and the keyboard picks one', async ({ page }) => {
+  await page.goto('/tickets/1048');
+  const field = page.locator('#reply');
+  await field.fill('');
+  await field.pressSequentially('請看 #');
+  const menu = page.getByRole('listbox', { name: '提及客服單' });
+  await expect(menu.getByRole('option').first()).toBeVisible();
+  await field.pressSequentially('10');
+  await expect(menu.getByRole('option')).not.toHaveCount(0);
+  const first = await menu.getByRole('option').first().getAttribute('data-mention');
+  expect(first.startsWith('10')).toBe(true);
+  await field.press('Enter');
+  await expect(field).toHaveValue(`請看 #${first} `);
+  await expect(menu).toHaveCount(0);
+  await field.pressSequentially('#找不到的主旨');
+  await expect(page.locator('.mention-empty')).toBeVisible();
+  await field.press('Escape');
+  await expect(page.locator('.mention-menu')).toHaveCount(0);
+  await page.getByRole('button', { name: '提及客服單' }).click();
+  await expect(page.locator('.mention-menu').getByRole('option').first()).toBeVisible();
+  await page.locator('.mention-menu').getByRole('option').first().click();
+  await expect(field).toHaveValue(/#\d+ $/);
+});
+
+test('staff insert canned replies from the reply box', async ({ page }) => {
+  await page.goto('/tickets/1048');
+  await expect(page.locator('.canned-picker')).toHaveCount(0);
+  await page.goto('/admin/tickets/1048');
+  const field = page.locator('#reply');
+  await field.fill('');
+  await page.locator('.canned-toggle').click();
+  await page.getByPlaceholder('搜尋罐頭訊息').fill('技術');
+  await expect(page.locator('.canned-option:visible')).toHaveCount(1);
+  await page.locator('.canned-option:visible').click();
+  await expect(field).toHaveValue('您好，我們已將問題轉交**技術部門**處理，有進一步消息會立即回覆您。');
+  await expect(page.locator('.canned-picker')).not.toHaveAttribute('open', '');
+  await page.goto('/admin/canned');
+  await expect(page.getByRole('heading', { name: '新增罐頭訊息' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '已轉交技術部門' })).toBeVisible();
+  for (const width of [320, 1440]) {
+    await page.setViewportSize({ width, height: 844 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  }
+});
+
+test('the new reply sound can be switched off for this browser', async ({ page }) => {
+  await page.goto('/account');
+  const toggle = page.getByRole('checkbox', { name: '客服回覆時播放提示音' });
+  await expect(toggle).toBeChecked();
+  await toggle.uncheck();
+  await page.reload();
+  await expect(toggle).not.toBeChecked();
+  expect(await page.evaluate(() => localStorage.getItem('support-sound'))).toBe('off');
+  await expect(page.getByRole('button', { name: '試聽' })).toBeVisible();
+});
+
 test('selected images are losslessly optimized and previewed as WebP', async ({ page }) => {
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
@@ -816,13 +907,13 @@ test('admins see and change priority support on the user list', async ({ page })
 test('English interface text is translated across customer and admin pages', async ({ browser }) => {
   const context = await browser.newContext({ locale: 'en-US' });
   const page = await context.newPage();
-  const paths = ['/tickets', '/tickets/new', '/tickets/1048', '/account', '/admin/tickets', '/admin/tickets/1048', '/admin/users', '/admin/ai', '/admin/automation', '/admin/departments', '/admin/discord', '/admin/discord?state=error', '/admin/discord?state=empty', '/admin/email', '/admin/email?state=error', '/admin/email?state=off'];
+  const paths = ['/tickets', '/tickets/new', '/tickets/1048', '/account', '/admin/tickets', '/admin/tickets/1048', '/admin/users', '/admin/ai', '/admin/automation', '/admin/departments', '/admin/discord', '/admin/discord?state=error', '/admin/discord?state=empty', '/admin/email', '/admin/email?state=error', '/admin/email?state=off', '/admin/canned'];
   for (const path of paths) {
     const response = await page.goto(`http://127.0.0.1:8081${path}`);
     expect(response.headers()['content-language']).toBe('en');
     await expect(page.locator('html')).toHaveAttribute('lang', 'en');
     const untranslated = await page.locator('h1,h2,h3,h4,dt,th,button,summary,.tab,.phase-tab,.priority-tab,.nav-item,.field-hint,.field,.back-link').evaluateAll(elements => elements
-      .filter(el => !el.matches('.detail-heading h1,button[value="zh-Hant"],.ticket-mention'))
+      .filter(el => !el.matches('.detail-heading h1,button[value="zh-Hant"],.ticket-mention,.canned-option,.canned-item h2'))
       .map(el => {
         const copy = el.cloneNode(true);
         copy.querySelectorAll('textarea,input').forEach(node => node.remove());

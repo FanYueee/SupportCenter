@@ -26,16 +26,39 @@ func TestMentionsShowOnlyTicketsTheViewerMayOpen(t *testing.T) {
 	if !strings.Contains(page, chip) || strings.Contains(page, "Bob 的祕密") || !strings.Contains(page, fmt.Sprintf("#%04d 和 C#%d", secret, own)) {
 		t.Fatal("customer should see only their own mentioned ticket, escaped")
 	}
-	// The picker offers the customer's other tickets, never someone else's.
-	if !strings.Contains(page, fmt.Sprintf(`data-mention="%d"`, own)) || strings.Contains(page, fmt.Sprintf(`data-mention="%d"`, secret)) || strings.Contains(page, fmt.Sprintf(`data-mention="%d"`, id)) {
-		t.Fatal("mention picker lists the wrong tickets")
-	}
 	staffPage := request(h, "GET", fmt.Sprintf("/admin/tickets/%d", id), "staff", nil).Body.String()
 	if !strings.Contains(staffPage, fmt.Sprintf(`href="/admin/tickets/%d"`, secret)) || !strings.Contains(staffPage, "Bob 的祕密") {
 		t.Fatal("staff should see every mentioned ticket")
 	}
-	if !strings.Contains(staffPage, fmt.Sprintf(`data-mention="%d"`, own)) || strings.Contains(staffPage, fmt.Sprintf(`data-mention="%d"`, secret)) {
-		t.Fatal("staff picker should offer the requester's tickets")
+	// Typing # suggests the customer's own tickets, never someone else's.
+	suggest := func(user, path string) string {
+		t.Helper()
+		got := request(h, "GET", path, user, nil)
+		if got.Code != http.StatusOK {
+			t.Fatalf("%s: %d", path, got.Code)
+		}
+		return got.Body.String()
+	}
+	if found := suggest("alice", fmt.Sprintf("/tickets/mentions?except=%d&q=", id)); !strings.Contains(found, fmt.Sprintf(`data-mention="%d"`, own)) || strings.Contains(found, fmt.Sprintf(`data-mention="%d"`, secret)) ||
+		strings.Contains(found, fmt.Sprintf(`data-mention="%d"`, id)) || !strings.Contains(found, "Alice 的 &lt;b&gt;舊單&lt;/b&gt;") {
+		t.Fatalf("customer suggestions: %s", found)
+	}
+	if found := suggest("alice", "/tickets/mentions?q="+url.QueryEscape("祕密")); strings.Contains(found, "Bob") || !strings.Contains(found, "找不到相符的客服單") {
+		t.Fatalf("customer found someone else's ticket: %s", found)
+	}
+	if found := suggest("alice", fmt.Sprintf("/tickets/mentions?q=%04d", own)); !strings.Contains(found, fmt.Sprintf(`data-mention="%d"`, own)) {
+		t.Fatalf("number search: %s", found)
+	}
+	if found := suggest("alice", "/tickets/mentions?q="+url.QueryEscape("%")); strings.Contains(found, "data-mention") {
+		t.Fatalf("%% matched everything: %s", found)
+	}
+	// Staff may mention any ticket, the requester's first.
+	found := suggest("staff", fmt.Sprintf("/admin/tickets/%d/mentions?q=", id))
+	if !strings.Contains(found, fmt.Sprintf(`data-mention="%d"`, secret)) || strings.Index(found, fmt.Sprintf(`data-mention="%d"`, own)) > strings.Index(found, fmt.Sprintf(`data-mention="%d"`, secret)) {
+		t.Fatalf("staff suggestions: %s", found)
+	}
+	if got := request(h, "GET", fmt.Sprintf("/admin/tickets/%d/mentions?q=", id), "alice", nil); got.Code != http.StatusNotFound {
+		t.Fatalf("customer used the staff search: %d", got.Code)
 	}
 }
 
