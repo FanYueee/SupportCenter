@@ -482,7 +482,7 @@ func (a *App) create(w http.ResponseWriter, r *http.Request) {
 	if a.Turnstile.Enabled() {
 		if ok, reason := a.Turnstile.Verify(r.Context(), r.PostFormValue("cf-turnstile-response"), ClientRequestInfo(r).IP, originHost(a.Origin)); !ok {
 			a.Log.Warn("turnstile check failed", "reason", reason)
-			a.createError(w, r, t, body, "請完成人機驗證後再送出。")
+			a.createError(w, r, t, body, "請完成送出按鈕上方的人機驗證；如果沒有看到驗證框，請重新整理頁面。")
 			return
 		}
 	}

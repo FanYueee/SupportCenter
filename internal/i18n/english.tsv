@@ -429,6 +429,6 @@ SMTP 伺服器暫時無法處理，稍後會自動重試。	The SMTP server is t
 此客服單已鎖定，只能新增內部備註。	This ticket is locked; only internal notes can be added.
 請選擇問題類別。	Choose a category.
 建立客服單的次數過多，請稍後再試；如需補充，可直接回覆既有的客服單。	Too many new tickets. Try again later, or reply to an existing ticket to add details.
-請完成人機驗證後再送出。	Complete the verification before submitting.
+請完成送出按鈕上方的人機驗證；如果沒有看到驗證框，請重新整理頁面。	Complete the verification above the submit button. If you do not see it, refresh the page.
 提醒與結案時數須為 0 至 720 小時，且提醒須早於結案；鎖定時數須為 0 至 8,760 小時。	Reminder and closing hours must be 0 to 720, with the reminder before closing; lock hours must be 0 to 8,760.
 此客服單因未收到回覆，已自動結案。	This ticket was closed automatically because no reply arrived.

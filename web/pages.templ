@@ -1048,6 +1048,7 @@ templ NewTicket(p model.Page) {
 			@Upload()
 			if p.TurnstileSiteKey != "" {
 				<div class="turnstile" data-turnstile data-sitekey={ p.TurnstileSiteKey }></div>
+				<p class="notice error turnstile-hint" role="alert" data-turnstile-hint hidden></p>
 				<script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=supportTurnstileReady" defer></script>
 			}
 			<div class="form-actions">

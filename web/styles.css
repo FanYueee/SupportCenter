@@ -1033,6 +1033,9 @@ tbody tr:hover {
   min-height: 65px;
   margin-top: 23px;
 }
+.turnstile-hint {
+  margin: 10px 0 0;
+}
 .category-choice {
   min-width: 0;
   border: 0;

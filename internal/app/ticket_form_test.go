@@ -100,7 +100,7 @@ func TestTurnstileGuardsNewTickets(t *testing.T) {
 	defer verifier.Close()
 	a.Turnstile = &Turnstile{SiteKey: "0x4AAAAAAAtestkey", Secret: "test-secret", VerifyURL: verifier.URL, Client: verifier.Client()}
 	page := request(h, "GET", "/tickets/new", "alice", nil)
-	if !strings.Contains(page.Body.String(), `data-sitekey="0x4AAAAAAAtestkey"`) || !strings.Contains(page.Header().Get("Content-Security-Policy"), "script-src 'self' https://challenges.cloudflare.com") ||
+	if !strings.Contains(page.Body.String(), `data-sitekey="0x4AAAAAAAtestkey"`) || !strings.Contains(page.Body.String(), "data-turnstile-hint") || !strings.Contains(page.Header().Get("Content-Security-Policy"), "script-src 'self' https://challenges.cloudflare.com") ||
 		!strings.Contains(page.Header().Get("Content-Security-Policy"), "frame-src https://challenges.cloudflare.com") || strings.Contains(page.Body.String(), "test-secret") {
 		t.Fatal("new ticket page should show the check and allow only Cloudflare's script")
 	}
@@ -108,7 +108,7 @@ func TestTurnstileGuardsNewTickets(t *testing.T) {
 		t.Fatal("other pages should keep the strict policy")
 	}
 	form := url.Values{"csrf": {"csrf-alice"}, "subject": {"機器人"}, "category": {"other"}, "priority": {"low"}, "body": {"內容"}}
-	if res := request(h, "POST", "/tickets", "alice", form); res.Code != http.StatusUnprocessableEntity || !strings.Contains(res.Body.String(), "請完成人機驗證") {
+	if res := request(h, "POST", "/tickets", "alice", form); res.Code != http.StatusUnprocessableEntity || !strings.Contains(res.Body.String(), "請完成送出按鈕上方的人機驗證") {
 		t.Fatalf("ticket without a token: %d", res.Code)
 	}
 	form.Set("cf-turnstile-response", "token-from-widget")

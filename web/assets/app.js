@@ -334,9 +334,28 @@ document.addEventListener('click', event => {
 // Cloudflare's script calls this once loaded; the widget needs JavaScript anyway.
 window.supportTurnstileReady = () => {
   for (const box of document.querySelectorAll('[data-turnstile]:not([data-widget])')) {
-    box.dataset.widget = window.turnstile.render(box, { sitekey: box.dataset.sitekey, action: 'ticket', theme: 'auto', language: english ? 'en' : 'zh-tw' });
+    const hint = box.closest('form')?.querySelector('[data-turnstile-hint]');
+    box.dataset.widget = window.turnstile.render(box, {
+      sitekey: box.dataset.sitekey, action: 'ticket', theme: 'auto', language: english ? 'en' : 'zh-tw',
+      callback: () => { if (hint) hint.hidden = true; },
+    });
   }
 };
+// Without a token the server turns the ticket away, so point to the check instead of sending.
+document.addEventListener('submit', event => {
+  const box = event.target.querySelector('[data-turnstile]');
+  if (!box || event.target.querySelector('[name="cf-turnstile-response"]')?.value) return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  const hint = event.target.querySelector('[data-turnstile-hint]');
+  if (hint) {
+    hint.textContent = window.turnstile
+      ? tr('請先完成上方的人機驗證，再送出客服單。', 'Complete the verification above, then submit the ticket.')
+      : tr('人機驗證沒有載入。請重新整理頁面；若仍然看不到，請暫停阻擋內容的外掛或改用其他瀏覽器。', 'The verification did not load. Refresh the page; if it still does not appear, pause content blockers or try another browser.');
+    hint.hidden = false;
+  }
+  box.scrollIntoView({ block: 'center', behavior: 'smooth' });
+}, true);
 document.addEventListener('submit', event => {
   if (event.target.querySelector('input[type="file"][data-processing]')) {
     event.preventDefault();
