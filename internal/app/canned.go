@@ -123,7 +123,7 @@ func (a *App) mentionSearch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	web.MentionOptions(refs).Render(r.Context(), w)
+	web.MentionOptions(refs, r.URL.Query().Get("q")).Render(r.Context(), w)
 }
 
 // activity answers each page's poll for new replies. Nothing new sends no

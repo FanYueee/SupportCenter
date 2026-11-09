@@ -444,7 +444,7 @@ function closeMentions() {
 function mentionOptions() {
   return mention ? [...mention.menu.querySelectorAll('[data-mention]')] : [];
 }
-function moveMention(index) {
+function moveMention(index, scroll = true) {
   const options = mentionOptions();
   if (!options.length) return mention.field.removeAttribute('aria-activedescendant');
   mention.active = (index + options.length) % options.length;
@@ -453,7 +453,43 @@ function moveMention(index) {
     option.setAttribute('aria-selected', String(i === mention.active));
   });
   mention.field.setAttribute('aria-activedescendant', options[mention.active].id);
-  options[mention.active].scrollIntoView({ block: 'nearest' });
+  if (scroll) options[mention.active].scrollIntoView({ block: 'nearest' });
+}
+// Where a character sits in a textarea, found by laying the text out again
+// in a hidden copy that wraps the same way.
+const caretStyles = ['fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'letterSpacing', 'lineHeight', 'wordSpacing', 'tabSize', 'textIndent', 'textTransform', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft'];
+function caretPoint(field, index) {
+  const style = getComputedStyle(field);
+  const copy = document.createElement('div');
+  for (const name of caretStyles) copy.style[name] = style[name];
+  Object.assign(copy.style, {
+    position: 'absolute', top: '0', left: '-9999px', visibility: 'hidden', boxSizing: 'content-box',
+    width: `${field.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)}px`,
+    whiteSpace: 'pre-wrap', overflowWrap: 'break-word',
+  });
+  const mark = document.createElement('span');
+  mark.textContent = field.value[index] || '#';
+  copy.append(field.value.slice(0, index), mark, field.value.slice(index + 1));
+  document.body.append(copy);
+  const point = {
+    left: field.offsetLeft + field.clientLeft + mark.offsetLeft - field.scrollLeft,
+    top: field.offsetTop + field.clientTop + Math.min(Math.max(mark.offsetTop - field.scrollTop, 0), field.clientHeight - mark.offsetHeight),
+    height: mark.offsetHeight,
+  };
+  copy.remove();
+  return point;
+}
+// The list opens under the #, or above it when the screen has no room below.
+function placeMentions() {
+  if (!mention?.menu.childElementCount) return;
+  const { field, menu, start } = mention;
+  const caret = caretPoint(field, start);
+  const box = menu.offsetParent.getBoundingClientRect();
+  const screen = window.visualViewport?.height ?? innerHeight;
+  const below = caret.top + caret.height + 4;
+  const above = caret.top - menu.offsetHeight - 4;
+  menu.style.left = `${Math.max(0, Math.min(caret.left - 12, menu.offsetParent.clientWidth - menu.offsetWidth))}px`;
+  menu.style.top = `${box.top + below + menu.offsetHeight > screen - 8 && box.top + above >= 8 ? above : below}px`;
 }
 function showMentions(field, token) {
   if (mention?.field !== field) {
@@ -481,6 +517,7 @@ function showMentions(field, token) {
       const found = new DOMParser().parseFromString(await response.text(), 'text/html').body;
       current.menu.replaceChildren(...[...found.childNodes].map(node => document.importNode(node, true)));
       moveMention(0);
+      placeMentions();
     } catch {}
   }, 120);
 }
@@ -527,6 +564,12 @@ document.addEventListener('pointerdown', event => {
 document.addEventListener('mousedown', event => {
   if (event.target.closest?.('.mention-menu')) event.preventDefault();
 });
+document.addEventListener('pointermove', event => {
+  const option = mention && event.target.closest?.('.mention-menu [data-mention]');
+  if (option) moveMention(mentionOptions().indexOf(option), false);
+});
+document.addEventListener('scroll', event => { if (event.target === mention?.field) placeMentions(); }, true);
+addEventListener('resize', () => placeMentions());
 document.addEventListener('focusout', event => {
   if (mention && event.target === mention.field) setTimeout(() => { if (mention && document.activeElement !== mention.field) closeMentions(); });
 });

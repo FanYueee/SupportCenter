@@ -1218,6 +1218,7 @@ html.file-dragging body::after {
   overflow: auto;
   border: 1px solid var(--input-line);
   background: var(--bg);
+  box-shadow: 0 10px 28px rgb(0 0 0 / 0.22);
 }
 .canned-menu {
   top: 100%;
@@ -1268,35 +1269,63 @@ html.file-dragging body::after {
   text-decoration: underline;
   text-underline-offset: 3px;
 }
+/* Suggestions float just under the # being typed; app.js places them. */
 .mention-menu {
-  top: 100%;
-  right: 0;
+  top: 0;
   left: 0;
-  max-height: 300px;
-  border-top: 0;
+  width: min(380px, 100%);
+  max-height: 264px;
+  padding-bottom: 4px;
+  scroll-padding-top: 30px;
 }
 .mention-menu:empty {
   display: none;
 }
+.mention-heading {
+  position: sticky;
+  top: 0;
+  padding: 8px 12px 5px;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .mention-option {
   display: flex;
   align-items: baseline;
-  gap: 6px;
+  gap: 10px;
   width: 100%;
-  padding: 9px 12px;
+  padding: 7px 12px;
   border: 0;
   background: transparent;
   color: var(--text);
   font-size: 14px;
   text-align: left;
 }
-.mention-option[aria-selected="true"],
-.mention-option:hover {
-  background: var(--hover);
+.mention-option[aria-selected="true"] {
+  background: var(--line);
+}
+.mention-option-number {
+  flex-shrink: 0;
+  color: var(--muted);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.mention-option[aria-selected="true"] .mention-option-number {
+  color: var(--text);
+}
+.mention-option-subject {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .mention-empty {
   margin: 0;
-  padding: 9px 12px;
+  padding: 5px 12px 4px;
   color: var(--muted);
   font-size: 14px;
 }

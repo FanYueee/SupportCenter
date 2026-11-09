@@ -74,6 +74,7 @@ ZIP 解壓後過大	ZIP expands beyond the allowed size
 客戶 B	Customer B
 客服	Support
 客服分組	Support teams
+客服單	Tickets
 客服單主旨	Ticket subject
 客服單優先級篩選	Ticket priority filters
 客服單列表	Ticket list
@@ -447,6 +448,7 @@ SMTP 伺服器暫時無法處理，稍後會自動重試。	The SMTP server is t
 尚無罐頭訊息。	No canned replies yet.
 管理罐頭訊息	Manage canned replies
 找不到相符的客服單	No matching tickets
+符合「%s」的客服單	Tickets matching “%s”
 編輯罐頭訊息	Edit canned reply
 新增罐頭訊息	Add canned reply
 客服回覆時，可從回覆框上方的「罐頭訊息」一鍵套用。	Staff insert these with “Canned replies” above the reply box.

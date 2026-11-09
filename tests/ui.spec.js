@@ -613,7 +613,15 @@ test('typing # suggests tickets to mention and the keyboard picks one', async ({
   await field.pressSequentially('請看 #');
   const menu = page.getByRole('listbox', { name: '提及客服單' });
   await expect(menu.getByRole('option').first()).toBeVisible();
+  // The list opens under the # itself, not across the whole box.
+  const box = await field.boundingBox();
+  const list = await menu.boundingBox();
+  expect(list.x).toBeGreaterThan(box.x + 20);
+  expect(list.y).toBeGreaterThan(box.y + 10);
+  expect(list.y).toBeLessThan(box.y + 80);
+  expect(list.width).toBeLessThan(box.width);
   await field.pressSequentially('10');
+  await expect(menu.locator('.mention-heading')).toHaveText('符合「10」的客服單');
   await expect(menu.getByRole('option')).not.toHaveCount(0);
   const first = await menu.getByRole('option').first().getAttribute('data-mention');
   expect(first.startsWith('10')).toBe(true);

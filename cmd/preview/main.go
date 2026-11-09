@@ -38,7 +38,7 @@ func main() {
 			}
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		web.MentionOptions(refs).Render(r.Context(), w)
+		web.MentionOptions(refs, r.URL.Query().Get("q")).Render(r.Context(), w)
 	}
 	mux.HandleFunc("GET /tickets/mentions", mentions)
 	mux.HandleFunc("GET /admin/tickets/{id}/mentions", mentions)

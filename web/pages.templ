@@ -1118,10 +1118,18 @@ templ CannedPicker(p model.Page) {
 	</details>
 }
 
-// MentionOptions are the tickets offered while typing # in a message.
-templ MentionOptions(refs []model.TicketRef) {
+// MentionOptions are the tickets offered while typing # in a message, under
+// a heading that repeats what was typed.
+templ MentionOptions(refs []model.TicketRef, q string) {
+	<div class="mention-heading" aria-hidden="true">
+		if q == "" {
+			{ i18n.T(ctx,"客服單") }
+		} else {
+			{ fmt.Sprintf(i18n.T(ctx,"符合「%s」的客服單"),q) }
+		}
+	</div>
 	for _, ticket := range refs {
-		<button type="button" class="mention-option" role="option" aria-selected="false" data-mention={ strconv.FormatInt(ticket.ID,10) }><span class="ticket-mention-number">{ fmt.Sprintf("#%04d",ticket.ID) }</span><span class="ticket-mention-subject">{ ticket.Subject }</span></button>
+		<button type="button" class="mention-option" role="option" aria-selected="false" data-mention={ strconv.FormatInt(ticket.ID,10) }><span class="mention-option-number">{ fmt.Sprintf("#%04d",ticket.ID) }</span><span class="mention-option-subject">{ ticket.Subject }</span></button>
 	}
 	if len(refs)==0 {
 		<p class="mention-empty">{ i18n.T(ctx,"找不到相符的客服單") }</p>
