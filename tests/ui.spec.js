@@ -918,18 +918,36 @@ test('user list shows email, role, registration and last sign-in on every screen
   }
 });
 
+test('customers see their support plan and staff see the owner\'s', async ({ page }) => {
+  await page.goto('/tickets?support=high');
+  const plan = page.locator('.site-header .plan-pill');
+  await expect(plan).toHaveAttribute('href', /support-plans/);
+  await expect(plan).toHaveAttribute('target', '_blank');
+  await expect(plan.locator('.tier-tag')).toHaveText('進階');
+  await page.goto('/tickets');
+  await expect(plan.locator('.tier-basic')).toHaveText('基本');
+  await page.goto('/admin/tickets/1048');
+  await expect(page.locator('.site-header .plan-pill')).toHaveCount(0);
+  await expect(page.locator('.detail-heading .tier-tag')).toHaveText('進階');
+  await page.goto('/admin/tickets');
+  const first = page.locator('.ticket-person .tier-text').first();
+  await expect(first).toHaveText('進階');
+  expect(await first.evaluate(el => getComputedStyle(el).backgroundColor)).toBe('rgba(0, 0, 0, 0)');
+});
+
 test('admins see and change priority support on the user list', async ({ page }) => {
   for (const width of [320, 390, 1280]) {
     await page.setViewportSize({ width, height: 900 });
     await page.goto('/admin/users');
     const taylor = page.locator('.users-table tbody tr', { hasText: 'Taylor Lee' });
     const support = taylor.locator('.user-priority');
-    await expect(support.locator('summary')).toContainText('高');
+    await expect(support.locator('summary .tier-advanced')).toHaveText('進階');
     await expect(support.locator('summary')).toContainText('至 2027/01/31');
     await expect(page.locator('.users-table tbody tr', { hasText: 'Jamie' }).locator('.user-priority')).toHaveText('客服不受限');
     await support.getByText('調整').click();
     const form = support.locator('form');
-    await expect(form.getByRole('combobox', { name: '可使用到' })).toHaveValue('high');
+    await expect(form.getByRole('combobox', { name: '支援等級' })).toHaveValue('high');
+    await expect(form.locator('option[value="high"]')).toHaveText('進階（最高可選「高」）');
     await expect(form.getByLabel('到期日（選填）')).toHaveValue('2027-01-31');
     await expect(form.getByRole('button', { name: '儲存' })).toBeVisible();
     for (const field of await form.locator('input:not([type=hidden]), select').all()) {

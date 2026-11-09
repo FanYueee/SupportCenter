@@ -15,6 +15,7 @@ services:
       SITE_NAME: ${SITE_NAME:-}
       SITE_OWNER: ${SITE_OWNER:-}
       SITE_WEBSITE: ${SITE_WEBSITE:-}
+      SITE_SUPPORT_PLAN_URL: ${SITE_SUPPORT_PLAN_URL:-}
       SITE_LOGO: ${SITE_LOGO:-}
       SITE_ICON: ${SITE_ICON:-}
       DATABASE_URL: postgres://support:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@db:5432/support?sslmode=disable

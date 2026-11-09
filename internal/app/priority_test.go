@@ -95,7 +95,7 @@ func TestAdminsSetPrioritySupport(t *testing.T) {
 		t.Fatal("stored", support.Level, support.Until)
 	}
 	page := request(h, "GET", "/admin/users?q=alice", "admin", nil).Body.String()
-	for _, want := range []string{`<span class="priority priority-high">高</span>`, "至 2027/01/31", `name="until" value="2027-01-31"`} {
+	for _, want := range []string{`<span class="tier-tag tier-advanced">進階</span>`, "至 2027/01/31", `name="until" value="2027-01-31"`} {
 		if !strings.Contains(page, want) {
 			t.Errorf("users page missing %s", want)
 		}
@@ -212,4 +212,42 @@ func decodeResponse(w interface {
 	out := &testResponse{Code: res.StatusCode}
 	json.NewDecoder(res.Body).Decode(&out.JSON)
 	return out
+}
+
+func TestStaffSeeTheOwnersPlanAndStartOnEveryTicket(t *testing.T) {
+	a, _, alice, _, _ := testApp(t)
+	ctx := context.Background()
+	if page := request(a.Handler(), "GET", "/tickets", "alice", nil).Body.String(); strings.Contains(page, "plan-pill") {
+		t.Fatal("sites that sell no plans show none in the header")
+	}
+	a.Site.PlanURL = "https://portal.example.test/billing#support-plans"
+	h := a.Handler()
+	if _, err := a.Store.Pool.Exec(ctx, `UPDATE users SET priority_level='high',priority_until=now()+interval '30 days' WHERE id=$1`, alice.ID); err != nil {
+		t.Fatal(err)
+	}
+	id, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "x", Category: "other", Priority: "low"}, "問題", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if page := request(h, "GET", fmt.Sprintf("/admin/tickets/%d", id), "staff", nil).Body.String(); !strings.Contains(page, `<span class="tier-tag tier-advanced">進階</span>`) || strings.Contains(page, "plan-pill") {
+		t.Fatal("staff should see the owner's plan, and no plan of their own")
+	}
+	if page := request(h, "GET", "/admin/tickets", "staff", nil).Body.String(); !strings.Contains(page, `class="tier-text tier-advanced"`) {
+		t.Fatal("the staff list should name the owner's plan")
+	}
+	if page := request(h, "GET", "/tickets", "alice", nil).Body.String(); !strings.Contains(page, `class="plan-pill" href="https://portal.example.test/billing#support-plans" target="_blank"`) || !strings.Contains(page, `tier-advanced">進階`) {
+		t.Fatal("customers should see their plan in the header")
+	}
+	// An ended plan counts as basic.
+	if _, err := a.Store.Pool.Exec(ctx, `UPDATE users SET priority_until=now()-interval '1 day' WHERE id=$1`, alice.ID); err != nil {
+		t.Fatal(err)
+	}
+	if page := request(h, "GET", "/tickets", "alice", nil).Body.String(); !strings.Contains(page, `tier-basic">基本`) {
+		t.Fatal("an ended plan should show as basic")
+	}
+	for session, want := range map[string]string{"staff": "/admin/tickets", "alice": "/tickets"} {
+		if got := request(h, "GET", "/", session, nil); got.Code != http.StatusSeeOther || got.Header().Get("Location") != want {
+			t.Fatalf("%s should start on %s: %d %s", session, want, got.Code, got.Header().Get("Location"))
+		}
+	}
 }

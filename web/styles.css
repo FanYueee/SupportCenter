@@ -41,6 +41,19 @@ html.preserving-scroll { overflow-anchor: none; }
   --login-sheen: rgb(255 255 255 / 0.22);
   --globe-land: #2b2b2b;
   --globe-ocean: #c2c2c2;
+  /* Support plans, as the Portal colours them. */
+  --tier-basic-bg: #64748b;
+  --tier-basic-text: #fff;
+  --tier-standard-bg: #0e9fbf;
+  --tier-standard-text: #fff;
+  --tier-advanced-bg: #8b5cf6;
+  --tier-advanced-text: #fff;
+  --tier-business-bg: #f5b301;
+  --tier-business-text: #3d2600;
+  --tier-basic-ink: var(--muted);
+  --tier-standard-ink: #2563eb;
+  --tier-advanced-ink: #9333ea;
+  --tier-business-ink: #a16207;
 }
 html:lang(en) { --list-filter-width: 220px; }
 @media (prefers-color-scheme: dark) {
@@ -79,6 +92,17 @@ html:lang(en) { --list-filter-width: 220px; }
     --login-sheen: rgb(0 0 0 / 0.1);
     --globe-land: #d6d6d6;
     --globe-ocean: #3d3d3d;
+    --tier-basic-bg: #475569;
+    --tier-basic-text: #e2e8f0;
+    --tier-standard-bg: #0e7490;
+    --tier-standard-text: #e0f7fb;
+    --tier-advanced-bg: #6d28d9;
+    --tier-advanced-text: #ede9fe;
+    --tier-business-bg: #b88300;
+    --tier-business-text: #fff8e1;
+    --tier-standard-ink: #93c5fd;
+    --tier-advanced-ink: #d8b4fe;
+    --tier-business-ink: #fcd34d;
   }
 }
 :root[data-theme="dark"] {
@@ -116,6 +140,17 @@ html:lang(en) { --list-filter-width: 220px; }
     --login-sheen: rgb(0 0 0 / 0.1);
     --globe-land: #d6d6d6;
     --globe-ocean: #3d3d3d;
+    --tier-basic-bg: #475569;
+    --tier-basic-text: #e2e8f0;
+    --tier-standard-bg: #0e7490;
+    --tier-standard-text: #e0f7fb;
+    --tier-advanced-bg: #6d28d9;
+    --tier-advanced-text: #ede9fe;
+    --tier-business-bg: #b88300;
+    --tier-business-text: #fff8e1;
+    --tier-standard-ink: #93c5fd;
+    --tier-advanced-ink: #d8b4fe;
+    --tier-business-ink: #fcd34d;
 }
 
 * {
@@ -385,6 +420,50 @@ input[type="checkbox"] {
   gap: 20px;
   margin-left: auto;
 }
+/* A customer's support plan in the header; a filled tag on tickets for
+   staff, and coloured text in their list. */
+.plan-pill {
+  display: inline-flex;
+  align-items: stretch;
+  min-height: 28px;
+  border: 1px solid var(--line);
+  color: var(--text);
+  font-size: 13px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.plan-pill:hover {
+  border-color: var(--text);
+}
+.plan-pill-label {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 9px;
+  color: var(--muted);
+}
+.plan-pill .tier-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 10px;
+}
+.tier-tag {
+  padding: 1px 8px;
+  background: var(--tier-bg);
+  color: var(--tier-text);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.tier-text {
+  color: var(--tier-ink);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.tier-basic { --tier-bg: var(--tier-basic-bg); --tier-text: var(--tier-basic-text); --tier-ink: var(--tier-basic-ink); }
+.tier-standard { --tier-bg: var(--tier-standard-bg); --tier-text: var(--tier-standard-text); --tier-ink: var(--tier-standard-ink); }
+.tier-advanced { --tier-bg: var(--tier-advanced-bg); --tier-text: var(--tier-advanced-text); --tier-ink: var(--tier-advanced-ink); }
+.tier-business { --tier-bg: var(--tier-business-bg); --tier-text: var(--tier-business-text); --tier-ink: var(--tier-business-ink); }
 .icon-button.theme-toggle { display: none; }
 .theme-enabled .icon-button.theme-toggle { display: inline-grid; place-items: center; }
 /* Both icons share one cell; the inactive one turns away, fades, then hides. */
@@ -2176,7 +2255,8 @@ dd {
   .header-actions {
     gap: 10px;
   }
-  .account-name {
+  .account-name,
+  .plan-pill-label {
     display: none;
   }
   .icon-button {

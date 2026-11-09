@@ -60,8 +60,13 @@ func (a *App) Handler() http.Handler {
 	mux.Handle("GET /assets/", AssetHandler())
 	mux.HandleFunc("GET /branding/{file}", func(w http.ResponseWriter, r *http.Request) { serveBranding(w, r, a.Site) })
 	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
-		if _, err := a.session(r); err == nil {
-			http.Redirect(w, r, "/tickets", 303)
+		// Staff start on every ticket, as after signing in.
+		if s, err := a.session(r); err == nil {
+			target := "/tickets"
+			if s.User.Staff() {
+				target = "/admin/tickets"
+			}
+			http.Redirect(w, r, target, 303)
 			return
 		}
 		a.render(w, r, model.Page{Title: "登入", Active: "login"})
@@ -299,6 +304,13 @@ func (a *App) render(w http.ResponseWriter, r *http.Request, p model.Page) {
 		}
 	}
 	if p.User.ID > 0 && r.Header.Get("HX-Request") != "true" {
+		// The header shows customers their plan.
+		if p.PrioritySupport.Level == "" && !p.User.Staff() {
+			if p.PrioritySupport, err = a.prioritySupport(r.Context(), p.User.ID, false); err != nil {
+				a.fail(w, r, err)
+				return
+			}
+		}
 		p.UnreadNotifications, err = a.Store.UnreadNotifications(r.Context(), p.User.ID)
 		if err == nil {
 			p.Activity, err = a.Store.LatestActivity(r.Context(), p.User)

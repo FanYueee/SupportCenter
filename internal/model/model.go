@@ -27,6 +27,7 @@ type Ticket struct {
 	Version, ID, UserID                                                  int64
 	Subject, Category, Status, Priority, Owner, Assignee, AssistanceMode string
 	OwnerEmail                                                           string
+	OwnerSupport                                                         PrioritySupport // the owner's, for staff to see their plan
 	Team                                                                 []User
 	AssigneeID                                                           *int64
 	HandoffAt                                                            *time.Time
@@ -411,6 +412,34 @@ func (p PrioritySupport) Current(now time.Time) string {
 		return "low"
 	}
 	return p.Level
+}
+
+// SupportTier names a priority support level as the plan customers buy:
+// low is Basic, medium Standard, high Advanced and urgent Enterprise.
+func SupportTier(level string) string {
+	switch level {
+	case "medium":
+		return "標準"
+	case "high":
+		return "進階"
+	case "urgent":
+		return "企業"
+	}
+	return "基本"
+}
+
+// SupportTierKey is the plan's name in styles: basic, standard, advanced or
+// business.
+func SupportTierKey(level string) string {
+	switch level {
+	case "medium":
+		return "standard"
+	case "high":
+		return "advanced"
+	case "urgent":
+		return "business"
+	}
+	return "basic"
 }
 
 // Allows reports whether a ticket may be filed at priority under level; an

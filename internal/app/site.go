@@ -15,9 +15,10 @@ import (
 )
 
 // SiteFromEnvironment reads how the site presents itself: SITE_NAME,
-// SITE_OWNER, SITE_WEBSITE, and the SITE_LOGO and SITE_ICON image files.
+// SITE_OWNER, SITE_WEBSITE, SITE_SUPPORT_PLAN_URL, and the SITE_LOGO and
+// SITE_ICON image files.
 func SiteFromEnvironment() (web.Site, error) {
-	site := web.Site{Name: strings.TrimSpace(os.Getenv("SITE_NAME")), Owner: strings.TrimSpace(os.Getenv("SITE_OWNER")), Website: os.Getenv("SITE_WEBSITE")}
+	site := web.Site{Name: strings.TrimSpace(os.Getenv("SITE_NAME")), Owner: strings.TrimSpace(os.Getenv("SITE_OWNER")), Website: os.Getenv("SITE_WEBSITE"), PlanURL: os.Getenv("SITE_SUPPORT_PLAN_URL")}
 	if !plainText(site.Name, 60) || !plainText(site.Owner, 100) {
 		return site, errors.New("SITE_NAME and SITE_OWNER must be one line of at most 60 and 100 characters")
 	}
@@ -25,6 +26,12 @@ func SiteFromEnvironment() (web.Site, error) {
 		u, err := url.Parse(site.Website)
 		if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" || u.User != nil || len(site.Website) > 300 {
 			return site, errors.New("SITE_WEBSITE must be an http or https address")
+		}
+	}
+	if site.PlanURL != "" {
+		u, err := url.Parse(site.PlanURL)
+		if err != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || len(site.PlanURL) > 300 {
+			return site, errors.New("SITE_SUPPORT_PLAN_URL must be an https address")
 		}
 	}
 	var err error

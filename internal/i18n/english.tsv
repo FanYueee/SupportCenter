@@ -477,3 +477,11 @@ SMTP 伺服器暫時無法處理，稍後會自動重試。	The SMTP server is t
 標記到回覆	Tag in reply
 把「%s」標記到回覆	Tag “%s” in the reply
 標記	Tag
+基本	Basic
+標準	Standard
+進階	Advanced
+企業	Enterprise
+支援等級	Support plan
+查看支援方案	See support plans
+目前支援等級：%s，查看支援方案	Current support plan: %s. See support plans
+%[1]s（最高可選「%[2]s」）	%[1]s (up to %[2]s)

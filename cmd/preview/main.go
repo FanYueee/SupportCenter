@@ -308,6 +308,13 @@ func main() {
 		if p.Active == "detail" || p.Active == "new" {
 			p.ReferenceKinds = referenceKindsFixture()
 		}
+		// The header shows the customer's plan; ?support=high previews a bought one.
+		if p.PrioritySupport.Level == "" {
+			p.PrioritySupport = model.PrioritySupport{Level: "low"}
+			if level := r.URL.Query().Get("support"); slices.Contains(model.Priorities, level) {
+				p.PrioritySupport.Level = level
+			}
+		}
 		if p.Active == "detail" {
 			p.References = referencesFixture()[:2]
 		}
@@ -418,7 +425,7 @@ func previewSite() web.Site {
 		return blue
 	}
 	return web.Site{
-		Name: "Example Cloud", Owner: "Example Cloud Ltd.", Website: "https://example.com",
+		Name: "Example Cloud", Owner: "Example Cloud Ltd.", Website: "https://example.com", PlanURL: "https://portal.example.com/billing?tab=catalog#support-plans",
 		Logo: draw("logo", 440, 150, func(x, y int) color.Color {
 			switch {
 			case x < 150:
@@ -448,7 +455,7 @@ func fixture() model.Page {
 	categories := []string{"technical", "billing", "billing", "technical", "billing", "account"}
 	priorities := []string{"low", "medium", "high", "low", "low", "urgent"}
 	for i, s := range subjects {
-		ticket := model.Ticket{ID: int64(1048 - i), UserID: 1, Subject: s, Status: statuses[i], Category: categories[i], Priority: priorities[i], Owner: "Alex Chen", OwnerEmail: "alex@example.com", CreatedAt: now.Add(-time.Duration(48+i*24) * time.Hour), UpdatedAt: now.Add(-time.Duration(i*7) * time.Hour)}
+		ticket := model.Ticket{ID: int64(1048 - i), UserID: 1, Subject: s, Status: statuses[i], Category: categories[i], Priority: priorities[i], Owner: "Alex Chen", OwnerEmail: "alex@example.com", OwnerSupport: model.PrioritySupport{Level: model.Priorities[(i+2)%len(model.Priorities)]}, CreatedAt: now.Add(-time.Duration(48+i*24) * time.Hour), UpdatedAt: now.Add(-time.Duration(i*7) * time.Hour)}
 		if ticket.Status == "solved" {
 			at := time.Now().UTC()
 			due := at.Add(7 * 24 * time.Hour)

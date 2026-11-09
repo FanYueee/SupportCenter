@@ -289,6 +289,9 @@ templ Document(p model.Page) {
 						</nav>
 					}
 					<div class="header-actions">
+						if p.Active != "login" && !p.User.Staff() && !p.Admin && p.PrioritySupport.Level != "" {
+							@SupportPlan(p.PrioritySupport.Level)
+						}
 						<button type="button" class="icon-button theme-toggle" data-theme-toggle data-theme-light-label={ i18n.T(ctx,"切換至淺色模式") } data-theme-dark-label={ i18n.T(ctx,"切換至深色模式") } aria-label={ i18n.T(ctx,"切換深淺色模式") } title={ i18n.T(ctx,"切換深淺色模式") }>
 							<span class="theme-icon-sun" aria-hidden="true">@Icon("sun")</span>
 							<span class="theme-icon-moon" aria-hidden="true">@Icon("moon")</span>
@@ -407,6 +410,27 @@ templ TicketBadge(ticket model.Ticket, staff bool) {
 	} else {
 		@Badge(ticket.Status,staff)
 	}
+}
+
+// SupportPlan shows customers their plan in the header on sites that sell
+// plans, opening where they are bought.
+templ SupportPlan(level string) {
+	if url := siteOf(ctx).PlanURL; url != "" {
+		<a class="plan-pill" href={ templ.URL(url) } target="_blank" rel="noopener noreferrer" title={ i18n.T(ctx,"查看支援方案") } aria-label={ fmt.Sprintf(i18n.T(ctx,"目前支援等級：%s，查看支援方案"),i18n.T(ctx,model.SupportTier(level))) }>
+			<span class="plan-pill-label">{ i18n.T(ctx,"支援等級") }</span>
+			@SupportTierTag(level)
+		</a>
+	}
+}
+
+// SupportTierTag names a plan on its colour, as staff see a ticket owner's.
+templ SupportTierTag(level string) {
+	<span class={ "tier-tag", "tier-"+model.SupportTierKey(level) }>{ i18n.T(ctx,model.SupportTier(level)) }</span>
+}
+
+// SupportTierText names a plan in its colour only, quietly, in lists.
+templ SupportTierText(level string) {
+	<span class={ "tier-text", "tier-"+model.SupportTierKey(level) } title={ i18n.T(ctx,"支援等級") }>{ i18n.T(ctx,model.SupportTier(level)) }</span>
 }
 
 templ Priority(priority string) {
@@ -830,19 +854,19 @@ templ Users(p model.Page) {
 			<label class="field">{ i18n.T(ctx,"搜尋名稱或電子郵件") }<input name="q" value={ p.Query } maxlength="100"/></label>
 			<button class="button secondary">{ i18n.T(ctx,"搜尋") }</button>
 		</form>
-		<div class="users-table-wrap"><table class="users-table"><thead><tr><th>{ i18n.T(ctx,"名稱") }</th><th>{ i18n.T(ctx,"電子郵件") }</th><th>{ i18n.T(ctx,"角色") }</th><th>{ i18n.T(ctx,"優先支援") }</th><th>{ i18n.T(ctx,"註冊日期") }</th><th>{ i18n.T(ctx,"最近登入") }</th></tr></thead><tbody>
+		<div class="users-table-wrap"><table class="users-table"><thead><tr><th>{ i18n.T(ctx,"名稱") }</th><th>{ i18n.T(ctx,"電子郵件") }</th><th>{ i18n.T(ctx,"角色") }</th><th>{ i18n.T(ctx,"支援等級") }</th><th>{ i18n.T(ctx,"註冊日期") }</th><th>{ i18n.T(ctx,"最近登入") }</th></tr></thead><tbody>
 			for _, user := range p.Users {
 				<tr>
 					<td class="user-name">{ user.User.Name }</td>
 					<td class="user-email">{ user.User.Email }</td>
 					<td class="user-role">{ i18n.T(ctx,model.RoleLabel(user.User.Role)) }</td>
-					<td class="user-priority" data-label={ i18n.T(ctx,"優先支援") }>
+					<td class="user-priority" data-label={ i18n.T(ctx,"支援等級") }>
 						if user.User.Role != "user" {
 							<span class="field-hint">{ i18n.T(ctx,"客服不受限") }</span>
 						} else {
 							<details class="priority-support">
 								<summary>
-									@Priority(user.PrioritySupport.Current(time.Now()))
+									@SupportTierTag(user.PrioritySupport.Current(time.Now()))
 									if status := prioritySupportStatus(ctx,user.PrioritySupport,p.Location); status != "" {
 										<span class="priority-support-until">{ status }</span>
 									}
@@ -854,10 +878,10 @@ templ Users(p model.Page) {
 									<input type="hidden" name="page" value={ strconv.Itoa(p.Page) }/>
 									<input type="hidden" name="shown_until" value={ prioritySupportDate(user.PrioritySupport,p.Location) }/>
 									<label class="field">
-										{ i18n.T(ctx,"可使用到") }
+										{ i18n.T(ctx,"支援等級") }
 										<select name="level">
 											for _, s := range model.Priorities {
-												<option value={ s } selected?={ user.PrioritySupport.Level==s }>{ i18n.T(ctx,model.Priority(s)) }</option>
+												<option value={ s } selected?={ user.PrioritySupport.Level==s }>{ fmt.Sprintf(i18n.T(ctx,"%[1]s（最高可選「%[2]s」）"),i18n.T(ctx,model.SupportTier(s)),i18n.T(ctx,model.Priority(s))) }</option>
 											}
 										</select>
 									</label>
@@ -1001,6 +1025,9 @@ templ List(p model.Page) {
 														<img class="avatar" src={ ticketPersonAvatarURL(t.ID,t.UserID) } alt="" width="32" height="32" loading="lazy"/>
 													}
 													<strong>{ t.Owner }</strong>
+													if p.Admin {
+														@SupportTierText(t.OwnerSupport.Current(time.Now()))
+													}
 												</span>
 											</div>
 											<div class="ticket-person-group">
@@ -1321,6 +1348,9 @@ templ Detail(p model.Page) {
 			</h1>
 			<p>
 				{ i18n.T(ctx,"建立於") } <time datetime={ p.Ticket.CreatedAt.Format("2006-01-02T15:04:05Z07:00") } data-local-time="full" data-timezone-inline>{ p.Ticket.CreatedAt.UTC().Format("2006/01/02 15:04") } UTC</time> · { p.Ticket.Owner }
+				if p.Admin {
+					@SupportTierTag(p.Ticket.OwnerSupport.Current(time.Now()))
+				}
 			</p>
 		</div>
 		<div id="detail-status">@TicketBadge(p.Ticket,p.Admin)</div>

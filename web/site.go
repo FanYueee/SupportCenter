@@ -27,6 +27,7 @@ type Site struct {
 	Website string // the footer links here when set
 	Logo    *Image // wide header logo; without one the header shows the icon and name
 	Icon    *Image // square icon for phones, the sign-in page and the browser tab
+	PlanURL string // where customers see and buy support plans, from their plan in the header
 }
 
 // Title names the site in emails and Discord messages, which are in Chinese.
