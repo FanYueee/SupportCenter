@@ -170,6 +170,18 @@ func (a *App) portalDetail(w http.ResponseWriter, r *http.Request) {
 			"canInternalNote": identity.Staff, "canHandoff": own && !identity.Staff && ticket.AssistanceMode == "ai" && ticket.Status != "closed",
 			"canResolveAI": own && !identity.Staff && ticket.AssistanceMode == "ai" && ticket.Status == "waiting"}}
 	if identity.Staff {
+		// Staff get the owner's email to look up their account, only once
+		// verified, so an unproven address never names someone else's account.
+		owner, err := a.Store.VerifiedEmail(r.Context(), ticket.UserID)
+		if err != nil {
+			a.portalFailure(w, err)
+			return
+		}
+		ticketData := data["ticket"].(map[string]any)
+		ticketData["ownerEmail"] = nil
+		if owner != "" {
+			ticketData["ownerEmail"] = owner
+		}
 		events, err := a.Store.Events(r.Context(), identity.User, id)
 		if err != nil {
 			a.portalFailure(w, err)

@@ -9,6 +9,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -297,5 +298,36 @@ func TestUserListShowsRegistrationAndPortalUse(t *testing.T) {
 	page := request(h, "GET", "/admin/users", "admin", nil).Body.String()
 	if !strings.Contains(page, `data-label="註冊日期"`) || !strings.Contains(page, ">Portal</span>") || !strings.Contains(page, `data-local-time="date"`) {
 		t.Fatal("user list misses the registration date or Portal use")
+	}
+}
+
+func TestPortalStaffSeeTheVerifiedOwnerEmail(t *testing.T) {
+	a, h, key, alice, staff := portalTestApp(t)
+	ctx := context.Background()
+	id, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "需要協助", Category: "other", Priority: "low"}, "問題", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	staffActor := portalActor{Email: staff.Email, Name: "Staff", Hostname: portalTestHost, CanStaff: true}
+	ownerEmail := func(path string, actor portalActor) (any, bool) {
+		t.Helper()
+		res := decodeResponse(portalRequest(t, h, key, "GET", fmt.Sprintf(path, id), actor))
+		if res.Code != 200 {
+			t.Fatal(path, res.Code, res.JSON)
+		}
+		email, ok := res.JSON["ticket"].(map[string]any)["ownerEmail"]
+		return email, ok
+	}
+	if email, ok := ownerEmail("/api/portal/v1/staff/tickets/%d", staffActor); !ok || email != nil {
+		t.Fatal("an unverified email must not be given out", email, ok)
+	}
+	if _, err = a.Store.Pool.Exec(ctx, `UPDATE users SET email_verified=true,email='Alice@Example.test' WHERE id=$1`, alice.ID); err != nil {
+		t.Fatal(err)
+	}
+	if email, _ := ownerEmail("/api/portal/v1/staff/tickets/%d", staffActor); email != "alice@example.test" {
+		t.Fatal("staff should get the verified owner email, lower-case", email)
+	}
+	if _, ok := ownerEmail("/api/portal/v1/tickets/%d", portalActor{Email: "alice@example.test", Name: "Alice", Hostname: portalTestHost}); ok {
+		t.Fatal("the member API must not carry ownerEmail")
 	}
 }

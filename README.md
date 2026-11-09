@@ -243,6 +243,8 @@ Portal 使用者以 **Email** 對應帳號（不分大小寫、忽略前後空�
 
 標記 Portal 項目：再設定 `PORTAL_REFERENCES_URL`（例如 `https://portal.example.com/api/support/v1/references`）時，支援中心以同一把金鑰、相同的簽章格式從伺服器呼叫 Portal 的 `GET {URL}/kinds`、`{URL}/search?kind=&q=&limit=` 與 `{URL}/items?kind=&ids=`，`X-Portal-Issuer` 為 `support-center`（本站不接受這個 issuer，兩個方向的請求無法互相重放）。actor 為 `{"hostname","customer","viewer","viewerRole"}`：`hostname` 是 `APP_URL` 的主機，`customer` 是開單者已驗證的小寫 Email；Email 未驗證時不查詢。種類 `{"key","label","labelEn","trigger"}` 快取 10 分鐘，`trigger` 限 `$ ! & % @ ^`；項目 `{"id","title","detail","customerUrl","staffUrl"}` 的連結必須是 Portal 主機的 https 網址，其餘一律捨棄。請求逾時 3 秒，Portal 無法回應時訊息照常送出。Portal API 開單可帶 `references`（JSON 字串，例如 `[{"kind":"service","id":"…"}]`，最多 10 筆，同樣會向 Portal 確認）；客服單詳情回傳 `references`，每則訊息也附上自己寫到的 `references`，`token` 是訊息中的原文（例如 `$…`），`staffUrl` 與 `internal` 只給客服。
 
+客服 API 的客服單詳情（`GET /api/portal/v1/staff/tickets/{id}`）在 `ticket` 裡多一個 `ownerEmail`：開單者已驗證的小寫 Email，未驗證時為 `null`；一般會員路徑沒有這個欄位。
+
 客服單詳情的 `participants` 每筆只有 `email`（例如 `[{"email":"name@example.com"}]`），不回傳名稱或使用者 ID；邀請不論對方是否已註冊都回 `200 {"id":…}`。
 
 ## 備份與還原
