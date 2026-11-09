@@ -421,7 +421,7 @@ input[type="checkbox"] {
   margin-left: auto;
 }
 /* A customer's support plan in the header; a filled tag on tickets for
-   staff, and coloured text in their list. */
+   staff, and a quiet line under the owner's name in their list. */
 .plan-pill {
   display: inline-flex;
   align-items: stretch;
@@ -455,10 +455,19 @@ input[type="checkbox"] {
   white-space: nowrap;
 }
 .tier-text {
-  color: var(--tier-ink);
+  color: var(--muted);
   font-size: 12px;
-  font-weight: 600;
   white-space: nowrap;
+}
+.tier-text::before {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 5px;
+  border-radius: 50%;
+  background: var(--tier-ink);
+  vertical-align: 1px;
 }
 .tier-basic { --tier-bg: var(--tier-basic-bg); --tier-text: var(--tier-basic-text); --tier-ink: var(--tier-basic-ink); }
 .tier-standard { --tier-bg: var(--tier-standard-bg); --tier-text: var(--tier-standard-text); --tier-ink: var(--tier-standard-ink); }
@@ -786,6 +795,7 @@ tbody tr:hover {
 .ticket-person { display: flex; align-items: center; gap: 7px; min-width: 0; font-size: 14px; }
 .ticket-person .avatar { width: 30px; height: 30px; font-size: 13px; }
 .ticket-person strong { font-weight: 500; min-width: 0; overflow-wrap: anywhere; }
+.ticket-person-name { display: grid; min-width: 0; line-height: 1.25; }
 .ticket-person-unassigned { font-size: 14px; color: var(--muted); }
 .ticket-title strong {
   font-weight: 500;

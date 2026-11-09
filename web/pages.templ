@@ -428,7 +428,8 @@ templ SupportTierTag(level string) {
 	<span class={ "tier-tag", "tier-"+model.SupportTierKey(level) }>{ i18n.T(ctx,model.SupportTier(level)) }</span>
 }
 
-// SupportTierText names a plan in its colour only, quietly, in lists.
+// SupportTierText names a plan quietly under a name in lists, after a dot in
+// its colour.
 templ SupportTierText(level string) {
 	<span class={ "tier-text", "tier-"+model.SupportTierKey(level) } title={ i18n.T(ctx,"支援等級") }>{ i18n.T(ctx,model.SupportTier(level)) }</span>
 }
@@ -1024,10 +1025,10 @@ templ List(p model.Page) {
 													} else {
 														<img class="avatar" src={ ticketPersonAvatarURL(t.ID,t.UserID) } alt="" width="32" height="32" loading="lazy"/>
 													}
-													<strong>{ t.Owner }</strong>
-													if p.Admin {
+													<span class="ticket-person-name">
+														<strong>{ t.Owner }</strong>
 														@SupportTierText(t.OwnerSupport.Current(time.Now()))
-													}
+													</span>
 												</span>
 											</div>
 											<div class="ticket-person-group">

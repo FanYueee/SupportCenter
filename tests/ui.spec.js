@@ -933,6 +933,11 @@ test('customers see their support plan and staff see the owner\'s', async ({ pag
   const first = page.locator('.ticket-person .tier-text').first();
   await expect(first).toHaveText('進階');
   expect(await first.evaluate(el => getComputedStyle(el).backgroundColor)).toBe('rgba(0, 0, 0, 0)');
+  // A quiet line under the name, not a word stuck on after it.
+  const name = await page.locator('.ticket-person-name strong').first().boundingBox();
+  const tier = await first.boundingBox();
+  expect(tier.y).toBeGreaterThanOrEqual(name.y + name.height - 1);
+  expect(Math.abs(tier.x - name.x)).toBeLessThan(1);
 });
 
 test('admins see and change priority support on the user list', async ({ page }) => {
