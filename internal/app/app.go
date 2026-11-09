@@ -41,7 +41,8 @@ type App struct {
 	Discord     notify.Discord // the settings page's test message
 	Mailer      notify.Sender  // nil without SMTP; the settings page's test email
 	MailFrom    string
-	Turnstile   *Turnstile // the bot check on new tickets; nil without keys
+	Turnstile   *Turnstile  // the bot check on new tickets; nil without keys
+	References  *References // tagging the Portal's items in messages; nil when off
 }
 
 // Customers may open a few tickets in a row, but not a flood: per account in
@@ -110,6 +111,7 @@ func (a *App) Handler() http.Handler {
 	}))
 	mux.HandleFunc("POST /tickets", a.protected(false, a.create))
 	mux.HandleFunc("GET /tickets/mentions", a.protected(false, a.mentionSearch))
+	mux.HandleFunc("GET /tickets/references", a.protected(false, a.referenceSearch))
 	mux.HandleFunc("GET /tickets/{id}", a.protected(false, a.detail))
 	mux.HandleFunc("POST /tickets/{id}/reply", a.protected(false, a.reply))
 	mux.HandleFunc("POST /tickets/{id}/handoff", a.protected(false, a.handoff))
@@ -149,6 +151,7 @@ func (a *App) Handler() http.Handler {
 	mux.HandleFunc("GET /admin/tickets/{id}", a.protected(true, a.detail))
 	mux.HandleFunc("GET /admin/tickets/{id}/people/{person}/avatar", a.protected(true, a.ticketPersonAvatar))
 	mux.HandleFunc("GET /admin/tickets/{id}/mentions", a.protected(true, a.mentionSearch))
+	mux.HandleFunc("GET /admin/tickets/{id}/references", a.protected(true, a.referenceSearch))
 	mux.HandleFunc("POST /admin/tickets/{id}/reply", a.protected(true, a.reply))
 	mux.HandleFunc("POST /admin/tickets/{id}/update", a.protected(true, a.update))
 	mux.HandleFunc("POST /admin/tickets/{id}/assign", a.protected(true, a.assign))
@@ -502,7 +505,7 @@ func (a *App) create(w http.ResponseWriter, r *http.Request) {
 		a.createError(w, r, t, body, i18n.T(r.Context(), err.Error())+" "+i18n.T(r.Context(), "附件請重新選擇。"))
 		return
 	}
-	id, err := a.Store.CreateWithParticipants(r.Context(), u, t, body, files, participants, operation(r, struct {
+	id, err := a.Store.CreateWithParticipants(a.withTags(r.Context(), u.ID, u, body, nil), u, t, body, files, participants, operation(r, struct {
 		Ticket       model.Ticket
 		Body         string
 		Participants []string `json:",omitempty"`
@@ -524,8 +527,9 @@ func (a *App) create(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, target, 303)
 }
 
-// composerData fills in the mentioned tickets of the shown messages and, for
-// staff replying, the canned replies.
+// composerData fills in the mentioned tickets and tagged items of the shown
+// messages, what the message box may tag and, for staff replying, the canned
+// replies.
 func (a *App) composerData(r *http.Request, p *model.Page) error {
 	var err error
 	if len(p.Messages) > 0 && p.Mentions == nil {
@@ -537,7 +541,16 @@ func (a *App) composerData(r *http.Request, p *model.Page) error {
 			return err
 		}
 	}
+	if p.Active == "detail" && p.Ticket.ID > 0 && p.References == nil {
+		if p.References, err = a.Store.TicketReferences(r.Context(), p.Ticket.ID, p.Admin); err != nil {
+			return err
+		}
+	}
 	partial := r.Header.Get("HX-Target") == "conversation-activity" || r.Header.Get("HX-Target") == "ticket-sidebar"
+	// Owners tag their own items and staff the owner's; participants none.
+	if a.References != nil && !partial && (p.Active == "new" || p.Active == "detail" && (p.Admin || p.Ticket.UserID == p.User.ID)) {
+		p.ReferenceKinds = a.References.Kinds(r.Context())
+	}
 	if p.CannedReplies == nil && p.Active == "detail" && p.Admin && p.User.Staff() && !partial {
 		p.CannedReplies, err = a.Store.CannedReplies(r.Context())
 	}
@@ -567,7 +580,8 @@ func (a *App) reply(w http.ResponseWriter, r *http.Request) {
 		a.problem(w, r, 404, "找不到客服單。")
 		return
 	}
-	if _, err := a.Store.Ticket(r.Context(), p.User, id, p.Admin); err != nil {
+	ticket, err := a.Store.Ticket(r.Context(), p.User, id, p.Admin)
+	if err != nil {
 		a.fail(w, r, err)
 		return
 	}
@@ -598,7 +612,7 @@ func (a *App) reply(w http.ResponseWriter, r *http.Request) {
 		a.replyError(w, r, err.Error(), nil)
 		return
 	}
-	err = a.Store.Reply(r.Context(), p.User, id, p.Admin, body, internal, files, operation(r, struct {
+	err = a.Store.Reply(a.withTags(r.Context(), ticket.UserID, p.User, body, nil), p.User, id, p.Admin, body, internal, files, operation(r, struct {
 		Body     string
 		Internal bool
 	}{body, internal}, files))

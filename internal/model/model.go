@@ -314,6 +314,10 @@ type Page struct {
 	Lifecycle                                                                                                 Lifecycle
 	// Mentions are the tickets named in the shown messages that the viewer may open.
 	Mentions map[int64]TicketRef
+	// ReferenceKinds are what the message box can tag from the Portal, when
+	// the viewer may tag here; References are the items tagged on the ticket.
+	ReferenceKinds []ReferenceKind
+	References     []Reference
 	// CannedReplies are offered to staff replying; CannedReply is the one an admin edits.
 	CannedReplies []CannedReply
 	CannedReply   CannedReply

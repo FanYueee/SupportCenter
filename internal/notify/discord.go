@@ -200,6 +200,10 @@ func (w *DiscordWorker) ProcessOnce(ctx context.Context) (bool, error) {
 	embeds, sent, held := []discordEmbed{}, []int64{}, []int64{}
 	used := 0
 	for _, item := range items {
+		// Tags read as the item's kind and title.
+		if refs, err := w.Store.TicketReferences(ctx, item.TicketID, true); err == nil {
+			item.Body = model.ReferenceText(item.Body, refs)
+		}
 		embed := w.embed(item, preview)
 		if size := embed.size(); len(embeds) == 0 || used+size <= discordCharBudget {
 			embeds, sent, used = append(embeds, embed), append(sent, item.ID), used+size

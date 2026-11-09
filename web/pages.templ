@@ -28,6 +28,19 @@ func ticketBase(p model.Page) string {
 	}
 	return "/tickets/"
 }
+
+// messageLinks are what the ticket's messages may link: mentioned tickets
+// and tagged items, opened where the viewer works.
+func messageLinks(p model.Page) Links {
+	return Links{Tickets: p.Mentions, Base: ticketBase(p), References: TagLinks(p.References), Staff: p.Admin}
+}
+
+func referenceURL(ref model.Reference, staff bool) string {
+	if staff {
+		return ref.StaffURL
+	}
+	return ref.CustomerURL
+}
 func activityTicketURL(u model.User, id int64) string {
 	if u.Staff() {
 		return "/admin/tickets/" + strconv.FormatInt(id, 10)
@@ -1077,12 +1090,15 @@ templ Composer(p model.Page, id, value, placeholder string, rows, maxLength int)
 			<button type="button" class="format-button" data-format="bullet" title={ i18n.T(ctx,"項目清單") } aria-label={ i18n.T(ctx,"項目清單") }>@Icon("format-bullets")</button>
 			<button type="button" class="format-button" data-format="number" title={ i18n.T(ctx,"編號清單") } aria-label={ i18n.T(ctx,"編號清單") }>@Icon("format-numbers")</button>
 			<span class="toolbar-divider" aria-hidden="true"></span>
-			<button type="button" class="format-button format-mention" data-format="mention" title={ i18n.T(ctx,"提及客服單") } aria-label={ i18n.T(ctx,"提及客服單") }>#</button>
+			<button type="button" class="format-button format-mention" data-format="mention" data-trigger="#" title={ i18n.T(ctx,"提及客服單") } aria-label={ i18n.T(ctx,"提及客服單") }>#</button>
+			for _, kind := range p.ReferenceKinds {
+				<button type="button" class="format-button format-reference" data-format="mention" data-trigger={ kind.Trigger } title={ fmt.Sprintf(i18n.T(ctx,"標記%s（輸入 %s）"),kind.Name(i18n.Lang(ctx)),kind.Trigger) } aria-label={ fmt.Sprintf(i18n.T(ctx,"標記%s"),kind.Name(i18n.Lang(ctx))) }>{ kind.Name(i18n.Lang(ctx)) }</button>
+			}
 			if p.Active == "detail" && p.Admin && p.User.Staff() {
 				@CannedPicker(p)
 			}
 		</div>
-		<textarea id={ id } name="body" required maxlength={ strconv.Itoa(maxLength) } rows={ strconv.Itoa(rows) } placeholder={ placeholder } data-mention-search={ mentionSearchURL(p) } aria-autocomplete="list">{ value }</textarea>
+		<textarea id={ id } name="body" required maxlength={ strconv.Itoa(maxLength) } rows={ strconv.Itoa(rows) } placeholder={ placeholder } data-mention-search={ mentionSearchURL(p) } data-reference-search={ referenceSearchURL(p) } data-reference-triggers={ referenceTriggers(p) } aria-autocomplete="list">{ value }</textarea>
 	</div>
 }
 
@@ -1094,6 +1110,21 @@ func mentionSearchURL(p model.Page) string {
 		return fmt.Sprintf("/tickets/mentions?except=%d", p.Ticket.ID)
 	}
 	return "/tickets/mentions"
+}
+
+func referenceSearchURL(p model.Page) string {
+	if p.Active == "detail" && p.Admin {
+		return fmt.Sprintf("/admin/tickets/%d/references", p.Ticket.ID)
+	}
+	return "/tickets/references"
+}
+
+func referenceTriggers(p model.Page) string {
+	var triggers strings.Builder
+	for _, kind := range p.ReferenceKinds {
+		triggers.WriteString(kind.Trigger)
+	}
+	return triggers.String()
 }
 
 templ CannedPicker(p model.Page) {
@@ -1129,10 +1160,34 @@ templ MentionOptions(refs []model.TicketRef, q string) {
 		}
 	</div>
 	for _, ticket := range refs {
-		<button type="button" class="mention-option" role="option" aria-selected="false" data-mention={ strconv.FormatInt(ticket.ID,10) }><span class="mention-option-number">{ fmt.Sprintf("#%04d",ticket.ID) }</span><span class="mention-option-subject">{ ticket.Subject }</span></button>
+		<button type="button" class="mention-option" role="option" aria-selected="false" data-mention={ strconv.FormatInt(ticket.ID,10) } data-insert={ fmt.Sprintf("#%d",ticket.ID) }><span class="mention-option-number">{ fmt.Sprintf("#%04d",ticket.ID) }</span><span class="mention-option-subject">{ ticket.Subject }</span></button>
 	}
 	if len(refs)==0 {
 		<p class="mention-empty">{ i18n.T(ctx,"找不到相符的客服單") }</p>
+	}
+}
+
+// ReferenceOptions are the customer's items offered while a tag is typed.
+templ ReferenceOptions(kind model.ReferenceKind, refs []model.Reference, q string, failed bool) {
+	<div class="mention-heading" aria-hidden="true">
+		if q == "" {
+			{ kind.Name(i18n.Lang(ctx)) }
+		} else {
+			{ fmt.Sprintf(i18n.T(ctx,"符合「%[1]s」的%[2]s"),q,kind.Name(i18n.Lang(ctx))) }
+		}
+	</div>
+	for _, ref := range refs {
+		<button type="button" class="mention-option" role="option" aria-selected="false" data-insert={ ref.Token() }>
+			<span class="mention-option-subject">{ ref.Title }</span>
+			if ref.Detail != "" {
+				<span class="mention-option-detail">{ ref.Detail }</span>
+			}
+		</button>
+	}
+	if failed {
+		<p class="mention-empty">{ i18n.T(ctx,"暫時無法取得資料，請稍後再試。") }</p>
+	} else if len(refs)==0 {
+		<p class="mention-empty">{ fmt.Sprintf(i18n.T(ctx,"找不到相符的%s"),kind.Name(i18n.Lang(ctx))) }</p>
 	}
 }
 
@@ -1313,7 +1368,7 @@ templ Detail(p model.Page) {
 							</div>
 						</div>
 						<div class="message-body">
-							@MessageText(messageBody(ctx,m),p.Mentions,ticketBase(p))
+							@MessageText(messageBody(ctx,m),messageLinks(p))
 						</div>
 						if len(m.Attachments)>0 {
 							<div class="attachment-list">
@@ -1469,6 +1524,24 @@ templ Detail(p model.Page) {
 					<dt>{ i18n.T(ctx,"最近更新") }</dt>
 					<dd><time datetime={ p.Ticket.UpdatedAt.Format("2006-01-02T15:04:05Z07:00") } data-local-time="short" data-timezone-inline>{ p.Ticket.UpdatedAt.UTC().Format("01/02 15:04") } UTC</time></dd>
 				</dl>
+				if len(p.References) > 0 {
+					<div class="ticket-references">
+						<h3>{ i18n.T(ctx,"相關項目") }</h3>
+						<ul>
+							for _, ref := range p.References {
+								<li>
+									<a class="reference-item" href={ templ.URL(referenceURL(ref,p.Admin)) } target="_blank" rel="noopener noreferrer">
+										<span class="reference-kind">{ ref.Name(i18n.Lang(ctx)) }</span>
+										<strong>{ ref.Title }</strong>
+										if ref.Detail != "" {
+											<span class="reference-detail">{ ref.Detail }</span>
+										}
+									</a>
+								</li>
+							}
+						</ul>
+					</div>
+				}
 				if p.Admin || p.Ticket.UserID==p.User.ID {
 				<form action={ ticketURL(p, p.Ticket.ID) + "/update" } method="post" hx-post={ ticketURL(p, p.Ticket.ID) + "/update" } hx-target="#workspace" hx-swap="outerHTML show:none focus-scroll:false" hx-disabled-elt="find button" data-preserve-scroll>
 					<input type="hidden" name="csrf" value={ p.CSRF }/>

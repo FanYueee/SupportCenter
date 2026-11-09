@@ -1193,6 +1193,7 @@ html.file-dragging body::after {
 .format-italic { font-style: italic; font-family: Georgia, "Times New Roman", serif; font-size: 15px; }
 .format-strike { text-decoration: line-through; }
 .format-mention { font-weight: 600; font-size: 15px; }
+.format-reference { white-space: nowrap; }
 .toolbar-divider {
   width: 1px;
   height: 18px;
@@ -1320,6 +1321,16 @@ html.file-dragging body::after {
 .mention-option-subject {
   min-width: 0;
   overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mention-option-detail {
+  flex-shrink: 0;
+  max-width: 45%;
+  margin-left: auto;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 13px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1725,14 +1736,52 @@ dd {
   text-align: right;
   overflow-wrap: anywhere;
 }
+/* Items tagged on the ticket, opened in the Portal. */
+.ticket-references {
+  margin: 0 0 25px;
+}
+.ticket-references h3 {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 400;
+}
+.ticket-references ul {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.reference-item {
+  display: grid;
+  gap: 2px;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  color: var(--text);
+  font-size: 14px;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+.reference-item:hover {
+  border-color: var(--text);
+}
+.reference-kind,
+.reference-detail {
+  color: var(--muted);
+  font-size: 13px;
+}
+.reference-item strong {
+  font-weight: 600;
+}
 .ticket-owner {
   display: grid;
   justify-items: end;
-  gap: 2px;
 }
 .ticket-owner a {
   color: var(--muted);
   font-size: 13px;
+  line-height: 24px;
 }
 .category-value {
   display: inline-flex;

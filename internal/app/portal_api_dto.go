@@ -1,7 +1,9 @@
 package app
 
 import (
+	"encoding/json"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -38,18 +40,70 @@ func portalTicket(ticket model.Ticket, ownerID int64, staff bool) map[string]any
 		"lockAt": ticket.LockAt, "locked": ticket.Locked(),
 		"createdAt": ticket.CreatedAt, "updatedAt": ticket.UpdatedAt}
 }
-func portalMessages(messages []model.Message) []map[string]any {
+
+// portalMessages lists messages with the tagged items each one writes, so the
+// Portal can show the tags the way this site does.
+func portalMessages(messages []model.Message, refs []model.Reference, staff bool) []map[string]any {
 	data := []map[string]any{}
+	tags := web.TagLinks(refs)
 	for _, message := range messages {
+		tagged := []model.Reference{}
+		for _, span := range model.ReferenceSpans(message.Body) {
+			if ref, ok := tags[message.Body[span.Start:span.End]]; ok && !slices.ContainsFunc(tagged, func(r model.Reference) bool { return r.Token() == ref.Token() }) {
+				tagged = append(tagged, ref)
+			}
+		}
 		files := []map[string]any{}
 		for _, file := range message.Attachments {
 			files = append(files, map[string]any{"id": file.ID, "name": file.Name, "mime": file.MIME, "size": file.Size})
 		}
 		data = append(data, map[string]any{"id": message.ID, "name": message.Author, "isStaff": message.Role == "admin" || message.Role == "support",
-			"message": message.Body, "internal": message.Internal, "source": message.Source, "createdAt": message.CreatedAt, "attachments": files})
+			"message": message.Body, "internal": message.Internal, "source": message.Source, "createdAt": message.CreatedAt, "attachments": files, "references": portalReferences(tagged, staff)})
 	}
 	return data
 }
+
+// portalReferences describes tagged items. A tag in a message is its token,
+// e.g. "$5895aa2a-…"; only staff get the staff address.
+func portalReferences(refs []model.Reference, staff bool) []map[string]any {
+	data := []map[string]any{}
+	for _, ref := range refs {
+		item := map[string]any{"kind": ref.Key, "kindLabel": ref.Label, "kindLabelEn": ref.LabelEn, "trigger": ref.Trigger, "id": ref.ID, "token": ref.Token(),
+			"title": ref.Title, "detail": ref.Detail, "customerUrl": ref.CustomerURL}
+		if staff {
+			item["staffUrl"] = ref.StaffURL
+			item["internal"] = ref.Internal
+		}
+		data = append(data, item)
+	}
+	return data
+}
+
+// portalNamed reads the items a new ticket is opened about, e.g.
+// [{"kind":"service","id":"…"}], as ids by kind; at most ten.
+func portalNamed(raw string) (map[string][]string, bool) {
+	if raw == "" {
+		return nil, true
+	}
+	var items []struct {
+		Kind string `json:"kind"`
+		ID   string `json:"id"`
+	}
+	decoder := json.NewDecoder(strings.NewReader(raw))
+	decoder.DisallowUnknownFields()
+	if len(raw) > 4096 || decoder.Decode(&items) != nil || decoder.More() || len(items) > 10 {
+		return nil, false
+	}
+	named := map[string][]string{}
+	for _, item := range items {
+		if !model.ReferenceKey.MatchString(item.Kind) || !model.ReferenceID.MatchString(item.ID) {
+			return nil, false
+		}
+		named[item.Kind] = append(named[item.Kind], item.ID)
+	}
+	return named, true
+}
+
 func portalDepartments() []map[string]any {
 	departments := []map[string]any{}
 	for index, department := range model.Departments {

@@ -3,6 +3,7 @@ package web
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -12,7 +13,7 @@ import (
 func renderMessage(t *testing.T, text string, refs map[int64]model.TicketRef) string {
 	t.Helper()
 	var out bytes.Buffer
-	if err := MessageText(text, refs, "/tickets/").Render(context.Background(), &out); err != nil {
+	if err := MessageText(text, Links{Tickets: refs, Base: "/tickets/"}).Render(context.Background(), &out); err != nil {
 		t.Fatal(err)
 	}
 	return out.String()
@@ -55,5 +56,27 @@ func TestMarkdownNeverWritesUserHTML(t *testing.T) {
 	// A link always shows its whole address, so [text](url) cannot hide where it goes.
 	if got := renderMessage(t, `[銀行](https://evil.example)`, nil); !strings.Contains(got, `>https://evil.example</a>`) || strings.Contains(got, `>銀行</a>`) {
 		t.Fatalf("disguised link: %s", got)
+	}
+}
+
+func TestTaggedItemsLinkWhereTheViewerWorks(t *testing.T) {
+	ref := model.Reference{ReferenceKind: model.ReferenceKind{Key: "invoice", Label: "帳單", LabelEn: "Invoices", Trigger: "$"}, ID: "inv-1", Title: `<img src=x onerror=alert(1)>`,
+		CustomerURL: "https://portal.example.com/me/inv-1", StaffURL: "https://portal.example.com/admin/inv-1"}
+	render := func(text string, staff bool) string {
+		var out strings.Builder
+		if err := MessageText(text, Links{References: TagLinks([]model.Reference{ref}), Staff: staff}).Render(context.Background(), &out); err != nil {
+			t.Fatal(err)
+		}
+		return out.String()
+	}
+	tag := `<a class="ticket-mention reference-tag" href="https://portal.example.com/%s/inv-1" target="_blank" rel="noopener noreferrer"><span class="ticket-mention-number">帳單</span><span class="ticket-mention-subject">&lt;img src=x onerror=alert(1)&gt;</span></a>`
+	if got := render("**看 $inv-1** 和 $inv-2", false); got != "<p><strong>看 "+fmt.Sprintf(tag, "me")+"</strong> 和 $inv-2</p>" {
+		t.Fatal(got)
+	}
+	if got := render("看 $inv-1", true); !strings.Contains(got, fmt.Sprintf(tag, "admin")) {
+		t.Fatal(got)
+	}
+	if got := render("`$inv-1` https://example.com/$inv-1", false); strings.Contains(got, "reference-tag") {
+		t.Fatal("tags in code and links stay as typed", got)
 	}
 }

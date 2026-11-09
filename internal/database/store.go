@@ -278,7 +278,7 @@ func insertMessage(ctx context.Context, tx pgx.Tx, id int64, u model.User, body 
 			return 0, err
 		}
 	}
-	return mid, nil
+	return mid, saveReferences(ctx, tx, id, internal)
 }
 func (s *Store) Create(ctx context.Context, u model.User, t model.Ticket, body string, files []model.Attachment, operation ...model.Operation) (int64, error) {
 	return s.CreateWithParticipants(ctx, u, t, body, files, nil, operation...)

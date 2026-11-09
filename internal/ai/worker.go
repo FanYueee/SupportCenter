@@ -18,6 +18,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"supportcenter/internal/database"
+	"supportcenter/internal/model"
 )
 
 // Endpoint is OpenAI's official Chat Completions API.
@@ -110,6 +111,11 @@ func (w *Worker) contextMessages(ctx context.Context, j job) ([]message, bool, e
 	if mode != "ai" || status == "closed" || status == "solved" || newest != j.triggerID {
 		return nil, false, nil
 	}
+	// Tags read as the item's kind and title, which the model can use.
+	refs, err := w.Store.TicketReferences(ctx, j.ticketID, false)
+	if err != nil {
+		return nil, false, err
+	}
 	rows, err := w.Store.Pool.Query(ctx, `SELECT m.source,m.body FROM ticket_messages m WHERE m.ticket_id=$1 AND NOT m.internal AND m.source IN ('human','ai') ORDER BY m.id DESC LIMIT 12`, j.ticketID)
 	if err != nil {
 		return nil, false, err
@@ -122,6 +128,7 @@ func (w *Worker) contextMessages(ctx context.Context, j job) ([]message, bool, e
 		if err := rows.Scan(&source, &body); err != nil {
 			return nil, false, err
 		}
+		body = model.ReferenceText(body, refs)
 		if remaining <= 0 {
 			break
 		}

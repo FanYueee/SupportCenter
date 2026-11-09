@@ -344,11 +344,11 @@ function insertText(field, text) {
   field.setRangeText(text, field.selectionStart, field.selectionEnd, 'end');
   edited(field);
 }
-function formatField(field, format) {
+function formatField(field, format, trigger = '#') {
   const { selectionStart: start, selectionEnd: end, value } = field;
   const selected = value.slice(start, end);
   if (format === 'mention') {
-    insertText(field, (start > 0 && !/\s$/.test(value.slice(0, start)) ? ' ' : '') + '#');
+    insertText(field, (start > 0 && !/\s$/.test(value.slice(0, start)) ? ' ' : '') + trigger);
     return;
   }
   if (format === 'code' && selected.includes('\n')) {
@@ -382,7 +382,7 @@ function formatField(field, format) {
 document.addEventListener('click', event => {
   const button = event.target.closest?.('[data-format]');
   const field = button?.closest('.composer')?.querySelector('textarea');
-  if (field) formatField(field, button.dataset.format);
+  if (field) formatField(field, button.dataset.format, button.dataset.trigger);
 });
 document.addEventListener('keydown', event => {
   const field = event.target;
@@ -423,14 +423,22 @@ document.addEventListener('input', event => {
 document.addEventListener('toggle', event => {
   if (event.target.matches?.('.canned-picker') && event.target.open) event.target.querySelector('[data-canned-filter]')?.focus();
 }, true);
-// Typing # in a message suggests tickets to mention, narrowed as you type and
-// picked with the arrow keys and Enter or Tab, or a tap.
-const mentionToken = /(?:^|[\s(（「『【,，。、:：;；!！?？])#([^\s#]{0,40})$/u;
+// Typing # in a message suggests tickets to mention, and a kind's trigger
+// such as $ the customer's items to tag, narrowed as you type and picked with
+// the arrow keys and Enter or Tab, or a tap.
+const mentionTokens = new Map();
+function mentionToken(triggers) {
+  if (!mentionTokens.has(triggers)) {
+    const set = triggers.replace(/[\\\]^-]/g, '\\$&');
+    mentionTokens.set(triggers, new RegExp(`(?:^|[\\s(（「『【,，。、:：;；!！?？])([${set}])([^\\s${set}]{0,40})$`, 'u'));
+  }
+  return mentionTokens.get(triggers);
+}
 let mention = null;
 function mentionAt(field) {
   if (field.selectionStart !== field.selectionEnd) return null;
-  const match = field.value.slice(0, field.selectionStart).match(mentionToken);
-  return match && { query: match[1], start: field.selectionStart - match[1].length - 1 };
+  const match = field.value.slice(0, field.selectionStart).match(mentionToken('#' + (field.dataset.referenceTriggers || '')));
+  return match && { trigger: match[1], query: match[2], start: field.selectionStart - match[2].length - 1 };
 }
 function closeMentions() {
   if (!mention) return;
@@ -442,7 +450,7 @@ function closeMentions() {
   mention = null;
 }
 function mentionOptions() {
-  return mention ? [...mention.menu.querySelectorAll('[data-mention]')] : [];
+  return mention ? [...mention.menu.querySelectorAll('[data-insert]')] : [];
 }
 function moveMention(index, scroll = true) {
   const options = mentionOptions();
@@ -498,19 +506,21 @@ function showMentions(field, token) {
     menu.className = 'mention-menu';
     menu.id = `${field.id}-mentions`;
     menu.setAttribute('role', 'listbox');
-    menu.setAttribute('aria-label', tr('提及客服單', 'Mention a ticket'));
     field.closest('.composer').append(menu);
     field.setAttribute('aria-controls', menu.id);
     mention = { field, menu, active: 0 };
   }
   const current = mention;
   current.start = token.start;
+  const button = token.trigger === '#' ? null : field.closest('.composer').querySelector(`[data-trigger="${CSS.escape(token.trigger)}"]`);
+  current.menu.setAttribute('aria-label', button?.getAttribute('aria-label') || tr('提及客服單', 'Mention a ticket'));
   clearTimeout(current.timer);
   current.timer = setTimeout(async () => {
     current.request?.abort();
     const request = current.request = new AbortController();
-    const url = new URL(field.dataset.mentionSearch, location.origin);
+    const url = new URL(token.trigger === '#' ? field.dataset.mentionSearch : field.dataset.referenceSearch, location.origin);
     url.searchParams.set('q', token.query);
+    if (token.trigger !== '#') url.searchParams.set('trigger', token.trigger);
     try {
       const response = await fetch(url, { signal: request.signal, headers: { 'HX-Request': 'true' } });
       if (!response.ok || mention !== current) return;
@@ -523,7 +533,7 @@ function showMentions(field, token) {
 }
 function pickMention(option) {
   const { field, start } = mention;
-  field.setRangeText(`#${option.dataset.mention} `, start, field.selectionStart, 'end');
+  field.setRangeText(`${option.dataset.insert} `, start, field.selectionStart, 'end');
   closeMentions();
   field.focus();
 }
@@ -553,7 +563,7 @@ document.addEventListener('keyup', event => {
 // Picked on pointerdown, before the box loses focus; Safari does not focus buttons.
 document.addEventListener('pointerdown', event => {
   if (!mention) return;
-  const option = event.target.closest?.('.mention-menu [data-mention]');
+  const option = event.target.closest?.('.mention-menu [data-insert]');
   if (option && event.button === 0) {
     event.preventDefault();
     pickMention(option);
@@ -565,7 +575,7 @@ document.addEventListener('mousedown', event => {
   if (event.target.closest?.('.mention-menu')) event.preventDefault();
 });
 document.addEventListener('pointermove', event => {
-  const option = mention && event.target.closest?.('.mention-menu [data-mention]');
+  const option = mention && event.target.closest?.('.mention-menu [data-insert]');
   if (option) moveMention(mentionOptions().indexOf(option), false);
 });
 document.addEventListener('scroll', event => { if (event.target === mention?.field) placeMentions(); }, true);

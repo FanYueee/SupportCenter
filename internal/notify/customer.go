@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"supportcenter/internal/model"
 	"supportcenter/web"
 )
 
@@ -135,6 +136,12 @@ func (w *Worker) customerMessage(ctx context.Context, item customerEmail) (Messa
 		if err != nil {
 			return Message{}, err
 		}
+		// Tags read as the item's kind and title.
+		refs, err := w.Store.TicketReferences(ctx, item.TicketID, false)
+		if err != nil {
+			return Message{}, err
+		}
+		body = model.ReferenceText(body, refs)
 		if source == "ai" {
 			author = "AI 助理"
 		}

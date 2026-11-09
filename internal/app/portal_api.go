@@ -154,12 +154,17 @@ func (a *App) portalDetail(w http.ResponseWriter, r *http.Request) {
 		a.portalFailure(w, err)
 		return
 	}
+	refs, err := a.Store.TicketReferences(r.Context(), id, identity.Staff)
+	if err != nil {
+		a.portalFailure(w, err)
+		return
+	}
 	invites := []map[string]any{}
 	for _, person := range invited {
 		invites = append(invites, map[string]any{"email": person.Email})
 	}
 	own := ticket.UserID == identity.User.ID
-	data := map[string]any{"ticket": portalTicket(ticket, identity.User.ID, identity.Staff), "messages": portalMessages(messages), "messagePage": page, "hasMoreMessages": more, "participants": invites,
+	data := map[string]any{"ticket": portalTicket(ticket, identity.User.ID, identity.Staff), "messages": portalMessages(messages, refs, identity.Staff), "references": portalReferences(refs, identity.Staff), "messagePage": page, "hasMoreMessages": more, "participants": invites,
 		"capabilities": map[string]bool{"canReply": ticket.Status != "closed" || identity.Staff, "canClose": own && !identity.Staff && ticket.Status != "closed", "canReopen": own && ticket.Status == "closed",
 			"canAdminReply": identity.Staff, "canChangeStatus": identity.Staff, "canInvite": own && !identity.Staff, "canLeave": !own && !identity.Staff,
 			"canInternalNote": identity.Staff, "canHandoff": own && !identity.Staff && ticket.AssistanceMode == "ai" && ticket.Status != "closed",
@@ -214,7 +219,7 @@ func (a *App) portalForm(w http.ResponseWriter, r *http.Request, fields ...strin
 }
 func (a *App) portalCreate(w http.ResponseWriter, r *http.Request) {
 	identity := portalCurrent(r)
-	if !a.portalForm(w, r, "subject", "body", "category", "priority", "assistance", "submission", "participants") {
+	if !a.portalForm(w, r, "subject", "body", "category", "priority", "assistance", "submission", "participants", "references") {
 		return
 	}
 	defer r.MultipartForm.RemoveAll()
@@ -223,7 +228,8 @@ func (a *App) portalCreate(w http.ResponseWriter, r *http.Request) {
 		mode = "human"
 	}
 	priority = portalPriority(priority)
-	if !utf8.ValidString(subject) || strings.ContainsRune(subject, 0) || len([]rune(subject)) < 1 || len([]rune(subject)) > 150 || !validBody(body) || !valid(category, "other", "billing", "technical") || !slices.Contains(model.Priorities, priority) || !valid(mode, "human", "ai") || (mode == "ai" && !a.AIEnabled) || !submissionKey.MatchString(r.PostFormValue("submission")) {
+	named, validNamed := portalNamed(r.PostFormValue("references"))
+	if !utf8.ValidString(subject) || strings.ContainsRune(subject, 0) || len([]rune(subject)) < 1 || len([]rune(subject)) > 150 || !validBody(body) || !valid(category, "other", "billing", "technical") || !slices.Contains(model.Priorities, priority) || !valid(mode, "human", "ai") || (mode == "ai" && !a.AIEnabled) || !submissionKey.MatchString(r.PostFormValue("submission")) || !validNamed {
 		portalError(w, 422, "invalid")
 		return
 	}
@@ -252,7 +258,7 @@ func (a *App) portalCreate(w http.ResponseWriter, r *http.Request) {
 		Body         string
 		Participants []string
 	}{ticket, body, participants}, files)
-	id, err := a.Store.CreateWithParticipants(r.Context(), identity.User, ticket, body, files, participants, op)
+	id, err := a.Store.CreateWithParticipants(a.withTags(r.Context(), identity.User.ID, identity.User, body, named), identity.User, ticket, body, files, participants, op)
 	if err != nil && !errors.Is(err, database.ErrCommitUnknown) {
 		a.removeFiles(files)
 	}
@@ -270,7 +276,8 @@ func (a *App) portalReply(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Authorize before storing any private attachment.
-	if _, err := a.Store.Ticket(r.Context(), identity.User, id, identity.Staff); err != nil {
+	ticket, err := a.Store.Ticket(r.Context(), identity.User, id, identity.Staff)
+	if err != nil {
 		a.portalFailure(w, err)
 		return
 	}
@@ -303,7 +310,7 @@ func (a *App) portalReply(w http.ResponseWriter, r *http.Request) {
 		Internal     bool
 		Version      int64
 	}{body, status, internal, version}, files)
-	err = a.Store.PortalReply(r.Context(), identity.User, id, identity.Staff, body, internal, files, status, version, op)
+	err = a.Store.PortalReply(a.withTags(r.Context(), ticket.UserID, identity.User, body, nil), identity.User, id, identity.Staff, body, internal, files, status, version, op)
 	if err != nil && !errors.Is(err, database.ErrCommitUnknown) {
 		a.removeFiles(files)
 	}

@@ -127,30 +127,75 @@ func trimURL(s string) string {
 func LinkedText(text string) templ.Component {
 	return templ.ComponentFunc(func(_ context.Context, w io.Writer) error {
 		var b strings.Builder
-		writeLinked(&b, text, nil, "")
+		writeLinked(&b, text, Links{})
 		_, err := io.WriteString(w, b.String())
 		return err
 	})
 }
 
-// writeLinked writes escaped text with web addresses as links and mentioned
-// tickets the viewer may open as a box with the number and subject, linking
-// under base, e.g. "/tickets/". Other mentions stay plain text, so they reveal
-// nothing.
-func writeLinked(b *strings.Builder, text string, tickets map[int64]model.TicketRef, base string) {
+// Links are what a message may link besides web addresses: the mentioned
+// tickets the viewer may open, under Base, e.g. "/tickets/", and the items
+// tagged on the ticket by token, opened at the staff or customer address.
+type Links struct {
+	Tickets    map[int64]model.TicketRef
+	Base       string
+	References map[string]model.Reference
+	Staff      bool
+	lang       string
+}
+
+// TagLinks are the links for a ticket's tagged items, by token.
+func TagLinks(refs []model.Reference) map[string]model.Reference {
+	links := make(map[string]model.Reference, len(refs))
+	for _, ref := range refs {
+		links[ref.Token()] = ref
+	}
+	return links
+}
+
+// writeLinked writes escaped text with web addresses as links, mentioned
+// tickets the viewer may open as a box with the number and subject, and
+// tagged items as a box with the kind and title. Other mentions and tags stay
+// plain text, so they reveal nothing.
+func writeLinked(b *strings.Builder, text string, links Links) {
 	for _, part := range linkParts(text) {
 		if part.URL != "" {
 			b.WriteString(`<a href="` + html.EscapeString(part.URL) + `" target="_blank" rel="noopener noreferrer nofollow ugc">` + html.EscapeString(part.Text) + `</a>`)
 			continue
 		}
 		for _, m := range mentionParts(part.Text) {
-			ref, ok := tickets[m.Ticket]
+			ref, ok := links.Tickets[m.Ticket]
 			if m.Ticket == 0 || !ok {
-				b.WriteString(html.EscapeString(m.Text))
+				writeTagged(b, m.Text, links)
 				continue
 			}
-			b.WriteString(`<a class="ticket-mention" href="` + html.EscapeString(base+strconv.FormatInt(ref.ID, 10)) + `"><span class="ticket-mention-number">` +
+			b.WriteString(`<a class="ticket-mention" href="` + html.EscapeString(links.Base+strconv.FormatInt(ref.ID, 10)) + `"><span class="ticket-mention-number">` +
 				fmt.Sprintf("#%04d", ref.ID) + `</span><span class="ticket-mention-subject">` + html.EscapeString(ref.Subject) + `</span></a>`)
 		}
 	}
+}
+
+// writeTagged writes escaped text with the tagged items it names as boxes.
+func writeTagged(b *strings.Builder, text string, links Links) {
+	last := 0
+	for _, span := range model.ReferenceSpans(text) {
+		ref, ok := links.References[text[span.Start:span.End]]
+		if !ok {
+			continue
+		}
+		b.WriteString(html.EscapeString(text[last:span.Start]))
+		writeReference(b, ref, links.Staff, links.lang)
+		last = span.End
+	}
+	b.WriteString(html.EscapeString(text[last:]))
+}
+
+// writeReference writes one tagged item as a link to its page for the viewer.
+func writeReference(b *strings.Builder, ref model.Reference, staff bool, lang string) {
+	href := ref.CustomerURL
+	if staff {
+		href = ref.StaffURL
+	}
+	b.WriteString(`<a class="ticket-mention reference-tag" href="` + html.EscapeString(href) + `" target="_blank" rel="noopener noreferrer"><span class="ticket-mention-number">` +
+		html.EscapeString(ref.Name(lang)) + `</span><span class="ticket-mention-subject">` + html.EscapeString(ref.Title) + `</span></a>`)
 }

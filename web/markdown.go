@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/a-h/templ"
-	"supportcenter/internal/model"
+	"supportcenter/internal/i18n"
 )
 
 // Messages understand a small part of Markdown: **bold**, *italic*,
@@ -25,11 +25,12 @@ var (
 	mdEmphasis = regexp.MustCompile(`\*\*([^\s*](?:[^\n]*?[^\s*])?)\*\*|~~([^\s~](?:[^\n]*?[^\s~])?)~~|\*([^\s*](?:[^\n*]*?[^\s*])?)\*`)
 )
 
-// MessageText renders a ticket message: the Markdown above, web links, and
-// mentioned tickets the viewer may open (see writeLinked).
-func MessageText(text string, tickets map[int64]model.TicketRef, base string) templ.Component {
-	return templ.ComponentFunc(func(_ context.Context, w io.Writer) error {
-		r := markdown{tickets: tickets, base: base}
+// MessageText renders a ticket message: the Markdown above, web links,
+// mentioned tickets the viewer may open and tagged items (see writeLinked).
+func MessageText(text string, links Links) templ.Component {
+	return templ.ComponentFunc(func(ctx context.Context, w io.Writer) error {
+		links.lang = i18n.Lang(ctx)
+		r := markdown{links: links}
 		r.blocks(text)
 		_, err := io.WriteString(w, r.b.String())
 		return err
@@ -37,9 +38,8 @@ func MessageText(text string, tickets map[int64]model.TicketRef, base string) te
 }
 
 type markdown struct {
-	b       strings.Builder
-	tickets map[int64]model.TicketRef
-	base    string
+	b     strings.Builder
+	links Links
 }
 
 func (r *markdown) blocks(text string) {
@@ -160,11 +160,11 @@ func (r *markdown) emphasis(text string) {
 		} else if m[6] >= 0 {
 			tag, inner = "em", m[6:8]
 		}
-		writeLinked(&r.b, text[last:m[0]], r.tickets, r.base)
+		writeLinked(&r.b, text[last:m[0]], r.links)
 		r.b.WriteString("<" + tag + ">")
 		r.emphasis(text[inner[0]:inner[1]])
 		r.b.WriteString("</" + tag + ">")
 		last = m[1]
 	}
-	writeLinked(&r.b, text[last:], r.tickets, r.base)
+	writeLinked(&r.b, text[last:], r.links)
 }

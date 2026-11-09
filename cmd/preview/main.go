@@ -42,6 +42,27 @@ func main() {
 	}
 	mux.HandleFunc("GET /tickets/mentions", mentions)
 	mux.HandleFunc("GET /admin/tickets/{id}/mentions", mentions)
+	// $ and ! suggest the fixture customer's invoices and services.
+	references := func(w http.ResponseWriter, r *http.Request) {
+		q := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("q")))
+		for _, kind := range referenceKindsFixture() {
+			if kind.Trigger != r.URL.Query().Get("trigger") {
+				continue
+			}
+			var refs []model.Reference
+			for _, ref := range referencesFixture() {
+				if ref.Key == kind.Key && len(refs) < 8 && (q == "" || strings.HasPrefix(ref.ID, q) || strings.Contains(strings.ToLower(ref.Title), q)) {
+					refs = append(refs, ref)
+				}
+			}
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			web.ReferenceOptions(kind, refs, r.URL.Query().Get("q"), false).Render(r.Context(), w)
+			return
+		}
+		http.NotFound(w, r)
+	}
+	mux.HandleFunc("GET /tickets/references", references)
+	mux.HandleFunc("GET /admin/tickets/{id}/references", references)
 	mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
 		p := fixture()
 		p.CSRF = rand.Text()
@@ -269,12 +290,19 @@ func main() {
 				p.Mentions[t.ID] = model.TicketRef{ID: t.ID, Subject: t.Subject}
 			}
 		}
+		if p.Active == "detail" || p.Active == "new" {
+			p.ReferenceKinds = referenceKindsFixture()
+		}
+		if p.Active == "detail" {
+			p.References = referencesFixture()[:2]
+		}
 		if p.Active == "detail" && r.URL.Query().Get("participants") != "" {
 			member := r.URL.Query().Get("participants") == "member"
 			p.Invites = []model.Participant{{Email: "taylor@example.com", Self: member}, {Email: "future.participant@example.com"}}
 			if member {
 				p.User = model.User{ID: 3, Name: "Taylor Lee", Email: "taylor@example.com", Role: "user"}
 				p.Admin = false
+				p.ReferenceKinds = nil
 			}
 		}
 		if p.Active == "detail" && r.URL.Query().Get("ai") != "" {
@@ -425,9 +453,27 @@ func fixture() model.Page {
 		p.Tickets = append(p.Tickets, ticket)
 	}
 	p.Ticket = p.Tickets[0]
-	p.Messages = []model.Message{{ID: 1, Author: "Alex Chen", Role: "user", Body: "你好，今天早上使用代理服務時，偶爾會出現連線逾時。\n\n已經嘗試重新連線及更換本機網路，但仍有同樣的情況。想請你們協助確認目前的節點狀態，謝謝！", CreatedAt: now.Add(-2 * time.Hour)}, {ID: 2, Author: "Jamie", Role: "support", Body: "你好 Alex，謝謝你提供這些資訊。\n\n我們正在確認相關節點的連線狀態。為了更快定位問題，方便補充受影響的節點地區，以及大約發生的時間嗎？節點狀態可至 https://status.example.com/nodes 查看，先前的 #1047 也有類似情況。\n\n請直接在這張客服單回覆，我們會持續協助你。", CreatedAt: now.Add(-time.Hour)}}
+	p.Messages = []model.Message{{ID: 1, Author: "Alex Chen", Role: "user", Body: "你好，今天早上使用代理服務時，偶爾會出現連線逾時。\n\n已經嘗試重新連線及更換本機網路，但仍有同樣的情況。想請你們協助確認目前的節點狀態，謝謝！\n\n受影響的是 !f437d424-dc57-439e-a646-61caa5aa659f，上個月的 $5895aa2a-a677-4db9-8412-d30fb56d4ba2 也已付款。", CreatedAt: now.Add(-2 * time.Hour)}, {ID: 2, Author: "Jamie", Role: "support", Body: "你好 Alex，謝謝你提供這些資訊。\n\n我們正在確認相關節點的連線狀態。為了更快定位問題，方便補充受影響的節點地區，以及大約發生的時間嗎？節點狀態可至 https://status.example.com/nodes 查看，先前的 #1047 也有類似情況。\n\n請直接在這張客服單回覆，我們會持續協助你。", CreatedAt: now.Add(-time.Hour)}}
 	p.Staff = []model.User{{ID: 2, Name: "Jamie", Role: "support", Departments: []string{"billing"}}, {ID: 3, Name: "Morgan", Role: "support", Departments: []string{"technical"}}, {ID: 4, Name: "Taylor", Role: "support", Departments: []string{"billing"}}, {ID: 5, Name: "Casey", Role: "support", Departments: []string{"other"}}}
 	return p
+}
+
+func referenceKindsFixture() []model.ReferenceKind {
+	return []model.ReferenceKind{{Key: "invoice", Label: "帳單", LabelEn: "Invoices", Trigger: "$"}, {Key: "service", Label: "服務", LabelEn: "Services", Trigger: "!"}}
+}
+
+func referencesFixture() []model.Reference {
+	invoice, service := referenceKindsFixture()[0], referenceKindsFixture()[1]
+	ref := func(kind model.ReferenceKind, id, title, detail string) model.Reference {
+		path := "https://portal.example.com/" + kind.Key + "s/" + id
+		return model.Reference{ReferenceKind: kind, ID: id, Title: title, Detail: detail, CustomerURL: path, StaffURL: "https://portal.example.com/admin/" + kind.Key + "s/" + id}
+	}
+	return []model.Reference{
+		ref(service, "f437d424-dc57-439e-a646-61caa5aa659f", "#F437D424 TW-B-A 代理方案", "使用中 · 到期 2026/12/31"),
+		ref(invoice, "5895aa2a-a677-4db9-8412-d30fb56d4ba2", "#5895AA2A 2026 年 10 月月費", "NT$1,200 · 已付款"),
+		ref(invoice, "14cb1a8f-8a57-4eeb-b705-5e786e98002d", "#14CB1A8F 2026 年 11 月月費", "NT$1,200 · 待付款"),
+		ref(service, "a740a5ac-8f25-42ca-af80-bd2da75e381f", "#A740A5AC JP-A 遊戲加速", "已暫停"),
+	}
 }
 
 func cannedFixture() []model.CannedReply {

@@ -638,6 +638,29 @@ test('typing # suggests tickets to mention and the keyboard picks one', async ({
   await expect(field).toHaveValue(/#\d+ $/);
 });
 
+test('$ and ! tag the customer\'s invoices and services', async ({ page }) => {
+  await page.goto('/tickets/1048');
+  await expect(page.locator('.message-body .reference-tag').first()).toHaveAttribute('href', /portal\.example\.com\/services\//);
+  await expect(page.locator('.ticket-references .reference-item')).toHaveCount(2);
+  const field = page.locator('#reply');
+  await field.fill('');
+  await page.getByRole('button', { name: '標記帳單' }).click();
+  await expect(field).toHaveValue('$');
+  const invoices = page.getByRole('listbox', { name: '標記帳單' });
+  await expect(invoices.getByRole('option')).toHaveCount(2);
+  await field.pressSequentially('11');
+  await expect(invoices.getByRole('option')).toHaveCount(1);
+  await field.press('Enter');
+  await expect(field).toHaveValue('$14cb1a8f-8a57-4eeb-b705-5e786e98002d ');
+  await field.pressSequentially('!');
+  await expect(page.getByRole('listbox', { name: '標記服務' }).getByRole('option').first()).toBeVisible();
+  await field.press('Escape');
+  await page.goto('/tickets/1048?participants=member');
+  await expect(page.getByRole('button', { name: '標記帳單' })).toHaveCount(0);
+  await page.goto('/admin/tickets/1048');
+  await expect(page.locator('.message-body .reference-tag').first()).toHaveAttribute('href', /portal\.example\.com\/admin\/services\//);
+});
+
 test('staff insert canned replies from the reply box', async ({ page }) => {
   await page.goto('/tickets/1048');
   await expect(page.locator('.canned-picker')).toHaveCount(0);

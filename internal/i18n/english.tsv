@@ -464,3 +464,9 @@ SMTP 伺服器暫時無法處理，稍後會自動重試。	The SMTP server is t
 罐頭訊息已被更新，請重新載入後再操作。	This canned reply was changed. Reload the page and try again.
 最多保留 100 則罐頭訊息，請先刪除不再使用的訊息。	Up to 100 canned replies can be kept. Delete ones you no longer use first.
 請填寫標題（最多 80 字）與內容（最多 4,000 字）。	Enter a title (up to 80 characters) and text (up to 4,000 characters).
+相關項目	Related items
+標記%s（輸入 %s）	Tag %s (type %s)
+標記%s	Tag %s
+符合「%[1]s」的%[2]s	%[2]s matching “%[1]s”
+找不到相符的%s	No matching %s
+暫時無法取得資料，請稍後再試。	Couldn’t load this right now. Try again later.
