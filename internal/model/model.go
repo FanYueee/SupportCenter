@@ -26,6 +26,7 @@ func (u User) Staff() bool { return u.Role == "support" || u.Role == "admin" }
 type Ticket struct {
 	Version, ID, UserID                                                  int64
 	Subject, Category, Status, Priority, Owner, Assignee, AssistanceMode string
+	OwnerEmail                                                           string
 	Team                                                                 []User
 	AssigneeID                                                           *int64
 	HandoffAt                                                            *time.Time

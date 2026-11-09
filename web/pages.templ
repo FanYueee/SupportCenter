@@ -1437,6 +1437,15 @@ templ Detail(p model.Page) {
 				<dl>
 					<dt>{ i18n.T(ctx,"客服單編號") }</dt>
 					<dd class="ticket-info-id">{ fmt.Sprintf("#%04d",p.Ticket.ID) }</dd>
+					if p.Admin {
+						<dt>{ i18n.T(ctx,"開單者") }</dt>
+						<dd class="ticket-owner">
+							<span>{ p.Ticket.Owner }</span>
+							if p.Ticket.OwnerEmail != "" {
+								<a href={ templ.SafeURL("mailto:" + p.Ticket.OwnerEmail) }>{ p.Ticket.OwnerEmail }</a>
+							}
+						</dd>
+					}
 					<dt>{ i18n.T(ctx,"問題類別") }</dt>
 					<dd>
 						<span class="category-value">

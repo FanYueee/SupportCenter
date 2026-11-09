@@ -1725,6 +1725,15 @@ dd {
   text-align: right;
   overflow-wrap: anywhere;
 }
+.ticket-owner {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+}
+.ticket-owner a {
+  color: var(--muted);
+  font-size: 13px;
+}
 .category-value {
   display: inline-flex;
   align-items: center;

@@ -145,3 +145,17 @@ func TestMessagesRenderMarkdownSafely(t *testing.T) {
 		t.Fatal("reply box has no formatting bar")
 	}
 }
+
+func TestStaffSeeTheRequesterEmail(t *testing.T) {
+	a, h, alice, _, _ := testApp(t)
+	id, err := a.Store.Create(context.Background(), alice, model.Ticket{Subject: "需要協助", Category: "other", Priority: "low"}, "問題", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if page := request(h, "GET", fmt.Sprintf("/admin/tickets/%d", id), "staff", nil).Body.String(); !strings.Contains(page, `<a href="mailto:alice@example.test">alice@example.test</a>`) {
+		t.Fatal("staff should see the requester's email")
+	}
+	if page := request(h, "GET", fmt.Sprintf("/tickets/%d", id), "alice", nil).Body.String(); strings.Contains(page, `class="ticket-owner"`) {
+		t.Fatal("the requester block is for staff only")
+	}
+}

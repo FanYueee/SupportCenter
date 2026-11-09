@@ -60,14 +60,14 @@ func notFound(err error) error {
 	return err
 }
 
-const columns = `t.id,t.user_id,t.subject,t.category,t.status,t.priority,u.name,COALESCE(a.name,''),t.assigned_to,t.created_at,t.updated_at,t.version,t.assistance_mode,t.handoff_at,t.solved_at,
+const columns = `t.id,t.user_id,t.subject,t.category,t.status,t.priority,u.name,u.email,COALESCE(a.name,''),t.assigned_to,t.created_at,t.updated_at,t.version,t.assistance_mode,t.handoff_at,t.solved_at,
  CASE WHEN t.status='solved' THEN t.solved_at+(SELECT NULLIF(auto_close_days,0)*interval '24 hours' FROM automation_settings WHERE id=1)
   WHEN t.status='waiting' THEN t.waiting_at+(SELECT NULLIF(waiting_close_hours,0)*interval '1 hour' FROM automation_settings WHERE id=1) END,t.auto_closed_at,
  CASE WHEN t.status='closed' THEN t.closed_at+(SELECT NULLIF(closed_lock_hours,0)*interval '1 hour' FROM automation_settings WHERE id=1) END`
 const joins = ` FROM tickets t JOIN users u ON u.id=t.user_id LEFT JOIN users a ON a.id=t.assigned_to `
 
 func scanTicket(row pgx.Row) (t model.Ticket, err error) {
-	err = row.Scan(&t.ID, &t.UserID, &t.Subject, &t.Category, &t.Status, &t.Priority, &t.Owner, &t.Assignee, &t.AssigneeID, &t.CreatedAt, &t.UpdatedAt, &t.Version, &t.AssistanceMode, &t.HandoffAt, &t.SolvedAt, &t.AutoCloseAt, &t.AutoClosedAt, &t.LockAt)
+	err = row.Scan(&t.ID, &t.UserID, &t.Subject, &t.Category, &t.Status, &t.Priority, &t.Owner, &t.OwnerEmail, &t.Assignee, &t.AssigneeID, &t.CreatedAt, &t.UpdatedAt, &t.Version, &t.AssistanceMode, &t.HandoffAt, &t.SolvedAt, &t.AutoCloseAt, &t.AutoClosedAt, &t.LockAt)
 	return t, notFound(err)
 }
 func (s *Store) List(ctx context.Context, u model.User, admin bool, status, priority, q string, page int, assignment string, sorts ...string) ([]model.Ticket, model.Counts, bool, error) {

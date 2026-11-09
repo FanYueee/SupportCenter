@@ -405,7 +405,7 @@ func fixture() model.Page {
 	categories := []string{"technical", "billing", "billing", "technical", "billing", "account"}
 	priorities := []string{"low", "medium", "high", "low", "low", "urgent"}
 	for i, s := range subjects {
-		ticket := model.Ticket{ID: int64(1048 - i), UserID: 1, Subject: s, Status: statuses[i], Category: categories[i], Priority: priorities[i], Owner: "Alex Chen", CreatedAt: now.Add(-time.Duration(48+i*24) * time.Hour), UpdatedAt: now.Add(-time.Duration(i*7) * time.Hour)}
+		ticket := model.Ticket{ID: int64(1048 - i), UserID: 1, Subject: s, Status: statuses[i], Category: categories[i], Priority: priorities[i], Owner: "Alex Chen", OwnerEmail: "alex@example.com", CreatedAt: now.Add(-time.Duration(48+i*24) * time.Hour), UpdatedAt: now.Add(-time.Duration(i*7) * time.Hour)}
 		if ticket.Status == "solved" {
 			at := time.Now().UTC()
 			due := at.Add(7 * 24 * time.Hour)
