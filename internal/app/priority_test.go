@@ -229,8 +229,15 @@ func TestStaffSeeTheOwnersPlanAndStartOnEveryTicket(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if page := request(h, "GET", fmt.Sprintf("/admin/tickets/%d", id), "staff", nil).Body.String(); !strings.Contains(page, `<span class="tier-tag tier-advanced">進階</span>`) || strings.Contains(page, "plan-pill") {
-		t.Fatal("staff should see the owner's plan, and no plan of their own")
+	if page := request(h, "GET", fmt.Sprintf("/admin/tickets/%d", id), "staff", nil).Body.String(); !strings.Contains(page, `<span class="tier-tag tier-advanced">進階</span>`) || !strings.Contains(page, `支援等級</span><span class="tier-tag tier-basic">基本</span>`) {
+		t.Fatal("staff should see the owner's plan, and their own bought one in the header")
+	}
+	// Staff see the plan they bought, though it does not limit them.
+	if _, err := a.Store.Pool.Exec(ctx, `UPDATE users SET priority_level='medium' WHERE auth0_id='staff'`); err != nil {
+		t.Fatal(err)
+	}
+	if page := request(h, "GET", "/admin/tickets", "staff", nil).Body.String(); !strings.Contains(page, `支援等級</span><span class="tier-tag tier-standard">標準</span>`) {
+		t.Fatal("staff should see their own bought plan")
 	}
 	if page := request(h, "GET", "/admin/tickets", "staff", nil).Body.String(); !strings.Contains(page, `class="tier-text tier-advanced"`) {
 		t.Fatal("the staff list should name the owner's plan")

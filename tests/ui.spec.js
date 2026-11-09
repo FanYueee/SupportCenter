@@ -926,8 +926,8 @@ test('customers see their support plan and staff see the owner\'s', async ({ pag
   await expect(plan.locator('.tier-tag')).toHaveText('進階');
   await page.goto('/tickets');
   await expect(plan.locator('.tier-basic')).toHaveText('基本');
-  await page.goto('/admin/tickets/1048');
-  await expect(page.locator('.site-header .plan-pill')).toHaveCount(0);
+  await page.goto('/admin/tickets/1048?support=medium');
+  await expect(page.locator('.site-header .plan-pill .tier-tag')).toHaveText('標準');
   await expect(page.locator('.detail-heading .tier-tag')).toHaveText('進階');
   await page.goto('/admin/tickets');
   const first = page.locator('.ticket-person .tier-text').first();

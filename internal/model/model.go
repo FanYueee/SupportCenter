@@ -339,6 +339,9 @@ type Page struct {
 	AIModel                                                          string
 	// PrioritySupport is the viewer's own, already resolved to the level in force.
 	PrioritySupport PrioritySupport
+	// Plan is the viewer's own support plan level for the header, as bought,
+	// even for staff, whom it does not limit.
+	Plan string
 	// Location is the site's timezone, in which priority support end dates are entered.
 	Location *time.Location
 }

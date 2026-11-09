@@ -807,8 +807,8 @@ func Document(p model.Page) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		if p.Active != "login" && !p.User.Staff() && !p.Admin && p.PrioritySupport.Level != "" {
-			templ_7745c5c3_Err = SupportPlan(p.PrioritySupport.Level).Render(ctx, templ_7745c5c3_Buffer)
+		if p.Active != "login" && p.Plan != "" {
+			templ_7745c5c3_Err = SupportPlan(p.Plan).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

@@ -304,13 +304,13 @@ func (a *App) render(w http.ResponseWriter, r *http.Request, p model.Page) {
 		}
 	}
 	if p.User.ID > 0 && r.Header.Get("HX-Request") != "true" {
-		// The header shows customers their plan.
-		if p.PrioritySupport.Level == "" && !p.User.Staff() {
-			if p.PrioritySupport, err = a.prioritySupport(r.Context(), p.User.ID, false); err != nil {
-				a.fail(w, r, err)
-				return
-			}
+		// The header shows everyone the plan they bought, staff included.
+		support, err := a.Store.PrioritySupport(r.Context(), p.User.ID)
+		if err != nil {
+			a.fail(w, r, err)
+			return
 		}
+		p.Plan = support.Current(time.Now())
 		p.UnreadNotifications, err = a.Store.UnreadNotifications(r.Context(), p.User.ID)
 		if err == nil {
 			p.Activity, err = a.Store.LatestActivity(r.Context(), p.User)

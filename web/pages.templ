@@ -289,8 +289,8 @@ templ Document(p model.Page) {
 						</nav>
 					}
 					<div class="header-actions">
-						if p.Active != "login" && !p.User.Staff() && !p.Admin && p.PrioritySupport.Level != "" {
-							@SupportPlan(p.PrioritySupport.Level)
+						if p.Active != "login" && p.Plan != "" {
+							@SupportPlan(p.Plan)
 						}
 						<button type="button" class="icon-button theme-toggle" data-theme-toggle data-theme-light-label={ i18n.T(ctx,"切換至淺色模式") } data-theme-dark-label={ i18n.T(ctx,"切換至深色模式") } aria-label={ i18n.T(ctx,"切換深淺色模式") } title={ i18n.T(ctx,"切換深淺色模式") }>
 							<span class="theme-icon-sun" aria-hidden="true">@Icon("sun")</span>

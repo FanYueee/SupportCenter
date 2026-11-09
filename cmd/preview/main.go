@@ -308,12 +308,10 @@ func main() {
 		if p.Active == "detail" || p.Active == "new" {
 			p.ReferenceKinds = referenceKindsFixture()
 		}
-		// The header shows the customer's plan; ?support=high previews a bought one.
-		if p.PrioritySupport.Level == "" {
-			p.PrioritySupport = model.PrioritySupport{Level: "low"}
-			if level := r.URL.Query().Get("support"); slices.Contains(model.Priorities, level) {
-				p.PrioritySupport.Level = level
-			}
+		// The header shows the viewer's plan; ?support=high previews a bought one.
+		p.Plan = "low"
+		if level := r.URL.Query().Get("support"); slices.Contains(model.Priorities, level) {
+			p.Plan = level
 		}
 		if p.Active == "detail" {
 			p.References = referencesFixture()[:2]
