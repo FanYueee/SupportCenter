@@ -246,3 +246,44 @@ func TestPortalOpensTicketsAboutAnItemAndReturnsTags(t *testing.T) {
 		t.Fatal("each message lists the tags it writes", first["references"])
 	}
 }
+
+func TestStaffSeeTheOwnersItemsBesideTheTicket(t *testing.T) {
+	a, h, portal, alice, _, _ := referenceTestApp(t)
+	ctx := context.Background()
+	id, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "x", Category: "other", Priority: "low"}, "問題", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := fmt.Sprintf("/admin/tickets/%d/customer-items", id)
+	if page := request(h, "GET", fmt.Sprintf("/admin/tickets/%d", id), "staff", nil).Body.String(); !strings.Contains(page, `hx-get="`+path+`"`) {
+		t.Fatal("the staff sidebar should load the owner's items")
+	}
+	if page := request(h, "GET", fmt.Sprintf("/tickets/%d", id), "alice", nil).Body.String(); strings.Contains(page, "customer-items") {
+		t.Fatal("customers do not get the staff list")
+	}
+	got := request(h, "GET", path, "staff", nil)
+	body := got.Body.String()
+	if got.Code != http.StatusOK || !strings.Contains(body, "客戶的帳單") || !strings.Contains(body, "客戶的服務") ||
+		!strings.Contains(body, `href="`+portal.URL+`/admin/inv-a1" target="_blank"`) || !strings.Contains(body, `data-tag-insert="!svc-a1"`) ||
+		strings.Contains(body, "inv-b1") || strings.Contains(body, "evil") || !strings.Contains(body, "&lt;b&gt;inv-a1&lt;/b&gt;") {
+		t.Fatalf("staff should see the owner's items, escaped, linking to the Portal's staff pages: %d %s", got.Code, body)
+	}
+	if actor := portal.lastActor(); actor.Customer != alice.Email || actor.ViewerRole != "staff" {
+		t.Fatalf("asked as %+v", actor)
+	}
+	if got := request(h, "GET", path, "alice", nil); got.Code == http.StatusOK {
+		t.Fatal("customers cannot load the staff list")
+	}
+	portal.mu.Lock()
+	portal.down = true
+	portal.mu.Unlock()
+	if body := request(h, "GET", path, "staff", nil).Body.String(); !strings.Contains(body, "暫時無法取得資料") {
+		t.Fatal("a Portal outage should say so", body)
+	}
+	if _, err = a.Store.Pool.Exec(ctx, `UPDATE users SET email_verified=false WHERE id=$1`, alice.ID); err != nil {
+		t.Fatal(err)
+	}
+	if body := request(h, "GET", path, "staff", nil).Body.String(); !strings.Contains(body, "尚未驗證") {
+		t.Fatal("an unverified owner is not looked up", body)
+	}
+}

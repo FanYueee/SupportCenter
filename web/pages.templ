@@ -1167,6 +1167,39 @@ templ MentionOptions(refs []model.TicketRef, q string) {
 	}
 }
 
+// CustomerItems are a ticket owner's items from the Portal, shown to staff
+// beside the ticket: each opens in the Portal or goes into the reply as a tag.
+templ CustomerItems(lists []model.ReferenceList, verified bool) {
+	if !verified {
+		<p class="field-hint">{ i18n.T(ctx,"開單者的 Email 尚未驗證，無法查詢客戶資料。") }</p>
+	} else {
+		for _, list := range lists {
+			<section class="customer-items-kind">
+				<h3>{ fmt.Sprintf(i18n.T(ctx,"客戶的%s"),list.Kind.Name(i18n.Lang(ctx))) }</h3>
+				if list.Failed {
+					<p class="field-hint">{ i18n.T(ctx,"暫時無法取得資料，請稍後再試。") }</p>
+				} else if len(list.Items) == 0 {
+					<p class="field-hint">{ fmt.Sprintf(i18n.T(ctx,"沒有%s"),list.Kind.Name(i18n.Lang(ctx))) }</p>
+				} else {
+					<ul>
+						for _, item := range list.Items {
+							<li class="customer-item">
+								<a class="reference-item" href={ templ.URL(item.StaffURL) } target="_blank" rel="noopener noreferrer">
+									<strong>{ item.Title }</strong>
+									if item.Detail != "" {
+										<span class="reference-detail">{ item.Detail }</span>
+									}
+								</a>
+								<button type="button" class="customer-item-tag" data-tag-insert={ item.Token() } title={ i18n.T(ctx,"標記到回覆") } aria-label={ fmt.Sprintf(i18n.T(ctx,"把「%s」標記到回覆"),item.Title) }>{ i18n.T(ctx,"標記") }</button>
+							</li>
+						}
+					</ul>
+				}
+			</section>
+		}
+	}
+}
+
 // ReferenceOptions are the customer's items offered while a tag is typed.
 templ ReferenceOptions(kind model.ReferenceKind, refs []model.Reference, q string, failed bool) {
 	<div class="mention-heading" aria-hidden="true">
@@ -1540,6 +1573,11 @@ templ Detail(p model.Page) {
 								</li>
 							}
 						</ul>
+					</div>
+				}
+				if p.Admin && p.User.Staff() && len(p.ReferenceKinds) > 0 {
+					<div class="customer-items" hx-get={ fmt.Sprintf("/admin/tickets/%d/customer-items", p.Ticket.ID) } hx-trigger="load" hx-swap="innerHTML">
+						<p class="field-hint">{ i18n.T(ctx,"正在載入客戶資料…") }</p>
 					</div>
 				}
 				if p.Admin || p.Ticket.UserID==p.User.ID {

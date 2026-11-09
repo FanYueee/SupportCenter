@@ -659,6 +659,15 @@ test('$ and ! tag the customer\'s invoices and services', async ({ page }) => {
   await expect(page.getByRole('button', { name: '標記帳單' })).toHaveCount(0);
   await page.goto('/admin/tickets/1048');
   await expect(page.locator('.message-body .reference-tag').first()).toHaveAttribute('href', /portal\.example\.com\/admin\/services\//);
+  // Staff see the customer's items beside the ticket and tag them in the reply.
+  const items = page.locator('.customer-items');
+  await expect(items.getByRole('heading', { name: '客戶的服務' })).toBeVisible();
+  await expect(items.locator('.reference-item').first()).toHaveAttribute('target', '_blank');
+  await expect(items.locator('.reference-item').first()).toHaveAttribute('href', /portal\.example\.com\/admin\//);
+  const reply = page.locator('#reply');
+  await reply.fill('請看');
+  await items.getByRole('button', { name: /^把「#F437D424/ }).click();
+  await expect(reply).toHaveValue('請看 !f437d424-dc57-439e-a646-61caa5aa659f ');
 });
 
 test('staff insert canned replies from the reply box', async ({ page }) => {

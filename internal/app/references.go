@@ -315,3 +315,46 @@ func (a *App) withTags(ctx context.Context, owner int64, viewer model.User, body
 	}
 	return database.WithReferences(ctx, a.tagged(ctx, owner, viewer, body, named))
 }
+
+// customerItems lists for staff, beside a ticket, its owner's items of each
+// kind, most relevant first, loaded after the page so the Portal never slows
+// it down.
+func (a *App) customerItems(w http.ResponseWriter, r *http.Request) {
+	u := current(r).User
+	id, ok := idFrom(r)
+	if !ok || a.References == nil {
+		a.problem(w, r, 404, "找不到此頁面。")
+		return
+	}
+	ticket, err := a.Store.Ticket(r.Context(), u, id, true)
+	if err != nil {
+		a.fail(w, r, err)
+		return
+	}
+	customer, err := a.Store.VerifiedEmail(r.Context(), ticket.UserID)
+	if err != nil {
+		a.fail(w, r, err)
+		return
+	}
+	kinds := a.References.Kinds(r.Context())
+	lists := make([]model.ReferenceList, len(kinds))
+	var wg sync.WaitGroup
+	for i, kind := range kinds {
+		lists[i].Kind = kind
+		if customer == "" {
+			continue
+		}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			items, err := a.References.Search(r.Context(), kind, customer, strings.ToLower(u.Email), "staff", "")
+			if err != nil {
+				a.Log.Warn("portal customer items failed", "error", err)
+			}
+			lists[i].Items, lists[i].Failed = items, err != nil
+		}()
+	}
+	wg.Wait()
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	web.CustomerItems(lists, customer != "").Render(r.Context(), w)
+}

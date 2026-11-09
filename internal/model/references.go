@@ -29,6 +29,14 @@ type Reference struct {
 	Internal                                 bool
 }
 
+// ReferenceList is a customer's items of one kind, as the source ranks
+// them; Failed when the source could not say.
+type ReferenceList struct {
+	Kind   ReferenceKind
+	Items  []Reference
+	Failed bool
+}
+
 // Token is how a message writes the tag, e.g. "$5895aa2a-a677-…".
 func (r Reference) Token() string {
 	return r.Trigger + r.ID

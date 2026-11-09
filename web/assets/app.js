@@ -583,6 +583,18 @@ addEventListener('resize', () => placeMentions());
 document.addEventListener('focusout', event => {
   if (mention && event.target === mention.field) setTimeout(() => { if (mention && document.activeElement !== mention.field) closeMentions(); });
 });
+// A tag button beside the ticket puts the item into the reply where the
+// cursor is; the box keeps its cursor while the button is pressed.
+document.addEventListener('mousedown', event => {
+  if (event.target.closest?.('[data-tag-insert]')) event.preventDefault();
+});
+document.addEventListener('click', event => {
+  const button = event.target.closest?.('[data-tag-insert]');
+  const field = button && document.getElementById('reply');
+  if (!field) return;
+  const before = field.value.slice(0, field.selectionStart);
+  insertText(field, (before && !/\s$/.test(before) ? ' ' : '') + button.dataset.tagInsert + ' ');
+});
 // Cloudflare's script calls this once loaded; the widget needs JavaScript anyway.
 window.supportTurnstileReady = () => {
   for (const box of document.querySelectorAll('[data-turnstile]:not([data-widget])')) {

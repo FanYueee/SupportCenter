@@ -152,6 +152,7 @@ func (a *App) Handler() http.Handler {
 	mux.HandleFunc("GET /admin/tickets/{id}/people/{person}/avatar", a.protected(true, a.ticketPersonAvatar))
 	mux.HandleFunc("GET /admin/tickets/{id}/mentions", a.protected(true, a.mentionSearch))
 	mux.HandleFunc("GET /admin/tickets/{id}/references", a.protected(true, a.referenceSearch))
+	mux.HandleFunc("GET /admin/tickets/{id}/customer-items", a.protected(true, a.customerItems))
 	mux.HandleFunc("POST /admin/tickets/{id}/reply", a.protected(true, a.reply))
 	mux.HandleFunc("POST /admin/tickets/{id}/update", a.protected(true, a.update))
 	mux.HandleFunc("POST /admin/tickets/{id}/assign", a.protected(true, a.assign))
@@ -548,7 +549,8 @@ func (a *App) composerData(r *http.Request, p *model.Page) error {
 	}
 	partial := r.Header.Get("HX-Target") == "conversation-activity" || r.Header.Get("HX-Target") == "ticket-sidebar"
 	// Owners tag their own items and staff the owner's; participants none.
-	if a.References != nil && !partial && (p.Active == "new" || p.Active == "detail" && (p.Admin || p.Ticket.UserID == p.User.ID)) {
+	// The sidebar needs the kinds too, for the owner's items shown to staff.
+	if a.References != nil && r.Header.Get("HX-Target") != "conversation-activity" && (p.Active == "new" || p.Active == "detail" && (p.Admin || p.Ticket.UserID == p.User.ID)) {
 		p.ReferenceKinds = a.References.Kinds(r.Context())
 	}
 	if p.CannedReplies == nil && p.Active == "detail" && p.Admin && p.User.Staff() && !partial {

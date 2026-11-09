@@ -470,3 +470,10 @@ SMTP 伺服器暫時無法處理，稍後會自動重試。	The SMTP server is t
 符合「%[1]s」的%[2]s	%[2]s matching “%[1]s”
 找不到相符的%s	No matching %s
 暫時無法取得資料，請稍後再試。	Couldn’t load this right now. Try again later.
+正在載入客戶資料…	Loading customer details…
+開單者的 Email 尚未驗證，無法查詢客戶資料。	The requester’s email isn’t verified, so their details can’t be looked up.
+客戶的%s	Customer’s %s
+沒有%s	No %s
+標記到回覆	Tag in reply
+把「%s」標記到回覆	Tag “%s” in the reply
+標記	Tag

@@ -63,6 +63,21 @@ func main() {
 	}
 	mux.HandleFunc("GET /tickets/references", references)
 	mux.HandleFunc("GET /admin/tickets/{id}/references", references)
+	// Staff see the fixture customer's invoices and services beside the ticket.
+	mux.HandleFunc("GET /admin/tickets/{id}/customer-items", func(w http.ResponseWriter, r *http.Request) {
+		var lists []model.ReferenceList
+		for _, kind := range referenceKindsFixture() {
+			list := model.ReferenceList{Kind: kind}
+			for _, ref := range referencesFixture() {
+				if ref.Key == kind.Key {
+					list.Items = append(list.Items, ref)
+				}
+			}
+			lists = append(lists, list)
+		}
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		web.CustomerItems(lists, true).Render(r.Context(), w)
+	})
 	mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
 		p := fixture()
 		p.CSRF = rand.Text()

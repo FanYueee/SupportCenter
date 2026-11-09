@@ -1737,16 +1737,22 @@ dd {
   overflow-wrap: anywhere;
 }
 /* Items tagged on the ticket, opened in the Portal. */
-.ticket-references {
+.ticket-references,
+.customer-items {
   margin: 0 0 25px;
 }
-.ticket-references h3 {
+.customer-items-kind + .customer-items-kind {
+  margin-top: 18px;
+}
+.ticket-references h3,
+.customer-items h3 {
   margin: 0 0 10px;
   color: var(--muted);
   font-size: 14px;
   font-weight: 400;
 }
-.ticket-references ul {
+.ticket-references ul,
+.customer-items ul {
   display: grid;
   gap: 8px;
   margin: 0;
@@ -1764,6 +1770,29 @@ dd {
   overflow-wrap: anywhere;
 }
 .reference-item:hover {
+  border-color: var(--text);
+}
+/* The owner's items: open one in the Portal, or tag it in the reply. */
+.customer-item {
+  display: flex;
+  gap: 6px;
+}
+.customer-item .reference-item {
+  flex: 1;
+  min-width: 0;
+}
+.customer-item-tag {
+  flex: none;
+  min-width: 48px;
+  min-height: 24px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
+}
+.customer-item-tag:hover,
+.customer-item-tag:focus-visible {
   border-color: var(--text);
 }
 .reference-kind,
