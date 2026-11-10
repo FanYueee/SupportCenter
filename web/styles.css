@@ -1518,6 +1518,11 @@ p.field-hint {
 .detail-heading > #detail-status {
   margin-top: 33px;
 }
+/* The plan sits on the owner's name: at a smaller size the two share a
+   baseline but not a middle, and the tag hangs low. */
+.detail-heading p .tier-tag {
+  font-size: inherit;
+}
 .detail-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 285px;

@@ -929,6 +929,16 @@ test('customers see their support plan and staff see the owner\'s', async ({ pag
   await page.goto('/admin/tickets/1048?support=medium');
   await expect(page.locator('.site-header .plan-pill .tier-tag')).toHaveText('標準');
   await expect(page.locator('.detail-heading .tier-tag')).toHaveText('進階');
+  // Level with the owner's name, not hanging below it.
+  const level = await page.locator('.detail-heading p').evaluate(line => {
+    const tag = line.querySelector('.tier-tag').getBoundingClientRect();
+    const text = [...line.childNodes].find(node => node.nodeType === 3 && node.data.includes('Alex Chen'));
+    const range = document.createRange();
+    range.selectNodeContents(text);
+    const name = [...range.getClientRects()].pop();
+    return Math.abs((tag.top + tag.bottom) / 2 - (name.top + name.bottom) / 2);
+  });
+  expect(level).toBeLessThan(0.25);
   await page.goto('/admin/tickets');
   const first = page.locator('.ticket-person .tier-text').first();
   await expect(first).toHaveText('進階');
