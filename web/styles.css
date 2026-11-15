@@ -388,6 +388,11 @@ input[type="checkbox"] {
   font-weight: 400;
   letter-spacing: 0;
 }
+/* The menu and, on phones, the plan after it; on wider screens the menu
+   lays out as if this were not here. */
+.nav-row {
+  display: contents;
+}
 .main-nav {
   display: flex;
   flex-wrap: wrap;
@@ -434,6 +439,9 @@ input[type="checkbox"] {
 }
 .plan-pill:hover {
   border-color: var(--text);
+}
+.plan-pill-nav {
+  display: none;
 }
 .plan-pill-label {
   display: inline-flex;
@@ -2248,8 +2256,12 @@ dd {
     width: 34px;
     height: 34px;
   }
+  /* A long name gives way to the buttons beside it rather than run under them. */
   .brand-name {
     display: inline;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
     font-size: 16px;
     font-weight: 600;
     letter-spacing: -0.4px;
@@ -2271,8 +2283,25 @@ dd {
     gap: 10px;
   }
   .account-name,
-  .plan-pill-label {
+  .plan-pill-label,
+  .plan-pill-actions {
     display: none;
+  }
+  .nav-row {
+    display: flex;
+    flex-wrap: wrap;
+    order: 3;
+    width: 100%;
+    align-items: center;
+    column-gap: 14px;
+  }
+  .nav-row .main-nav {
+    order: 0;
+    width: auto;
+  }
+  .plan-pill-nav {
+    display: inline-flex;
+    margin-left: auto;
   }
   .icon-button {
     width: 32px;

@@ -278,6 +278,7 @@ templ Document(p model.Page) {
 				<div class="header-inner">
 					@SiteBrand()
 					if p.Active != "login" {
+						<div class="nav-row">
 						<nav class="main-nav" aria-label={ i18n.T(ctx,"主選單") }>
 							<a class={ "nav-item", templ.KV("selected", !p.Admin && p.Active!="account" && p.Active!="notifications") } href="/tickets">{ i18n.T(ctx,"我的客服單") }</a>
 							if p.User.Staff() {
@@ -287,10 +288,14 @@ templ Document(p model.Page) {
 				<a class={ "nav-item", templ.KV("selected", p.Active=="users" || p.Active=="automation" || p.Active=="ai" || p.Active=="discord" || p.Active=="email" || p.Active=="departments" || p.Active=="announcements" || p.Active=="canned") } href="/admin/ai">{ i18n.T(ctx,"管理設定") }</a>
 							}
 						</nav>
+						if p.Plan != "" {
+							@SupportPlan(p.Plan,"nav")
+						}
+						</div>
 					}
 					<div class="header-actions">
 						if p.Active != "login" && p.Plan != "" {
-							@SupportPlan(p.Plan)
+							@SupportPlan(p.Plan,"actions")
 						}
 						<button type="button" class="icon-button theme-toggle" data-theme-toggle data-theme-light-label={ i18n.T(ctx,"切換至淺色模式") } data-theme-dark-label={ i18n.T(ctx,"切換至深色模式") } aria-label={ i18n.T(ctx,"切換深淺色模式") } title={ i18n.T(ctx,"切換深淺色模式") }>
 							<span class="theme-icon-sun" aria-hidden="true">@Icon("sun")</span>
@@ -413,10 +418,12 @@ templ TicketBadge(ticket model.Ticket, staff bool) {
 }
 
 // SupportPlan shows customers their plan in the header on sites that sell
-// plans, opening where they are bought.
-templ SupportPlan(level string) {
+// plans, opening where they are bought. The header has it twice: by the
+// account buttons, and after the menu for phones, where the top row has no
+// room left for it.
+templ SupportPlan(level, place string) {
 	if url := siteOf(ctx).PlanURL; url != "" {
-		<a class="plan-pill" href={ templ.URL(url) } target="_blank" rel="noopener noreferrer" title={ i18n.T(ctx,"查看支援方案") } aria-label={ fmt.Sprintf(i18n.T(ctx,"目前支援等級：%s，查看支援方案"),i18n.T(ctx,model.SupportTier(level))) }>
+		<a class={ "plan-pill", "plan-pill-"+place } href={ templ.URL(url) } target="_blank" rel="noopener noreferrer" title={ i18n.T(ctx,"查看支援方案") } aria-label={ fmt.Sprintf(i18n.T(ctx,"目前支援等級：%s，查看支援方案"),i18n.T(ctx,model.SupportTier(level))) }>
 			<span class="plan-pill-label">{ i18n.T(ctx,"支援等級") }</span>
 			@SupportTierTag(level)
 		</a>

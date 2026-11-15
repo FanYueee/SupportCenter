@@ -920,14 +920,14 @@ test('user list shows email, role, registration and last sign-in on every screen
 
 test('customers see their support plan and staff see the owner\'s', async ({ page }) => {
   await page.goto('/tickets?support=high');
-  const plan = page.locator('.site-header .plan-pill');
+  const plan = page.locator('.site-header .plan-pill:visible');
   await expect(plan).toHaveAttribute('href', /support-plans/);
   await expect(plan).toHaveAttribute('target', '_blank');
   await expect(plan.locator('.tier-tag')).toHaveText('進階');
   await page.goto('/tickets');
   await expect(plan.locator('.tier-basic')).toHaveText('基本');
   await page.goto('/admin/tickets/1048?support=medium');
-  await expect(page.locator('.site-header .plan-pill .tier-tag')).toHaveText('標準');
+  await expect(page.locator('.site-header .plan-pill:visible .tier-tag')).toHaveText('標準');
   await expect(page.locator('.detail-heading .tier-tag')).toHaveText('進階');
   // Level with the owner's name, not hanging below it.
   const level = await page.locator('.detail-heading p').evaluate(line => {
@@ -948,6 +948,43 @@ test('customers see their support plan and staff see the owner\'s', async ({ pag
   const tier = await first.boundingBox();
   expect(tier.y).toBeGreaterThanOrEqual(name.y + name.height - 1);
   expect(Math.abs(tier.x - name.x)).toBeLessThan(1);
+});
+
+test('on phones the plan moves to the menu row and the site name keeps clear of the buttons', async ({ browser }) => {
+  for (const [locale, tier] of [['zh-TW', '標準'], ['en-US', 'Standard']]) {
+    const context = await browser.newContext({ locale, viewport: { width: 1280, height: 800 } });
+    const page = await context.newPage();
+    await page.goto('/admin/tickets?support=medium');
+    await expect(page.locator('.plan-pill-actions')).toBeVisible();
+    await expect(page.locator('.plan-pill-nav')).toBeHidden();
+    for (const width of [280, 320, 360, 393, 430]) {
+      await page.setViewportSize({ width, height: 800 });
+      for (const path of ['/admin/tickets?support=medium', '/tickets?support=medium']) {
+        await page.goto(path);
+        await expect(page.locator('.plan-pill-actions')).toBeHidden();
+        await expect(page.locator('.plan-pill-nav .tier-tag')).toHaveText(tier);
+        const layout = await page.evaluate(() => {
+          const box = el => el.getBoundingClientRect();
+          const brand = document.querySelector('.brand'), name = document.querySelector('.brand-name');
+          const actions = box(document.querySelector('.header-actions')), row = box(document.querySelector('.nav-row')), plan = box(document.querySelector('.plan-pill-nav'));
+          return {
+            brandOverflow: brand.scrollWidth - brand.clientWidth,
+            nameGap: name.getClientRects().length ? actions.left - box(name).right : 0,
+            planBelowTop: plan.top >= actions.bottom,
+            planRight: Math.abs(plan.right - row.right),
+            outsideMenu: !document.querySelector('.plan-pill-nav').closest('nav'),
+          };
+        });
+        const where = `${locale} ${width} ${path}`;
+        expect(layout.brandOverflow, where).toBeLessThanOrEqual(0);
+        expect(layout.nameGap, where).toBeGreaterThanOrEqual(0);
+        expect(layout.planBelowTop, where).toBe(true);
+        expect(layout.planRight, where).toBeLessThan(1);
+        expect(layout.outsideMenu, where).toBe(true);
+      }
+    }
+    await context.close();
+  }
 });
 
 test('admins see and change priority support on the user list', async ({ page }) => {

@@ -242,7 +242,7 @@ func TestStaffSeeTheOwnersPlanAndStartOnEveryTicket(t *testing.T) {
 	if page := request(h, "GET", "/admin/tickets", "staff", nil).Body.String(); !strings.Contains(page, `class="tier-text tier-advanced"`) {
 		t.Fatal("the staff list should name the owner's plan")
 	}
-	if page := request(h, "GET", "/tickets", "alice", nil).Body.String(); !strings.Contains(page, `class="plan-pill" href="https://portal.example.test/billing#support-plans" target="_blank"`) || !strings.Contains(page, `tier-advanced">進階`) {
+	if page := request(h, "GET", "/tickets", "alice", nil).Body.String(); !strings.Contains(page, `class="plan-pill plan-pill-actions" href="https://portal.example.test/billing#support-plans" target="_blank"`) || !strings.Contains(page, `class="plan-pill plan-pill-nav" href="https://portal.example.test/billing#support-plans" target="_blank"`) || !strings.Contains(page, `tier-advanced">進階`) {
 		t.Fatal("customers should see their plan in the header")
 	}
 	// An ended plan counts as basic.
