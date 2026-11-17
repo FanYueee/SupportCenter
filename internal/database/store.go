@@ -339,7 +339,7 @@ func (s *Store) CreateWithParticipants(ctx context.Context, u model.User, t mode
 			return 0, err
 		}
 	}
-	if err = queueDepartmentNotifications(ctx, tx, id, "department", nil); err != nil {
+	if err = queueDepartmentNotifications(ctx, tx, id, "department", nil, mid); err != nil {
 		return 0, err
 	}
 	return id, commit(ctx, tx)
@@ -441,6 +441,9 @@ func (s *Store) reply(ctx context.Context, u model.User, id int64, admin bool, b
 		}
 		if !staff {
 			if err = queueDiscord(ctx, tx, id, mid, "reply"); err != nil {
+				return err
+			}
+			if err = queueReplyNotifications(ctx, tx, id, mid, u.ID); err != nil {
 				return err
 			}
 		} else if err = s.QueueReplyEmails(ctx, tx, id, mid, u.ID); err != nil {
@@ -618,7 +621,7 @@ func (s *Store) updateTeamCategory(ctx context.Context, u model.User, id int64, 
 			if _, err = tx.Exec(ctx, `UPDATE email_notifications SET state='cancelled' WHERE ticket_id=$1 AND state='pending'`, id); err != nil {
 				return err
 			}
-			if err = queueDepartmentNotifications(ctx, tx, id, "department", nil); err != nil {
+			if err = queueDepartmentNotifications(ctx, tx, id, "department", nil, 0); err != nil {
 				return err
 			}
 		}
@@ -633,7 +636,7 @@ func (s *Store) updateTeamCategory(ctx context.Context, u model.User, id int64, 
 				}
 			}
 			if len(added) > 0 {
-				if err = queueDepartmentNotifications(ctx, tx, id, "assignment", added); err != nil {
+				if err = queueDepartmentNotifications(ctx, tx, id, "assignment", added, 0); err != nil {
 					return err
 				}
 			}

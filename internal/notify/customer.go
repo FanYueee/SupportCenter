@@ -105,6 +105,27 @@ func (w *Worker) customerMessage(ctx context.Context, item customerEmail) (Messa
 		view.Intro = []string{"我們已收到您的客服單，有新的回覆時會再寄信通知您。"}
 		view.Details = []web.EmailDetail{{Label: "單號", Value: number}, {Label: "主旨", Value: item.Subject}}
 		view.Action = "查看客服單"
+		// What they sent, for their records, where emails may carry messages.
+		if item.IncludeReply {
+			var body, author string
+			var attachments int
+			err := w.Store.Pool.QueryRow(ctx, `SELECT m.body,u.name,(SELECT count(*) FROM ticket_attachments a WHERE a.message_id=m.id)
+			 FROM ticket_messages m JOIN users u ON u.id=m.user_id WHERE m.ticket_id=$1 AND NOT m.internal ORDER BY m.id LIMIT 1`, item.TicketID).Scan(&body, &author, &attachments)
+			if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+				return Message{}, err
+			}
+			refs, err := w.Store.TicketReferences(ctx, item.TicketID, false)
+			if err != nil {
+				return Message{}, err
+			}
+			if view.Quote = quoted(model.ReferenceText(body, refs)); view.Quote != "" {
+				view.QuoteAuthor = author
+				view.Intro[0] += "以下是您送出的內容。"
+			}
+			if attachments > 0 {
+				view.Note = fmt.Sprintf("您附上了 %d 個檔案，可登入查看。", attachments)
+			}
+		}
 	case "reminder":
 		subject = fmt.Sprintf("[%s] 客服單 %s 正在等待您的回覆：%s", view.Site, number, item.Subject)
 		view.Label = "等待回覆"
@@ -152,10 +173,7 @@ func (w *Worker) customerMessage(ctx context.Context, item customerEmail) (Messa
 		if item.IncludeReply {
 			view.Intro = []string{"您的客服單有新的回覆，內容如下。"}
 			view.QuoteAuthor = author
-			view.Quote = strings.TrimSpace(body)
-			if r := []rune(view.Quote); len(r) > maxQuotedReply {
-				view.Quote = string(r[:maxQuotedReply]) + "…"
-			}
+			view.Quote = quoted(body)
 			if attachments > 0 {
 				view.Note = fmt.Sprintf("這則回覆附有 %d 個檔案，請登入查看。", attachments)
 			}

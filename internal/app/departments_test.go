@@ -174,3 +174,95 @@ func TestNewTicketsEmailTheirDepartment(t *testing.T) {
 		}
 	}
 }
+
+// Staff can read what the customer wrote, and who they are, in the email
+// itself: a new ticket, an assignment and each customer reply.
+func TestStaffEmailsCarryTheCustomersMessage(t *testing.T) {
+	a, h, alice, _, staff := testApp(t)
+	ctx := context.Background()
+	admin, err := a.Store.User(ctx, "admin", "admin", "admin@example.test", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	verify(t, a, staff, admin)
+	if got := request(h, "POST", fmt.Sprintf("/admin/departments/%d", staff.ID), "admin", url.Values{"csrf": {"csrf-admin"}, "departments": {"technical"}}); got.Code != 303 {
+		t.Fatalf("save departments: %d", got.Code)
+	}
+	if _, err = a.Store.Pool.Exec(ctx, `UPDATE users SET priority_level='high' WHERE id=$1`, alice.ID); err != nil {
+		t.Fatal(err)
+	}
+	mail := &fakeMailSender{}
+	worker := notify.Worker{Store: a.Store, Sender: mail, Origin: "https://support.example.test", Log: a.Log}
+	drain := func() []recordedMail {
+		t.Helper()
+		mail.sent = nil
+		for {
+			processed, err := worker.ProcessOne(ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !processed {
+				return mail.sent
+			}
+		}
+	}
+	id, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "節點連不上", Category: "technical", Priority: "high"}, "節點 3 從昨晚開始連不上\n錯誤碼 502", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sent := drain()
+	if len(sent) != 1 || sent[0].to != staff.Email || !strings.Contains(sent[0].subject, "節點連不上") ||
+		!strings.Contains(sent[0].body, "> 節點 3 從昨晚開始連不上\n> 錯誤碼 502") || !strings.Contains(sent[0].html, "錯誤碼 502") ||
+		!strings.Contains(sent[0].body, "客戶：alice（alice@example.test）") || !strings.Contains(sent[0].body, "支援等級：進階") || !strings.Contains(sent[0].body, "優先級：高") {
+		t.Fatalf("new ticket email should carry the message and customer: %+v", sent)
+	}
+	path := fmt.Sprintf("/tickets/%d", id)
+	if res := request(h, "POST", path+"/reply", "alice", url.Values{"csrf": {"csrf-alice"}, "body": {"補充：換了節點也一樣"}}); res.Code != 303 {
+		t.Fatal("customer reply failed", res.Code)
+	}
+	// Nobody is on it yet, so its department hears.
+	sent = drain()
+	if len(sent) != 1 || sent[0].to != staff.Email || !strings.Contains(sent[0].subject, "有客戶回覆") || !strings.Contains(sent[0].body, "> 補充：換了節點也一樣") || strings.Contains(sent[0].body, "錯誤碼 502") {
+		t.Fatalf("customer reply email: %+v", sent)
+	}
+	for _, internal := range []bool{true, false} {
+		form := url.Values{"csrf": {"csrf-staff"}, "body": {"staff message"}}
+		if internal {
+			form.Set("internal", "true")
+		}
+		if res := request(h, "POST", "/admin"+path+"/reply", "staff", form); res.Code != 303 {
+			t.Fatal("staff reply failed", res.Code)
+		}
+	}
+	if sent = drain(); len(sent) != 0 {
+		t.Fatalf("staff messages emailed staff: %+v", sent)
+	}
+	// Once someone works the ticket, only they hear, wherever their department.
+	ticket, err := a.Store.Ticket(ctx, admin, id, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = a.Store.UpdateTeam(ctx, admin, id, true, "open", "high", []int64{admin.ID}, ticket.Version); err != nil {
+		t.Fatal(err)
+	}
+	drain()
+	if res := request(h, "POST", path+"/reply", "alice", url.Values{"csrf": {"csrf-alice"}, "body": {"第三則：附上截圖"}}); res.Code != 303 {
+		t.Fatal("customer reply failed", res.Code)
+	}
+	if sent = drain(); len(sent) != 1 || sent[0].to != admin.Email || !strings.Contains(sent[0].body, "> 第三則：附上截圖") {
+		t.Fatalf("the assignee should get the reply: %+v", sent)
+	}
+	// A ticket the AI answers does not email staff on every customer message.
+	aiTicket, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "AI 處理", Category: "technical", Priority: "low", AssistanceMode: "ai"}, "第一則", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	drain()
+	if res := request(h, "POST", fmt.Sprintf("/tickets/%d/reply", aiTicket), "alice", url.Values{"csrf": {"csrf-alice"}, "body": {"再問一次"}}); res.Code != 303 {
+		t.Fatal("customer reply failed", res.Code)
+	}
+	var queued int
+	if err = a.Store.Pool.QueryRow(ctx, `SELECT count(*) FROM email_notifications WHERE ticket_id=$1 AND kind='reply'`, aiTicket).Scan(&queued); err != nil || queued != 0 {
+		t.Fatalf("AI ticket reply emailed staff: %d %v", queued, err)
+	}
+}

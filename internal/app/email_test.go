@@ -125,6 +125,24 @@ func TestReplyEmailsReachRequesterAndParticipants(t *testing.T) {
 		!strings.Contains(mail.sent[0].subject, fmt.Sprintf("#%04d", id)) || !strings.Contains(mail.sent[0].body, "連線逾時") || mail.sent[1].to != bob.Email {
 		t.Fatalf("opening a ticket should confirm it to the requester: %+v", mail.sent)
 	}
+	if !strings.Contains(mail.sent[0].body, "alice：\n> 問題\n") || !strings.Contains(mail.sent[0].html, "問題</div>") || strings.Contains(mail.sent[1].body+mail.sent[1].html, "問題") {
+		t.Fatalf("the confirmation should quote what was sent, and the invitation not: %+v", mail.sent)
+	}
+	// Where emails leave messages out, the confirmation does too.
+	if err := a.Store.SaveEmailSettings(ctx, model.EmailSettings{OnCreate: true, OnReply: true, OnInvite: true}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = a.Store.Create(ctx, alice, model.Ticket{Subject: "不附內容", Category: "technical", Priority: "low"}, "私密內容", nil); err != nil {
+		t.Fatal(err)
+	}
+	mail.sent = nil
+	sendDue(t, a, worker)
+	if len(mail.sent) != 1 || !strings.Contains(mail.sent[0].subject, "不附內容") || strings.Contains(mail.sent[0].body+mail.sent[0].html, "私密內容") {
+		t.Fatalf("confirmation quoted a message with quoting off: %+v", mail.sent)
+	}
+	if err := a.Store.SaveEmailSettings(ctx, model.EmailSettings{OnCreate: true, OnReply: true, IncludeReply: true, OnInvite: true}); err != nil {
+		t.Fatal(err)
+	}
 	mail.sent = nil
 	path := fmt.Sprintf("/tickets/%d", id)
 	staffReply := func(body string, internal bool) {
