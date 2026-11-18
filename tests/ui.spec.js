@@ -668,6 +668,27 @@ test('$ and ! tag the customer\'s invoices and services', async ({ page }) => {
   await reply.fill('請看');
   await items.getByRole('button', { name: /^把「#F437D424/ }).click();
   await expect(reply).toHaveValue('請看 !f437d424-dc57-439e-a646-61caa5aa659f ');
+  // Sections follow the Portal's order of kinds: services, then invoices.
+  await expect(items.getByRole('heading')).toHaveText(['客戶的服務', '客戶的帳單']);
+  // A service's node and address sit under its card; the address copies.
+  const endpoint = items.locator('.customer-item-endpoint');
+  await expect(endpoint).toHaveCount(1);
+  await expect(endpoint).toContainText('節點 TW-E1');
+  const card = await items.locator('.customer-item-card').first().locator('.reference-item').boundingBox();
+  const line = await endpoint.boundingBox();
+  expect(Math.abs(line.y - (card.y + card.height))).toBeLessThan(1);
+  expect(Math.abs(line.width - card.width)).toBeLessThan(1);
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+  const copy = endpoint.getByRole('button', { name: '複製連線位址 203.0.113.24:20513' });
+  await copy.click();
+  await expect(copy).toContainText('已複製');
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('203.0.113.24:20513');
+  await expect(copy).toContainText('複製', { timeout: 3000 });
+  await expect(copy).not.toContainText('已複製');
+  for (const width of [320, 1440]) {
+    await page.setViewportSize({ width, height: 844 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  }
 });
 
 test('staff insert canned replies from the reply box', async ({ page }) => {

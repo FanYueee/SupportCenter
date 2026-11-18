@@ -479,17 +479,19 @@ func fixture() model.Page {
 }
 
 func referenceKindsFixture() []model.ReferenceKind {
-	return []model.ReferenceKind{{Key: "invoice", Label: "帳單", LabelEn: "Invoices", Trigger: "$"}, {Key: "service", Label: "服務", LabelEn: "Services", Trigger: "!"}}
+	return []model.ReferenceKind{{Key: "service", Label: "服務", LabelEn: "Services", Trigger: "!"}, {Key: "invoice", Label: "帳單", LabelEn: "Invoices", Trigger: "$"}}
 }
 
 func referencesFixture() []model.Reference {
-	invoice, service := referenceKindsFixture()[0], referenceKindsFixture()[1]
+	service, invoice := referenceKindsFixture()[0], referenceKindsFixture()[1]
 	ref := func(kind model.ReferenceKind, id, title, detail string) model.Reference {
 		path := "https://portal.example.com/" + kind.Key + "s/" + id
 		return model.Reference{ReferenceKind: kind, ID: id, Title: title, Detail: detail, CustomerURL: path, StaffURL: "https://portal.example.com/admin/" + kind.Key + "s/" + id}
 	}
+	running := ref(service, "f437d424-dc57-439e-a646-61caa5aa659f", "#F437D424 TW-B-A 代理方案", "使用中 · 到期 2026/12/31")
+	running.Node, running.Address = "TW-E1", "203.0.113.24:20513"
 	return []model.Reference{
-		ref(service, "f437d424-dc57-439e-a646-61caa5aa659f", "#F437D424 TW-B-A 代理方案", "使用中 · 到期 2026/12/31"),
+		running,
 		ref(invoice, "5895aa2a-a677-4db9-8412-d30fb56d4ba2", "#5895AA2A 2026 年 10 月月費", "NT$1,200 · 已付款"),
 		ref(invoice, "14cb1a8f-8a57-4eeb-b705-5e786e98002d", "#14CB1A8F 2026 年 11 月月費", "NT$1,200 · 待付款"),
 		ref(service, "a740a5ac-8f25-42ca-af80-bd2da75e381f", "#A740A5AC JP-A 遊戲加速", "已暫停"),

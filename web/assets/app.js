@@ -125,6 +125,29 @@ document.addEventListener('click', event => {
 document.addEventListener('close', event => {
   if (event.target.id === 'image-dialog') event.target.querySelector('[data-preview-image]').removeAttribute('src');
 }, true);
+// A button with data-copy puts that text on the clipboard and says so for a
+// moment; where the clipboard is off limits, the text is selected instead.
+document.addEventListener('click', async event => {
+  const button = event.target.closest?.('button[data-copy]');
+  if (!button) return;
+  const state = button.querySelector('[data-copy-state]');
+  let copied = false;
+  try {
+    await navigator.clipboard.writeText(button.dataset.copy);
+    copied = true;
+  } catch (_) {
+    const shown = button.querySelector('code') || button;
+    getSelection()?.selectAllChildren(shown);
+  }
+  if (!state) return;
+  clearTimeout(button.copyTimer);
+  state.textContent = copied ? tr('已複製', 'Copied') : tr('請按 Ctrl+C', 'Press Ctrl+C');
+  button.toggleAttribute('data-copied', copied);
+  button.copyTimer = setTimeout(() => {
+    state.textContent = tr('複製', 'Copy');
+    button.removeAttribute('data-copied');
+  }, 1600);
+});
 const maxUploadSize = 10 * 1024 * 1024;
 const maxSourceSize = 30 * 1024 * 1024;
 const fileStates = new WeakMap();

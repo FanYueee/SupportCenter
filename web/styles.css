@@ -1879,9 +1879,54 @@ dd {
   display: flex;
   gap: 6px;
 }
-.customer-item .reference-item {
+.customer-item-card {
+  display: grid;
   flex: 1;
   min-width: 0;
+}
+/* A service's node and address sit under its card; the address copies. */
+.customer-item-endpoint {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 12px;
+  padding: 6px 11px;
+  border: 1px solid var(--line);
+  border-top: 0;
+  color: var(--text);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.customer-item-label,
+.copy-text-state {
+  color: var(--muted);
+}
+.copy-text {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  min-height: 24px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.copy-text code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12.5px;
+  overflow-wrap: anywhere;
+}
+.copy-text:hover code,
+.copy-text:focus-visible code {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.copy-text[data-copied] .copy-text-state {
+  color: var(--text);
 }
 .customer-item-tag {
   flex: none;

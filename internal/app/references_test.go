@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -40,6 +41,7 @@ type fakePortal struct {
 	mu     sync.Mutex
 	actors []referenceActor
 	down   bool
+	extra  map[string]any // added to every service item
 }
 
 func newFakePortal(t *testing.T, key []byte) *fakePortal {
@@ -51,17 +53,21 @@ func newFakePortal(t *testing.T, key []byte) *fakePortal {
 		json.Unmarshal(raw, &actor)
 		p.mu.Lock()
 		p.actors = append(p.actors, actor)
-		down := p.down
+		down, extra := p.down, p.extra
 		p.mu.Unlock()
 		want := referenceSignature(key, r.URL.RequestURI(), r.Header.Get("X-Portal-Timestamp"), r.Header.Get("X-Portal-Nonce"), r.Header.Get("X-Portal-Actor"))
 		if down || r.Header.Get("X-Portal-Issuer") != referenceIssuer || r.Header.Get("X-Portal-Signature") != want || r.Header.Get("X-Portal-Body-SHA256") != emptyBodySHA256 {
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
-		item := func(id string) map[string]string {
-			return map[string]string{"id": id, "title": "<b>" + id + "</b>", "detail": "NT$1,200", "customerUrl": "https://" + r.Host + "/me/" + id, "staffUrl": "https://" + r.Host + "/admin/" + id}
+		item := func(id string) map[string]any {
+			found := map[string]any{"id": id, "title": "<b>" + id + "</b>", "detail": "NT$1,200", "customerUrl": "https://" + r.Host + "/me/" + id, "staffUrl": "https://" + r.Host + "/admin/" + id}
+			if strings.HasPrefix(id, "svc") {
+				maps.Copy(found, extra)
+			}
+			return found
 		}
-		items := []map[string]string{}
+		items := []map[string]any{}
 		prefix := map[string]string{"invoice": "inv", "service": "svc"}[r.URL.Query().Get("kind")]
 		switch r.URL.Path {
 		case "/refs/kinds":
@@ -74,7 +80,7 @@ func newFakePortal(t *testing.T, key []byte) *fakePortal {
 				}
 			}
 			// Off-site links are dropped.
-			items = append(items, map[string]string{"id": "inv-evil", "title": "evil", "customerUrl": "https://evil.example/x", "staffUrl": "https://evil.example/y"})
+			items = append(items, map[string]any{"id": "inv-evil", "title": "evil", "customerUrl": "https://evil.example/x", "staffUrl": "https://evil.example/y"})
 		case "/refs/items":
 			for _, id := range strings.Split(r.URL.Query().Get("ids"), ",") {
 				for _, mine := range owned[actor.Customer] {
@@ -270,6 +276,32 @@ func TestStaffSeeTheOwnersItemsBesideTheTicket(t *testing.T) {
 	}
 	if actor := portal.lastActor(); actor.Customer != alice.Email || actor.ViewerRole != "staff" {
 		t.Fatalf("asked as %+v", actor)
+	}
+	// A service's node and address show on a line of their own, the address
+	// ready to copy; customers never see them.
+	portal.mu.Lock()
+	portal.extra = map[string]any{"node": "TW-E1", "address": "157.66.166.180:20513"}
+	portal.mu.Unlock()
+	body = request(h, "GET", path, "staff", nil).Body.String()
+	if !strings.Contains(body, `<span class="customer-item-label">節點</span> TW-E1`) || !strings.Contains(body, `data-copy="157.66.166.180:20513"`) || strings.Count(body, "customer-item-endpoint") != 1 {
+		t.Fatal("staff should see the service's node and address", body)
+	}
+	if found := request(h, "GET", "/tickets/references?trigger=%21&q=", "alice", nil).Body.String(); !strings.Contains(found, "svc-a1") || strings.Contains(found, "157.66.166.180") || strings.Contains(found, "TW-E1") {
+		t.Fatal("customers' suggestions leave out the node and address", found)
+	}
+	// Fields that are not short single lines are dropped, never the item.
+	for _, extra := range []map[string]any{
+		{"node": 5, "address": []string{"1.2.3.4:80"}},
+		{"node": "TW\nE1", "address": "1.2.3.4\u202e:80"},
+		{"node": strings.Repeat("N", 41), "address": strings.Repeat("1", 101)},
+	} {
+		portal.mu.Lock()
+		portal.extra = extra
+		portal.mu.Unlock()
+		body = request(h, "GET", path, "staff", nil).Body.String()
+		if !strings.Contains(body, `data-tag-insert="!svc-a1"`) || strings.Contains(body, "customer-item-endpoint") {
+			t.Fatalf("bad extra fields %v: %s", extra, body)
+		}
 	}
 	if got := request(h, "GET", path, "alice", nil); got.Code == http.StatusOK {
 		t.Fatal("customers cannot load the staff list")

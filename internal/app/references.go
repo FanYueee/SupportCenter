@@ -18,6 +18,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 	"unicode/utf8"
 
 	"supportcenter/internal/database"
@@ -161,11 +162,34 @@ func (s *References) Kind(ctx context.Context, trigger string) (model.ReferenceK
 
 // referenceItem is one item as the Portal sends it.
 type referenceItem struct {
-	ID          string `json:"id"`
-	Title       string `json:"title"`
-	Detail      string `json:"detail"`
-	CustomerURL string `json:"customerUrl"`
-	StaffURL    string `json:"staffUrl"`
+	ID          string    `json:"id"`
+	Title       string    `json:"title"`
+	Detail      string    `json:"detail"`
+	CustomerURL string    `json:"customerUrl"`
+	StaffURL    string    `json:"staffUrl"`
+	Node        extraText `json:"node"`
+	Address     extraText `json:"address"`
+}
+
+// extraText is an optional field that, when it is not a string, is left
+// empty rather than spoiling the whole answer.
+type extraText string
+
+func (t *extraText) UnmarshalJSON(raw []byte) error {
+	var s string
+	if json.Unmarshal(raw, &s) == nil {
+		*t = extraText(s)
+	}
+	return nil
+}
+
+// optional keeps an extra field that is a single short line without hidden
+// characters (it may be copied), else drops it.
+func optional(s extraText, max int) string {
+	if !shownText(string(s), false, max) || strings.IndexFunc(string(s), func(r rune) bool { return unicode.In(r, unicode.Cf) }) >= 0 {
+		return ""
+	}
+	return strings.TrimSpace(string(s))
 }
 
 // Search finds the customer's items of a kind matching q, best first.
@@ -198,7 +222,8 @@ func (s *References) items(ctx context.Context, path string, query url.Values, k
 			slices.ContainsFunc(refs, func(ref model.Reference) bool { return ref.ID == item.ID }) {
 			continue
 		}
-		refs = append(refs, model.Reference{ReferenceKind: kind, ID: item.ID, Title: item.Title, Detail: item.Detail, CustomerURL: item.CustomerURL, StaffURL: item.StaffURL})
+		refs = append(refs, model.Reference{ReferenceKind: kind, ID: item.ID, Title: item.Title, Detail: item.Detail, CustomerURL: item.CustomerURL, StaffURL: item.StaffURL,
+			Node: optional(item.Node, 40), Address: optional(item.Address, 100)})
 	}
 	return refs, nil
 }

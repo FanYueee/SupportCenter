@@ -485,3 +485,6 @@ SMTP 伺服器暫時無法處理，稍後會自動重試。	The SMTP server is t
 查看支援方案	See support plans
 目前支援等級：%s，查看支援方案	Current support plan: %s. See support plans
 %[1]s（最高可選「%[2]s」）	%[1]s (up to %[2]s)
+節點	Node
+複製連線位址 %s	Copy connection address %s
+複製	Copy

@@ -27,6 +27,9 @@ type Reference struct {
 	ReferenceKind
 	ID, Title, Detail, CustomerURL, StaffURL string
 	Internal                                 bool
+	// Node and Address, such as a service's node and connection address, are
+	// for staff looking at the customer's items; they are never stored.
+	Node, Address string
 }
 
 // ReferenceList is a customer's items of one kind, as the source ranks
