@@ -107,6 +107,11 @@ func (s *Store) list(ctx context.Context, u model.User, admin bool, status, prio
 			return nil, model.Counts{}, false, ErrInvalid
 		}
 	}
+	// Staff see the most urgent tickets first; the chosen time order applies
+	// within each priority. Customers keep the plain time order.
+	if staff {
+		order = `CASE t.priority WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END,` + order
+	}
 	var counts model.Counts
 	assignmentCount, assignmentList := "", ""
 	switch assignment {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"slices"
 	"strings"
 	"testing"
 
@@ -106,7 +107,7 @@ func TestMultipleStaffAndReopenQueue(t *testing.T) {
 	if err = a.Store.UpdateTeam(ctx, staff, id, true, "closed", "low", []int64{staff.ID, admin.ID}, ticket.Version); err != nil {
 		t.Fatal(err)
 	}
-	newerID, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "newer", Category: "other", Priority: "urgent"}, "another question", nil)
+	newerID, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "newer", Category: "other", Priority: "low"}, "another question", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -124,7 +125,40 @@ func TestMultipleStaffAndReopenQueue(t *testing.T) {
 	if list, _, _, err = a.Store.List(ctx, staff, true, "", "", "", 1, "", "created_desc"); err != nil || len(list) != 2 || list[0].ID != newerID {
 		t.Fatalf("creation sorting: %+v %v", list, err)
 	}
-	if list, _, _, err = a.Store.List(ctx, staff, true, "", "urgent", "", 1, "", "updated_desc"); err != nil || len(list) != 1 || list[0].ID != newerID {
+	// Staff lists put higher priorities first and keep the chosen order within
+	// each; customers keep the plain time order.
+	urgentID, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "urgent", Category: "other", Priority: "urgent"}, "down", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mediumID, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "medium", Category: "other", Priority: "medium"}, "slow", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ids := func(list []model.Ticket) []int64 {
+		out := []int64{}
+		for _, ticket := range list {
+			out = append(out, ticket.ID)
+		}
+		return out
+	}
+	for sort, want := range map[string][]int64{
+		"updated_desc": {urgentID, mediumID, id, newerID},
+		"updated_asc":  {urgentID, mediumID, newerID, id},
+		"created_asc":  {urgentID, mediumID, id, newerID},
+		"created_desc": {urgentID, mediumID, newerID, id},
+	} {
+		if list, _, _, err = a.Store.List(ctx, staff, true, "", "", "", 1, "", sort); err != nil || !slices.Equal(ids(list), want) {
+			t.Fatalf("staff %s: %v %v, want %v", sort, ids(list), err, want)
+		}
+		if list, _, _, err = a.Store.PortalList(ctx, staff, true, "", "", "", 1, "", "", sort, "active"); err != nil || !slices.Equal(ids(list), want) {
+			t.Fatalf("portal staff %s: %v %v, want %v", sort, ids(list), err, want)
+		}
+	}
+	if list, _, _, err = a.Store.List(ctx, alice, false, "", "", "", 1, "", "updated_desc"); err != nil || !slices.Equal(ids(list), []int64{mediumID, urgentID, id, newerID}) {
+		t.Fatalf("customer order: %v %v", ids(list), err)
+	}
+	if list, _, _, err = a.Store.List(ctx, staff, true, "", "urgent", "", 1, "", "updated_desc"); err != nil || len(list) != 1 || list[0].ID != urgentID {
 		t.Fatalf("priority filter with sorting: %+v %v", list, err)
 	}
 }
