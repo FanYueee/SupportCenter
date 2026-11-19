@@ -55,7 +55,7 @@ func TestEmailInvitationUsesVerifiedIdentity(t *testing.T) {
 }
 
 func TestMultipleStaffAndReopenQueue(t *testing.T) {
-	a, h, alice, _, staff := testApp(t)
+	a, h, alice, bob, staff := testApp(t)
 	ctx := context.Background()
 	admin, err := a.Store.User(ctx, "admin", "admin", "admin@example.test")
 	if err != nil {
@@ -125,14 +125,22 @@ func TestMultipleStaffAndReopenQueue(t *testing.T) {
 	if list, _, _, err = a.Store.List(ctx, staff, true, "", "", "", 1, "", "created_desc"); err != nil || len(list) != 2 || list[0].ID != newerID {
 		t.Fatalf("creation sorting: %+v %v", list, err)
 	}
-	// Staff lists put higher priorities first and keep the chosen order within
-	// each; customers keep the plain time order.
+	// Staff lists put higher priorities first, then owners on higher plans,
+	// and keep the chosen order within those; customers keep the plain time
+	// order. Bob's plan outranks alice's basic one.
 	urgentID, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "urgent", Category: "other", Priority: "urgent"}, "down", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bobMediumID, err := a.Store.Create(ctx, bob, model.Ticket{Subject: "bob medium", Category: "other", Priority: "medium"}, "slow too", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	mediumID, err := a.Store.Create(ctx, alice, model.Ticket{Subject: "medium", Category: "other", Priority: "medium"}, "slow", nil)
 	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = a.Store.Pool.Exec(ctx, `UPDATE users SET priority_level='high',priority_until=now()+interval '1 day' WHERE id=$1`, bob.ID); err != nil {
 		t.Fatal(err)
 	}
 	ids := func(list []model.Ticket) []int64 {
@@ -143,10 +151,10 @@ func TestMultipleStaffAndReopenQueue(t *testing.T) {
 		return out
 	}
 	for sort, want := range map[string][]int64{
-		"updated_desc": {urgentID, mediumID, id, newerID},
-		"updated_asc":  {urgentID, mediumID, newerID, id},
-		"created_asc":  {urgentID, mediumID, id, newerID},
-		"created_desc": {urgentID, mediumID, newerID, id},
+		"updated_desc": {urgentID, bobMediumID, mediumID, id, newerID},
+		"updated_asc":  {urgentID, bobMediumID, mediumID, newerID, id},
+		"created_asc":  {urgentID, bobMediumID, mediumID, id, newerID},
+		"created_desc": {urgentID, bobMediumID, mediumID, newerID, id},
 	} {
 		if list, _, _, err = a.Store.List(ctx, staff, true, "", "", "", 1, "", sort); err != nil || !slices.Equal(ids(list), want) {
 			t.Fatalf("staff %s: %v %v, want %v", sort, ids(list), err, want)
@@ -154,6 +162,13 @@ func TestMultipleStaffAndReopenQueue(t *testing.T) {
 		if list, _, _, err = a.Store.PortalList(ctx, staff, true, "", "", "", 1, "", "", sort, "active"); err != nil || !slices.Equal(ids(list), want) {
 			t.Fatalf("portal staff %s: %v %v, want %v", sort, ids(list), err, want)
 		}
+	}
+	// A lapsed plan counts as basic again, leaving time to decide.
+	if _, err = a.Store.Pool.Exec(ctx, `UPDATE users SET priority_until=now()-interval '1 second' WHERE id=$1`, bob.ID); err != nil {
+		t.Fatal(err)
+	}
+	if list, _, _, err = a.Store.List(ctx, staff, true, "", "", "", 1, "", "updated_desc"); err != nil || !slices.Equal(ids(list), []int64{urgentID, mediumID, bobMediumID, id, newerID}) {
+		t.Fatalf("lapsed plan: %v %v", ids(list), err)
 	}
 	if list, _, _, err = a.Store.List(ctx, alice, false, "", "", "", 1, "", "updated_desc"); err != nil || !slices.Equal(ids(list), []int64{mediumID, urgentID, id, newerID}) {
 		t.Fatalf("customer order: %v %v", ids(list), err)

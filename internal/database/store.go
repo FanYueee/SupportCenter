@@ -81,6 +81,11 @@ func (s *Store) PortalList(ctx context.Context, u model.User, admin bool, status
 	return s.list(ctx, u, admin, status, priority, q, page, assignment, category, sort, phase)
 }
 
+// urgency ranks a priority, or a plan's level, from 0 for urgent to 3 for low.
+func urgency(level string) string {
+	return `CASE ` + level + ` WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END`
+}
+
 func (s *Store) list(ctx context.Context, u model.User, admin bool, status, priority, q string, page int, assignment, category string, sorts ...string) ([]model.Ticket, model.Counts, bool, error) {
 	staff := admin && u.Staff()
 	order := `t.updated_at DESC,t.id DESC`
@@ -107,10 +112,11 @@ func (s *Store) list(ctx context.Context, u model.User, admin bool, status, prio
 			return nil, model.Counts{}, false, ErrInvalid
 		}
 	}
-	// Staff see the most urgent tickets first; the chosen time order applies
-	// within each priority. Customers keep the plain time order.
+	// Staff see the most urgent tickets first and, among equals, those whose
+	// owners are on higher plans (a lapsed plan counts as basic); the chosen
+	// time order decides the rest. Customers keep the plain time order.
 	if staff {
-		order = `CASE t.priority WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END,` + order
+		order = urgency(`t.priority`) + `,` + urgency(`CASE WHEN u.priority_until<=now() THEN 'low' ELSE u.priority_level END`) + `,` + order
 	}
 	var counts model.Counts
 	assignmentCount, assignmentList := "", ""
